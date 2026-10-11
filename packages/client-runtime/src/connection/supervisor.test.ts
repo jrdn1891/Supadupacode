@@ -80,6 +80,23 @@ const TAILNET_ROUTE: ConnectionRoute = {
     }),
   ),
 };
+const RELAY_TARGET = new BearerConnectionTarget({
+  environmentId: TARGET.environmentId,
+  label: TARGET.label,
+  connectionId: "relay",
+});
+const RELAY_ROUTE: ConnectionRoute = {
+  target: RELAY_TARGET,
+  profile: Option.some(
+    new BearerConnectionProfile({
+      connectionId: "relay",
+      environmentId: TARGET.environmentId,
+      label: TARGET.label,
+      httpBaseUrl: `https://${"11".repeat(16)}.${"22".repeat(16)}.relay.supacode.invalid/`,
+      wsBaseUrl: `wss://${"11".repeat(16)}.${"22".repeat(16)}.relay.supacode.invalid/`,
+    }),
+  ),
+};
 
 const PREPARED_CONNECTION: PreparedConnection = {
   environmentId: TARGET.environmentId,
@@ -1484,6 +1501,82 @@ describe("EnvironmentSupervisor", () => {
       expect(Option.isNone(yield* SubscriptionRef.get(supervisor.session))).toBe(true);
     }),
   );
+  it.effect(
+    "keeps a manually preferred relay when a lower-priority direct route is reachable",
+    () =>
+      Effect.gen(function* () {
+        const probed = yield* Deferred.make<void>();
+        const harness = yield* makeHarness({
+          checkRoute: () => Effect.succeed("answered"),
+          probe: () => Deferred.succeed(probed, undefined).pipe(Effect.asVoid),
+        });
+        const supervisor = yield* EnvironmentSupervisor.make({
+          ...RELAY_ROUTE,
+          alternateRoutes: [LAN_ROUTE],
+          enabled: true,
+        }).pipe(Effect.provide(harness.dependencies));
+        yield* supervisor.connect;
+        yield* awaitState(supervisor.state, (state) => state.phase === "connected");
+        expect(Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target).toEqual(
+          RELAY_TARGET,
+        );
+        yield* harness.wake("application-resumed");
+        yield* Deferred.await(probed);
+        yield* TestClock.adjust("60 seconds");
+        expect(Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target).toEqual(
+          RELAY_TARGET,
+        );
+        expect(yield* Ref.get(harness.sessionCount)).toBe(1);
+        expect(yield* Ref.get(harness.releaseCount)).toBe(0);
+      }),
+  );
+
+  it.effect.each([LAN_ROUTE, TAILNET_ROUTE])(
+    "switches from relay to a newly reachable preferred direct route: %#",
+    (direct) =>
+      Effect.gen(function* () {
+        const reachable = yield* Ref.make(false);
+        const harness = yield* makeHarness({
+          prepare: (_attempt, target) =>
+            target === direct.target
+              ? Ref.get(reachable).pipe(
+                  Effect.flatMap((available) =>
+                    available
+                      ? Effect.succeed(PREPARED_CONNECTION)
+                      : Effect.fail(transient("Direct route unavailable")),
+                  ),
+                )
+              : Effect.succeed(PREPARED_CONNECTION),
+          checkRoute: (route) =>
+            route.target === direct.target
+              ? Ref.get(reachable).pipe(
+                  Effect.map((available) => (available ? "answered" : "silent")),
+                )
+              : Effect.succeed("answered"),
+        });
+        const supervisor = yield* EnvironmentSupervisor.make({
+          ...direct,
+          alternateRoutes: [RELAY_ROUTE],
+          enabled: true,
+        }).pipe(Effect.provide(harness.dependencies));
+        yield* supervisor.connect;
+        yield* awaitState(supervisor.state, (state) => state.phase === "connected");
+        expect(Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target).toEqual(
+          RELAY_TARGET,
+        );
+        yield* Ref.set(reachable, true);
+        yield* harness.wake("network-changed");
+        yield* awaitState(
+          supervisor.state,
+          (state) => state.generation >= 2 && state.phase === "connected",
+        );
+        expect(Option.getOrThrow(yield* SubscriptionRef.get(supervisor.prepared)).target).toEqual(
+          direct.target,
+        );
+        expect(yield* Ref.get(harness.releaseCount)).toBe(1);
+      }),
+  );
+
   it.effect.each(["application-resumed", "network-changed", "periodic"] as const)(
     "returns from Tailscale to LAN after %s",
     (trigger) =>

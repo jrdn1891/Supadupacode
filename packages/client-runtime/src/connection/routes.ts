@@ -179,8 +179,8 @@ const ROUTE_KIND_RANK: Record<ConnectionRouteKind, number> = {
   tailnet: 2,
   vpn: 2,
   public: 3,
-  relay: 3,
   ssh: 4,
+  relay: 5,
 };
 
 export function insertRoute(
