@@ -85,6 +85,12 @@ import {
 import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
+import { homeSearchRidesKeyboard } from "./home-search-placement";
+import {
+  KeyboardLiftedView,
+  useRestingSafeAreaBottom,
+  useSearchKeyboardLift,
+} from "./search-keyboard-lift";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -294,7 +300,20 @@ export function HomeScreen(props: HomeScreenProps) {
       ? Math.max(insets.bottom, 24) + 60 + PRE_LIQUID_GLASS_BOTTOM_TOOLBAR_HEIGHT
       : 0;
 
-  const iosBottomClearance = Math.max(columnMetrics?.safeArea.bottom ?? insets.bottom, 24);
+  const safeAreaBottom = columnMetrics?.safeArea.bottom ?? insets.bottom;
+  // The list keeps its resting geometry while a keyboard is up and is lifted instead.
+  const iosBottomClearance = Math.max(
+    useRestingSafeAreaBottom(safeAreaBottom, searchKeyboardVisible),
+    24,
+  );
+  const listContentBottomPadding =
+    Platform.OS === "ios"
+      ? iosBottomClearance
+      : Math.max(insets.bottom, 16) + (Platform.OS === "android" ? fabClearance : 88);
+  const searchKeyboardLift = useSearchKeyboardLift({
+    restingClearance: listBottomInset + listContentBottomPadding,
+    toolbarRidesKeyboard: homeSearchRidesKeyboard(primaryColumn),
+  });
   const searchEnvironmentIds = useMemo(
     () =>
       props.selectedEnvironmentId === null
@@ -649,6 +668,7 @@ export function HomeScreen(props: HomeScreenProps) {
     searching: hasSearchQuery || searchKeyboardVisible,
     scrolling: !swipeEnabled,
     ready: shelfPreferencesLoaded && !props.catalogState.isLoadingConnections,
+    lift: searchKeyboardLift,
   });
   const prepareListMotion = listMotion.prepare;
   const renderV2ItemContent = useCallback(
@@ -988,7 +1008,9 @@ export function HomeScreen(props: HomeScreenProps) {
           className="flex-1 items-center justify-center overflow-hidden rounded-t-[28px] bg-screen px-4"
           style={{ paddingBottom: insets.bottom }}
         >
-          {v2ListEmpty}
+          <KeyboardLiftedView lift={searchKeyboardLift} ratio={0.5}>
+            {v2ListEmpty}
+          </KeyboardLiftedView>
         </View>
       </View>
     );
@@ -1026,11 +1048,21 @@ export function HomeScreen(props: HomeScreenProps) {
             itemLayoutAnimation={listMotion.layout}
             extraData={v2ExtraData}
             ListHeaderComponent={v2ListHeader}
-            ListEmptyComponent={v2ListEmpty}
+            ListEmptyComponent={
+              v2ListEmpty && (
+                // The list's flex-end empty layout ignores the iOS start inset.
+                <KeyboardLiftedView
+                  lift={searchKeyboardLift}
+                  style={{ marginBottom: Platform.OS === "ios" ? insets.top : 0 }}
+                >
+                  {v2ListEmpty}
+                </KeyboardLiftedView>
+              )
+            }
             style={{ flex: 1 }}
             sharedValues={listMotion.sharedValues}
             itemsContainerStyle={listMotion.alignmentStyle}
-            alignItemsAtEnd={!hasSearchQuery && !searchKeyboardVisible}
+            alignItemsAtEnd
             automaticallyAdjustsScrollIndicatorInsets={Platform.OS === "ios"}
             contentInsetAdjustmentBehavior="never"
             contentInset={Platform.OS === "ios" ? { top: insets.top } : undefined}
@@ -1042,10 +1074,7 @@ export function HomeScreen(props: HomeScreenProps) {
             scrollEventThrottle={16}
             contentContainerStyle={{
               paddingHorizontal: primaryColumn ? 8 : 0,
-              paddingBottom:
-                Platform.OS === "ios"
-                  ? iosBottomClearance
-                  : Math.max(insets.bottom, 16) + (Platform.OS === "android" ? fabClearance : 88),
+              paddingBottom: listContentBottomPadding,
             }}
           />
         </SwipeableScrollGateProvider>
