@@ -536,6 +536,8 @@ describe("shouldRecedeSidebarThread", () => {
           isWoke: true,
           isActive: false,
           isSelected: false,
+          inPinnedSection: false,
+          environmentConnected: true,
         }),
       ).toBe(true);
     },
@@ -551,6 +553,8 @@ describe("shouldRecedeSidebarThread", () => {
           isWoke: false,
           isActive: false,
           isSelected: false,
+          inPinnedSection: false,
+          environmentConnected: true,
         }),
       ).toBe(false);
     },
@@ -563,6 +567,41 @@ describe("shouldRecedeSidebarThread", () => {
       isWoke: true,
       isActive: false,
       isSelected: false,
+      inPinnedSection: false,
+      environmentConnected: true,
+    };
+
+    expect(shouldRecedeSidebarThread({ ...input, isActive: true })).toBe(false);
+    expect(shouldRecedeSidebarThread({ ...input, isSelected: true })).toBe(false);
+  });
+
+  it.each(["working", "waiting", "ready", "approval", "input", "failed", "limited"] as const)(
+    "keeps a pinned %s thread prominent until its environment disconnects",
+    (status) => {
+      const input = {
+        status,
+        isUnread: false,
+        isWoke: false,
+        isActive: false,
+        isSelected: false,
+        inPinnedSection: true,
+        environmentConnected: true,
+      };
+
+      expect(shouldRecedeSidebarThread(input)).toBe(false);
+      expect(shouldRecedeSidebarThread({ ...input, environmentConnected: false })).toBe(true);
+    },
+  );
+
+  it("keeps an active or selected pinned thread prominent while disconnected", () => {
+    const input = {
+      status: "working" as const,
+      isUnread: false,
+      isWoke: false,
+      isActive: false,
+      isSelected: false,
+      inPinnedSection: true,
+      environmentConnected: false,
     };
 
     expect(shouldRecedeSidebarThread({ ...input, isActive: true })).toBe(false);
@@ -577,6 +616,8 @@ describe("shouldRecedeSidebarThread", () => {
         isWoke: false,
         isActive: false,
         isSelected: false,
+        inPinnedSection: false,
+        environmentConnected: true,
       }),
     ).toBe(false);
   });
@@ -952,6 +993,8 @@ describe("resolveSidebarThreadStatus", () => {
         isWoke: false,
         isActive: false,
         isSelected: false,
+        inPinnedSection: false,
+        environmentConnected: true,
       }),
     ).toBe(false);
   });
@@ -2047,6 +2090,8 @@ describe("unseen completion with background work", () => {
         isWoke: false,
         isActive: false,
         isSelected: false,
+        inPinnedSection: false,
+        environmentConnected: true,
       }),
     ).toBe(expected.receded);
     expect(isSidebarThreadWorking(thread)).toBe(expected.receded);
