@@ -43,6 +43,7 @@ import type { UsageLimitSourceSnapshots } from "@supacode/contracts";
 import {
   collectProviderUsageLimits,
   hasProviderUsageLimits,
+  headlineUsageWindows,
   isUsageLimitsCommand,
 } from "@supacode/shared/usageLimits";
 import { feedbackBannerItem } from "./chat/ComposerFeedback";
@@ -447,6 +448,7 @@ import { resolveTimelineIsAtEnd, worktreeSetupAgentStarted } from "./chat/Messag
 import {
   overlayComposerIsResting,
   resolveComposerTimelineInset,
+  resolveComposerUsageMeterSlot,
   resolveScrollToEndClearance,
 } from "./composerFooterLayout";
 import { ChatHeader } from "./chat/ChatHeader";
@@ -2090,6 +2092,7 @@ export default function ChatView(props: ChatViewProps) {
   const [composerTimelineInset, setComposerTimelineInset] = useState(0);
   const composerTimelineInsetRef = useRef(0);
   const composerRestingRef = useRef(false);
+  const [composerResting, setComposerResting] = useState(false);
   // False while a status bar stands in for the composer (a native subagent).
   const composerMountedRef = useRef(true);
   const [scrollToEndClearance, setScrollToEndClearance] = useState(0);
@@ -4442,13 +4445,31 @@ export default function ChatView(props: ChatViewProps) {
     ...composerContextStripInput,
     hostsRestingComposerControls: routeKind === "server",
   });
-  const showComposerContextStrip = shouldShowComposerContextStrip({
-    ...composerContextStripInput,
-    hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
-  });
   const mountComposerModelStrip =
     routeKind === "server" && !mountComposerContextStrip && !showProviderSubagentBar;
-  const showComposerModelStrip = mountComposerModelStrip && restingComposerControlsVisible;
+  const composerUsageWindows = useMemo(
+    () => headlineUsageWindows(activeProviderStatus),
+    [activeProviderStatus],
+  );
+  const composerUsageMeterSlot = resolveComposerUsageMeterSlot({
+    hasUsageWindows: composerUsageWindows.length > 0,
+    isMobileViewport,
+    isDraftHero: isDraftHeroState,
+    contextStripMounted: mountComposerContextStrip,
+    modelStripMounted: mountComposerModelStrip,
+  });
+  // A resting composer is a bare input, so the meter's strips close with it.
+  const showComposerContextStrip =
+    shouldShowComposerContextStrip({
+      ...composerContextStripInput,
+      hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
+    }) ||
+    (composerUsageMeterSlot === "context-strip" && !composerResting);
+  const showComposerModelStrip =
+    mountComposerModelStrip &&
+    (restingComposerControlsVisible ||
+      (composerUsageMeterSlot === "model-strip" && !composerResting));
+  const composerUsageMeter = <ComposerUsageMeter windows={composerUsageWindows} />;
   const terminalShortcutLabelOptions = useMemo(
     () => ({
       context: {
@@ -7155,23 +7176,10 @@ export default function ChatView(props: ChatViewProps) {
         composerMounted: composerMountedRef.current,
         composerReportedResting: composerRestingRef.current,
       });
-      const modelStrip = composerOverlayElement?.querySelector<HTMLElement>(
-        '[data-composer-model-strip="true"]',
-      );
-      // The model-only strip disappears on expansion; counting it again would
-      // add 32px of timeline padding as soon as the empty composer collapses.
-      const restingOnlyHeight =
-        modelStrip && isResting
-          ? Math.max(
-              0,
-              modelStrip.offsetHeight + Number.parseFloat(getComputedStyle(modelStrip).marginTop),
-            )
-          : 0;
       const nextInset = resolveComposerTimelineInset({
         currentInset: composerTimelineInsetRef.current,
         overlayHeight: nextHeight,
         isResting,
-        restingOnlyHeight,
       });
       if (composerTimelineInsetRef.current !== nextInset) {
         composerTimelineInsetRef.current = nextInset;
@@ -7189,12 +7197,14 @@ export default function ChatView(props: ChatViewProps) {
               overlayHeight: nextHeight,
               mainSurfaceTop: mainSurface.getBoundingClientRect().top,
               button: button.getBoundingClientRect(),
+              // A resting composer keeps its docked banners mounted but hidden.
               attachments: Array.from(
                 composerOverlayElement.querySelectorAll<HTMLElement>(
                   '[data-composer-banner-surface="attached"]',
                 ),
-                (element) => element.getBoundingClientRect(),
-              ),
+              )
+                .filter((element) => element.getClientRects().length > 0)
+                .map((element) => element.getBoundingClientRect()),
             })
           : nextHeight;
       setScrollToEndClearance(clearance);
@@ -7209,6 +7219,7 @@ export default function ChatView(props: ChatViewProps) {
   // itself once it has measured it.
   const onComposerRestingChange = useCallback((resting: boolean) => {
     composerRestingRef.current = resting;
+    setComposerResting(resting);
   }, []);
   // A held reservation belongs to the previous thread's draft. Rebuild it from
   // this thread's overlay so a tall draft elsewhere does not pad this one.
@@ -10859,6 +10870,7 @@ export default function ChatView(props: ChatViewProps) {
       composerControlsHostRef={setRestingComposerControlsHost}
       contextStripVisible={showComposerContextStrip}
       contextStripPlacement={composerContextStripPlacement}
+      usageMeter={composerUsageMeterSlot === "context-strip" ? composerUsageMeter : null}
       projectPicker={
         showDraftProjectPicker ? (
           <DraftProjectPicker
@@ -11141,7 +11153,8 @@ export default function ChatView(props: ChatViewProps) {
                     <ComposerSurface.Shell
                       bottomStrip={
                         (composerContextStripPlacement === "bottom" && showComposerContextStrip) ||
-                        showComposerModelStrip
+                        showComposerModelStrip ||
+                        composerUsageMeterSlot === "own-strip"
                       }
                     >
                       <ComposerSurface.Host
@@ -11400,10 +11413,13 @@ export default function ChatView(props: ChatViewProps) {
                           {mountComposerModelStrip ? (
                             <ComposerSurface.ContextStrip
                               data-composer-model-strip="true"
+                              data-stays-open={
+                                composerUsageMeterSlot === "model-strip" ? "true" : undefined
+                              }
                               aria-hidden={showComposerModelStrip ? undefined : true}
                               inert={showComposerModelStrip ? undefined : true}
                               className={cn(
-                                "ps-2 group-data-model-strip-transition/composer-surface:before:backdrop-blur-(--glass-blur) group-data-model-strip-transition/composer-surface:before:bg-(--chat-composer-glass-surface)/(--glass-opacity)",
+                                "ps-2",
                                 !showComposerModelStrip &&
                                   "pointer-events-none invisible absolute inset-x-0 top-full",
                               )}
@@ -11412,13 +11428,21 @@ export default function ChatView(props: ChatViewProps) {
                                 ref={setRestingComposerControlsHost}
                                 className="min-w-0 flex-1"
                               />
+                              {composerUsageMeterSlot === "model-strip" ? composerUsageMeter : null}
                             </ComposerSurface.ContextStrip>
                           ) : null}
                           {composerContextStripPlacement === "bottom" ? composerContextStrip : null}
+                          {composerUsageMeterSlot === "own-strip" ? (
+                            <ComposerSurface.ContextStrip className="justify-end">
+                              {composerUsageMeter}
+                            </ComposerSurface.ContextStrip>
+                          ) : null}
                         </div>
                       </div>
                     </ComposerSurface.Shell>
-                    <ComposerUsageMeter provider={activeProviderStatus} />
+                    {composerUsageMeterSlot === "row" ? (
+                      <div className="px-3 pt-1">{composerUsageMeter}</div>
+                    ) : null}
                     <div
                       aria-hidden
                       className="h-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-[calc(env(safe-area-inset-bottom)+1.25rem)]"
