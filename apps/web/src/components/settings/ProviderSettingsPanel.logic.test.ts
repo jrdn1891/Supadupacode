@@ -1,8 +1,18 @@
-import { AuthProvidersManageScope, EnvironmentId } from "@supacode/contracts";
+import {
+  AuthProvidersManageScope,
+  EnvironmentId,
+  ProjectId,
+  ProviderInstanceId,
+  ProviderDriverKind,
+  type ServerSettings,
+  DEFAULT_SERVER_SETTINGS,
+} from "@supacode/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildProviderEnvironmentOptions,
+  buildProviderInstanceOverridePatch,
+  resolveProjectProviderOverride,
   classifyProviderEnvironmentAccess,
   isProviderSettingsEnvironmentAvailable,
   resolvePrimaryOperateAccess,
@@ -224,6 +234,148 @@ describe("primary operate access", () => {
         hasError: false,
       }),
     ).toBe("pending");
+  });
+});
+
+describe("buildProviderInstanceOverridePatch", () => {
+  const projectId = ProjectId.make("project-a");
+  const instanceId = ProviderInstanceId.make("codex_work");
+  const otherInstanceId = ProviderInstanceId.make("claudeAgent_personal");
+
+  it("reports differing checkout values and finds overrides beyond the first checkout", () => {
+    const siblingId = ProjectId.make("project-a-worktree");
+    const settings = {
+      ...DEFAULT_SERVER_SETTINGS,
+      providerInstances: {
+        [instanceId]: { driver: ProviderDriverKind.make("codex"), enabled: true, config: {} },
+      },
+      projectSettingsOverrides: {
+        [siblingId]: { providerInstances: { [instanceId]: { enabled: false } } },
+      },
+    };
+    expect(resolveProjectProviderOverride(settings, [projectId, siblingId], instanceId)).toEqual({
+      value: undefined,
+      valueMixed: true,
+      hasOverride: true,
+      effectiveEnabled: true,
+      mixed: true,
+    });
+    const reset = {
+      ...settings,
+      projectSettingsOverrides: buildProviderInstanceOverridePatch(
+        settings,
+        [projectId, siblingId],
+        instanceId,
+        undefined,
+      ),
+    };
+    expect(reset.projectSettingsOverrides).toEqual({ [projectId]: null, [siblingId]: null });
+  });
+
+  it("writes the same choice to every checkout of the project", () => {
+    const siblingId = ProjectId.make("project-a-worktree");
+    const settings: Pick<ServerSettings, "projectSettingsOverrides"> = {
+      projectSettingsOverrides: {
+        [siblingId]: { newWorktreesStartFromOrigin: true },
+      },
+    };
+
+    expect(
+      buildProviderInstanceOverridePatch(settings, [projectId, siblingId], instanceId, false),
+    ).toEqual({
+      [projectId]: { providerInstances: { [instanceId]: { enabled: false } } },
+      [siblingId]: {
+        newWorktreesStartFromOrigin: true,
+        providerInstances: { [instanceId]: { enabled: false } },
+      },
+    });
+  });
+
+  it("sets an override when the project has none yet", () => {
+    const settings: Pick<ServerSettings, "projectSettingsOverrides"> = {
+      projectSettingsOverrides: {},
+    };
+
+    expect(buildProviderInstanceOverridePatch(settings, [projectId], instanceId, true)).toEqual({
+      [projectId]: { providerInstances: { [instanceId]: { enabled: true } } },
+    });
+  });
+
+  it("adds an instance override alongside the project's other overrides", () => {
+    const settings: Pick<ServerSettings, "projectSettingsOverrides"> = {
+      projectSettingsOverrides: {
+        [projectId]: {
+          newWorktreesStartFromOrigin: true,
+          providerInstances: { [otherInstanceId]: { enabled: false } },
+        },
+      },
+    };
+
+    expect(buildProviderInstanceOverridePatch(settings, [projectId], instanceId, true)).toEqual({
+      [projectId]: {
+        newWorktreesStartFromOrigin: true,
+        providerInstances: {
+          [otherInstanceId]: { enabled: false },
+          [instanceId]: { enabled: true },
+        },
+      },
+    });
+  });
+
+  it("resets the only override by clearing the whole project entry", () => {
+    const settings: Pick<ServerSettings, "projectSettingsOverrides"> = {
+      projectSettingsOverrides: {
+        [projectId]: { providerInstances: { [instanceId]: { enabled: true } } },
+      },
+    };
+
+    expect(
+      buildProviderInstanceOverridePatch(settings, [projectId], instanceId, undefined),
+    ).toEqual({ [projectId]: null });
+  });
+
+  it("resets one instance while another instance's override and other keys survive", () => {
+    const settings: Pick<ServerSettings, "projectSettingsOverrides"> = {
+      projectSettingsOverrides: {
+        [projectId]: {
+          newWorktreesStartFromOrigin: true,
+          providerInstances: {
+            [instanceId]: { enabled: true },
+            [otherInstanceId]: { enabled: false },
+          },
+        },
+      },
+    };
+
+    expect(
+      buildProviderInstanceOverridePatch(settings, [projectId], instanceId, undefined),
+    ).toEqual({
+      [projectId]: {
+        newWorktreesStartFromOrigin: true,
+        providerInstances: { [otherInstanceId]: { enabled: false } },
+      },
+    });
+  });
+
+  it("sends providerInstances: {} explicitly when clearing the last instance override leaves other keys", () => {
+    // The server keeps a stored providerInstances map when an incoming entry
+    // omits the key (so older clients cannot wipe it by editing another
+    // setting). This clear must say so explicitly, or the server would put
+    // the just-cleared override right back.
+    const settings: Pick<ServerSettings, "projectSettingsOverrides"> = {
+      projectSettingsOverrides: {
+        [projectId]: {
+          newWorktreesStartFromOrigin: true,
+          providerInstances: { [instanceId]: { enabled: true } },
+        },
+      },
+    };
+
+    expect(
+      buildProviderInstanceOverridePatch(settings, [projectId], instanceId, undefined),
+    ).toEqual({
+      [projectId]: { newWorktreesStartFromOrigin: true, providerInstances: {} },
+    });
   });
 });
 

@@ -2,7 +2,12 @@ import type { EnvironmentConnectionPhase } from "@supacode/client-runtime/connec
 import {
   AuthProvidersManageScope,
   type EnvironmentId,
+  type ProjectId,
+  type ProjectSettingsOverrides,
+  type ProviderInstanceId,
+  resolveProjectProviderInstanceEnabled,
   sessionGrantsScope,
+  type ServerSettings,
   type SessionGrantInput,
 } from "@supacode/contracts";
 
@@ -102,6 +107,64 @@ export function resolveRemoteOperateAccess(input: {
   readonly hasError: boolean;
 }): ProviderOperateAccess {
   return resolveSessionOperateAccess(input);
+}
+
+/**
+ * The patch for one instance's project override, following the envelope
+ * replacement rule for `projectSettingsOverrides`: the returned entry
+ * replaces the project's whole override set, and `null` removes it.
+ * `value: undefined` resets that single instance back to inheriting the
+ * environment's enablement, leaving any other overridden keys untouched.
+ *
+ * `providerInstances` is always sent explicitly, even as `{}`, because the
+ * server keeps a stored `providerInstances` map when an incoming entry omits
+ * the key (so older clients that don't know the field cannot wipe it by
+ * editing another setting). Omitting it here would undo the very clear this
+ * function means to make.
+ */
+/** Every checkout of a project on one environment shares the same choice. */
+export function buildProviderInstanceOverridePatch(
+  settings: Pick<ServerSettings, "projectSettingsOverrides">,
+  projectIds: readonly ProjectId[],
+  instanceId: ProviderInstanceId,
+  value: boolean | undefined,
+): Record<ProjectId, ProjectSettingsOverrides | null> {
+  const patch: Record<ProjectId, ProjectSettingsOverrides | null> = {};
+  for (const projectId of projectIds) {
+    const current = settings.projectSettingsOverrides[projectId];
+    const instances = { ...current?.providerInstances };
+    const instance = { ...instances[instanceId] };
+    if (value === undefined) delete instance.enabled;
+    else instance.enabled = value;
+    if (Object.keys(instance).length > 0) instances[instanceId] = instance;
+    else delete instances[instanceId];
+
+    const { providerInstances: _omit, ...rest } = current ?? {};
+    const nextEntry: ProjectSettingsOverrides = { ...rest, providerInstances: instances };
+    patch[projectId] =
+      Object.keys(rest).length === 0 && Object.keys(instances).length === 0 ? null : nextEntry;
+  }
+  return patch;
+}
+
+export function resolveProjectProviderOverride(
+  settings: Pick<ServerSettings, "providerInstances" | "projectSettingsOverrides">,
+  projectIds: readonly ProjectId[],
+  instanceId: ProviderInstanceId,
+) {
+  const values = projectIds.map(
+    (id) => settings.projectSettingsOverrides[id]?.providerInstances?.[instanceId]?.enabled,
+  );
+  const effective = projectIds.map((id) =>
+    resolveProjectProviderInstanceEnabled(settings, id, instanceId),
+  );
+  return {
+    value: values[0],
+    valueMixed: values.some((value) => value !== values[0]),
+    hasOverride: values.some((value) => value !== undefined),
+    effectiveEnabled: effective[0] ?? false,
+    mixed: effective.some((value) => value !== effective[0]),
+  };
 }
 
 export function classifyProviderEnvironmentAccess(input: {

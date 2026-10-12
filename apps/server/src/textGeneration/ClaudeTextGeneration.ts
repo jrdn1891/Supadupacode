@@ -40,6 +40,16 @@ import {
 import { makeClaudeEnvironment } from "../provider/Drivers/ClaudeHome.ts";
 
 const CLAUDE_TIMEOUT_MS = 180_000;
+const CLAUDE_INVESTIGATION_TOOLS = "Read,Grep,Glob,Bash";
+const CLAUDE_INVESTIGATION_ALLOWED = [
+  "Read",
+  "Grep",
+  "Glob",
+  "Bash(git diff:*)",
+  "Bash(git log:*)",
+  "Bash(git show:*)",
+].join(",");
+const CLAUDE_INVESTIGATION_DENIED = ["Bash(git * --output*)", "Bash(git * -o *)"].join(",");
 
 /**
  * Schema for the wrapper JSON returned by `claude -p --output-format json`.
@@ -112,6 +122,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
     prompt,
     outputSchema: outputSchemaJson,
     modelSelection,
+    investigate,
   }: TextGenerationOperations.Request<S>): Effect.fn.Return<
     S["Type"],
     TextGenerationError,
@@ -188,9 +199,16 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
           ...(cliEffort ? ["--effort", cliEffort] : []),
           "--settings",
           settingsJson,
-          // Metadata prompts need no executable capabilities, even when they contain a skill name.
-          "--tools",
-          "",
+          ...(investigate
+            ? [
+                "--tools",
+                CLAUDE_INVESTIGATION_TOOLS,
+                "--allowedTools",
+                CLAUDE_INVESTIGATION_ALLOWED,
+                "--disallowedTools",
+                CLAUDE_INVESTIGATION_DENIED,
+              ]
+            : ["--tools", ""]),
           "--disable-slash-commands",
           "--strict-mcp-config",
           "--permission-mode",
@@ -246,7 +264,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
 
     const rawStdout = yield* runClaudeCommand().pipe(
       Effect.scoped,
-      Effect.timeoutOption(CLAUDE_TIMEOUT_MS),
+      Effect.timeoutOption(investigate?.timeoutMs ?? CLAUDE_TIMEOUT_MS),
       Effect.flatMap(
         Option.match({
           onNone: () =>
@@ -289,5 +307,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
     );
   });
 
-  return TextGenerationOperations.fromRunner("ClaudeTextGeneration", runClaudeJson);
+  return TextGenerationOperations.fromRunner("ClaudeTextGeneration", runClaudeJson, {
+    supportsReviewGuides: true,
+  });
 });

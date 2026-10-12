@@ -58,9 +58,11 @@ function formatValue(key: keyof ServerSettings, value: unknown): string {
           ? "Automatic"
           : key === "sourceControlWriterModelSelection"
             ? "Text generation model"
-            : key === "defaultThreadEnvMode" || key === "worktreeSubmodules"
-              ? "Inherit"
-              : "Not set";
+            : key === "reviewGuideModelSelection"
+              ? "Source control writer model"
+              : key === "defaultThreadEnvMode" || key === "worktreeSubmodules"
+                ? "Inherit"
+                : "Not set";
   }
   if (key === "branchNamePrefixFromRepository") {
     return value ? "Repository name prefix" : "Static prefix";

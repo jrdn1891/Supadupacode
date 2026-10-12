@@ -65,7 +65,9 @@ type UpdateButtonProps = Pick<ComponentProps<typeof Button>, "variant" | "size" 
   readonly appearance?: "button" | "icon";
 };
 
-function useServerUpdate() {
+/** Updates one server and waits until it is back on the target version.
+    Reports its own success or failure toast; never rejects. */
+export function useServerUpdate() {
   const updateServer = useAtomCommand(serverEnvironment.updateServer, { reportFailure: false });
   return async (target: ServerUpdateTarget, failureTitle = "Server update failed") => {
     const { environmentId, serverLabel, selfUpdate, targetVersion } = target;
@@ -91,9 +93,10 @@ function useServerUpdate() {
       }
       toastManager.add({
         type: "success",
-        title: `${serverLabel} updated`,
-        description:
-          selfUpdate === "desktop-managed"
+        title: result.value.upToDate ? `${serverLabel} is up to date` : `${serverLabel} updated`,
+        description: result.value.upToDate
+          ? `Desktop app is current on its release feed at ${result.value.targetVersion}.`
+          : selfUpdate === "desktop-managed"
             ? `Desktop app relaunched on ${result.value.targetVersion}.`
             : `Reconnected on supacode@${result.value.targetVersion}.`,
       });
@@ -164,7 +167,9 @@ export function ServerUpdatesAction({
   );
 }
 
-function canUpdateServer(result: AsyncResult.AsyncResult<AuthSessionState, unknown>): boolean {
+export function canUpdateServer(
+  result: AsyncResult.AsyncResult<AuthSessionState, unknown>,
+): boolean {
   if (result._tag !== "Success" || !result.value.authenticated) return false;
   return sessionGrantsScope(result.value, AuthEnvironmentMaintainScope);
 }
@@ -372,7 +377,9 @@ export function OutdatedServerUpdateAction({
       toastManager.add({
         type: "success",
         title: `${serverLabel} updated`,
-        description: `Reconnected on supacode@${result.value.targetVersion}.`,
+        description: result.value.upToDate
+          ? `Already current on its release feed at ${result.value.targetVersion}.`
+          : `Reconnected on supacode@${result.value.targetVersion}.`,
       });
     } catch (error) {
       toastManager.add({

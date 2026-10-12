@@ -1,5 +1,6 @@
 import { useThreadListV2Layout } from "./use-thread-list-v2-layout";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
+import { resolveScratchProjectScopeKey } from "@supacode/client-runtime/state/project-grouping";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import type {
   EnvironmentProject,
@@ -15,7 +16,12 @@ import { useThreadListMotion } from "./use-thread-list-motion";
 import type { MenuAction } from "@react-native-menu/menu";
 import { useAtomValue } from "@effect/atom-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { LayoutChangeEvent, TextInputInstance } from "react-native";
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  TextInputInstance,
+} from "react-native";
 import { Platform, StyleSheet, TextInput, View } from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -54,6 +60,7 @@ import { SidebarHeaderActions } from "./sidebar-header-actions";
 import { MaterialThreadListToolbar } from "../home/MaterialThreadListToolbar";
 import { useMaterialToolbarLayout } from "../../components/useMaterialToolbarLayout";
 import { useMaterialFabScroll } from "../home/MaterialFabScrollContext";
+import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { SidebarFilterButton } from "./sidebar-filter-button";
 import { createSidebarHeaderItems } from "./sidebar-native-header-items";
 import { SidebarNavigationShell } from "./sidebar-navigation-shell";
@@ -152,6 +159,8 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {
+  const workspace = useWorkspaceTabs();
+  const [initialScrollOffset] = useState(() => workspace?.getScrollOffset("threads") ?? 0);
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const drawerColor = materialTheme["--color-drawer"];
 
@@ -195,7 +204,8 @@ function ThreadNavigationSidebarPane(
     () => new Set(environments.map((environment) => environment.environmentId)),
     [environments],
   );
-  const { options, setSelectedEnvironmentId } = useHomeListOptions(availableEnvironmentIds);
+  const { options, setSelectedEnvironmentId, setSelectedProjectKey } =
+    useHomeListOptions(availableEnvironmentIds);
   const searchEnvironmentIds = useMemo(
     () =>
       options.selectedEnvironmentId === null
@@ -225,7 +235,16 @@ function ThreadNavigationSidebarPane(
     () => new Set(threadSearch.matches.map(threadSearchMatchKey)),
     [threadSearch.matches],
   );
-  const [selectedProjectKey, setSelectedProjectKey] = useState<string | null>(null);
+  const projectScopeKey = options.selectedProjectKey;
+  const resolvedProjectKey = resolveScratchProjectScopeKey(projectScopeKey, projects, {
+    sidebarProjectGroupingMode: options.projectGroupingMode,
+    sidebarProjectGroupingOverrides: {},
+  });
+  useEffect(() => {
+    if (resolvedProjectKey !== projectScopeKey) {
+      setSelectedProjectKey(resolvedProjectKey);
+    }
+  }, [projectScopeKey, resolvedProjectKey, setSelectedProjectKey]);
   const projectScopes = useMemo(
     () =>
       buildHomeProjectScopes({
@@ -259,18 +278,11 @@ function ThreadNavigationSidebarPane(
     [projectScopes],
   );
   const selectedProjectScope = useMemo(
-    () =>
-      selectedProjectKey === null
-        ? null
-        : (projectScopes.find((scope) => scope.key === selectedProjectKey) ?? null),
-    [projectScopes, selectedProjectKey],
+    () => projectScopes.find((scope) => scope.key === resolvedProjectKey) ?? null,
+    [projectScopes, resolvedProjectKey],
   );
-  if (
-    selectedProjectKey !== null &&
-    !projectFilterOptions.some((project) => project.key === selectedProjectKey)
-  ) {
-    setSelectedProjectKey(null);
-  }
+  // A saved project stays selected while its environment is offline or filtered out.
+  const selectedProjectKey = selectedProjectScope?.key ?? null;
   const selectedProjectRefs = useMemo(
     () =>
       selectedProjectScope === null
@@ -503,7 +515,7 @@ function ThreadNavigationSidebarPane(
         return;
       }
     },
-    [environments, projectFilterOptions, setSelectedEnvironmentId],
+    [environments, projectFilterOptions, setSelectedEnvironmentId, setSelectedProjectKey],
   );
 
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null);
@@ -544,8 +556,18 @@ function ThreadNavigationSidebarPane(
     openSwipeableRef.current?.close();
   }, []);
   const onMaterialFabScroll = useMaterialFabScroll();
+  const handleListScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      onMaterialFabScroll?.(event);
+      workspace?.recordScrollOffset(
+        "threads",
+        Math.max(0, event.nativeEvent.contentOffset.y + (Platform.OS === "ios" ? insets.top : 0)),
+      );
+    },
+    [onMaterialFabScroll, workspace, insets.top],
+  );
   const { swipeEnabled, scrollGateHandlers } = useSwipeableScrollGate({
-    onScroll: onMaterialFabScroll,
+    onScroll: handleListScroll,
     onScrollBeginDrag: handleScrollBeginDrag,
   });
   // The sticky header's project shells and search maps feed row props, so
@@ -835,7 +857,14 @@ function ThreadNavigationSidebarPane(
         onEnvironmentChange: setSelectedEnvironmentId,
         onProjectChange: setSelectedProjectKey,
       }),
-    [environments, options, projectFilterOptions, selectedProjectKey, setSelectedEnvironmentId],
+    [
+      environments,
+      options,
+      projectFilterOptions,
+      selectedProjectKey,
+      setSelectedEnvironmentId,
+      setSelectedProjectKey,
+    ],
   );
   const nativeHeaderItems = useMemo(
     () =>
@@ -910,6 +939,11 @@ function ThreadNavigationSidebarPane(
             <GestureDetector gesture={sidebarScrollGesture}>
               <AnimatedLegendList
                 itemLayoutAnimation={listMotion.layout}
+                initialScrollOffset={
+                  initialScrollOffset > 0
+                    ? initialScrollOffset - (Platform.OS === "ios" ? insets.top : 0)
+                    : undefined
+                }
                 data={listItems}
                 drawDistance={500}
                 estimatedItemSize={64}
@@ -977,6 +1011,11 @@ function ThreadNavigationSidebarPane(
             <GestureDetector gesture={sidebarScrollGesture}>
               <AnimatedLegendList
                 itemLayoutAnimation={listMotion.layout}
+                initialScrollOffset={
+                  initialScrollOffset > 0
+                    ? initialScrollOffset - (Platform.OS === "ios" ? insets.top : 0)
+                    : undefined
+                }
                 data={listItems}
                 drawDistance={500}
                 estimatedItemSize={64}

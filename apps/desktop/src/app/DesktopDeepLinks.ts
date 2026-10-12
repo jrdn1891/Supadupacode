@@ -1,3 +1,7 @@
+// @effect-diagnostics nodeBuiltinImport:off - OS file-open events carry paths that Node converts to file URLs.
+import * as NodeURL from "node:url";
+import { promptLinkAppPath } from "@supacode/shared/promptLinks";
+import * as DesktopWebLinks from "./DesktopWebLinks.ts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -8,12 +12,13 @@ import { codexAuthDeliveryUrl, readCodexAuthHandoff } from "@supacode/shared/cod
 import { receiveCodexAuthCallback, CodexAuthCallbackError } from "./CodexAuthCallback.ts";
 import * as ElectronShell from "../electron/ElectronShell.ts";
 import { providerAuthReturnUrl } from "@supacode/shared/providerAuthReturnUrl";
-import { HostProcessArguments } from "@supacode/shared/hostProcess";
+import * as HostProcess from "@supacode/shared/HostProcess";
 import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopUserData from "./DesktopUserData.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
+import * as DesktopOpenEvents from "./DesktopOpenEvents.ts";
 
 export class DesktopDeepLinks extends Context.Service<
   DesktopDeepLinks,
@@ -21,7 +26,11 @@ export class DesktopDeepLinks extends Context.Service<
     readonly configure: Effect.Effect<
       void,
       never,
-      ElectronApp.ElectronApp | ElectronWindow.ElectronWindow | Scope.Scope
+      | ElectronApp.ElectronApp
+      | ElectronWindow.ElectronWindow
+      | DesktopWebLinks.DesktopWebLinks
+      | Scope.Scope
+      | DesktopOpenEvents.DesktopOpenEvents
     >;
   }
 >()("@supacode/desktop/app/DesktopDeepLinks") {}
@@ -53,6 +62,7 @@ export const make = Effect.gen(function* () {
 
       const electronApp = yield* ElectronApp.ElectronApp;
       const electronWindow = yield* ElectronWindow.ElectronWindow;
+      const webLinks = yield* DesktopWebLinks.DesktopWebLinks;
       const context = yield* Effect.context<ElectronWindow.ElectronWindow>();
       const runPromise = Effect.runPromiseWith(context);
 
@@ -100,13 +110,47 @@ export const make = Effect.gen(function* () {
         );
         return true;
       };
-      const args = yield* HostProcessArguments;
-      args.some((value) => startProviderAuthHandoff(value));
-      yield* electronApp.on("open-url", (event: { preventDefault: () => void }, url: string) => {
-        if (startProviderAuthHandoff(url) || resumeProviderAuth(url)) event.preventDefault();
-      });
-      yield* electronApp.on("second-instance", (_event: unknown, argv: readonly string[]) => {
-        if (argv?.some((value) => startProviderAuthHandoff(value) || resumeProviderAuth(value)))
+      const openAppLink = (value: string | undefined) => {
+        if (!value || promptLinkAppPath(value) === null) return false;
+        void runPromise(webLinks.receive(value));
+        return true;
+      };
+      const openWebLink = (value: string | undefined) => {
+        if (!value || environment.platform !== "darwin" || !DesktopWebLinks.isWebLink(value))
+          return false;
+        void runPromise(webLinks.receive(value));
+        return true;
+      };
+      const args = yield* HostProcess.Arguments;
+      for (const value of args) {
+        if (startProviderAuthHandoff(value) || openAppLink(value)) continue;
+        openWebLink(value);
+      }
+      const openEvents = yield* DesktopOpenEvents.DesktopOpenEvents;
+      yield* openEvents.subscribe((event) => {
+        if (event.type === "url") {
+          if (
+            startProviderAuthHandoff(event.url) ||
+            resumeProviderAuth(event.url) ||
+            openAppLink(event.url)
+          )
+            return;
+          openWebLink(event.url);
+          return;
+        }
+        if (event.type === "file") {
+          void runPromise(webLinks.receive(NodeURL.pathToFileURL(event.path).href));
+          return;
+        }
+        if (
+          event.argv.some(
+            (value) =>
+              startProviderAuthHandoff(value) ||
+              resumeProviderAuth(value) ||
+              openAppLink(value) ||
+              openWebLink(value),
+          )
+        )
           return;
         void runPromise(
           Effect.gen(function* () {

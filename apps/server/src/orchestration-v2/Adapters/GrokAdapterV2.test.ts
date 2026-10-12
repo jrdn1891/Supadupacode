@@ -7,7 +7,7 @@ import {
   ThreadId,
 } from "@supacode/contracts";
 import { GrokSettings } from "@supacode/provider-grok/settings";
-import { HostProcessPlatform } from "@supacode/shared/hostProcess";
+import * as HostProcess from "@supacode/shared/HostProcess";
 import { resolveSelfInvocation } from "@supacode/shared/nodeRuntime";
 import * as EffectAcpErrors from "effect-acp/errors";
 import { xAiRateLimitedErrorCode } from "@supacode/provider-grok/testing";
@@ -93,10 +93,54 @@ describe("acpSubagentStatusBlocksTurnSettlement", () => {
 });
 
 describe("GrokAdapterV2 capabilities", () => {
+  it.effect("forwards metadata-only reasoning choices on both ACP protocol versions", () =>
+    Effect.gen(function* () {
+      const flavor = makeGrokAcpAdapterFlavor(
+        { makeRuntime: () => Effect.never } as unknown as Parameters<
+          typeof makeGrokAcpAdapterFlavor
+        >[0],
+        "/home/ada",
+      );
+      const apply = flavor.applyModelSelection!;
+      const calls: Array<{ model: string; meta: unknown }> = [];
+      const runtime = {
+        getConfigOptions: Effect.succeed([]),
+        setSessionModel: (model: string, meta: unknown) =>
+          Effect.sync(() => {
+            calls.push({ model, meta });
+            return {};
+          }),
+        setModel: () => Effect.die("Metadata-only reasoning must reach session/set_model"),
+      } as unknown as Parameters<typeof apply>[0]["runtime"];
+      for (const protocolVersion of [1, 2]) {
+        yield* apply({
+          runtime,
+          startResult: {
+            sessionId: "session-1",
+            modelConfigId: undefined,
+            initializeResult: { protocolVersion, agentCapabilities: {} },
+            sessionSetupResult: { models: { currentModelId: "grok-4.6", availableModels: [] } },
+          },
+          modelSelection: {
+            instanceId: ProviderInstanceId.make("grok"),
+            model: "grok-4.6",
+            options: [{ id: "reasoningEffort", value: "high" }],
+          },
+        });
+      }
+      assert.deepEqual(calls, [
+        { model: "grok-4.6", meta: { reasoningEffort: "high" } },
+        { model: "grok-4.6", meta: { reasoningEffort: "high" } },
+      ]);
+    }),
+  );
   it("preserves Grok's rate-limit stop and distinguishes other prompt failures", () => {
-    const flavor = makeGrokAcpAdapterFlavor({
-      makeRuntime: () => Effect.never,
-    } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0]);
+    const flavor = makeGrokAcpAdapterFlavor(
+      {
+        makeRuntime: () => Effect.never,
+      } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0],
+      "/home/ada",
+    );
     const limit = flavor.promptFailure?.(
       new EffectAcpErrors.AcpRequestError({
         code: xAiRateLimitedErrorCode,
@@ -122,9 +166,12 @@ describe("GrokAdapterV2 capabilities", () => {
   });
 
   it("wires hard Stop teardown but soft non-Stop interrupts in the constructor flavor", () => {
-    const flavor = makeGrokAcpAdapterFlavor({
-      makeRuntime: () => Effect.never,
-    } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0]);
+    const flavor = makeGrokAcpAdapterFlavor(
+      {
+        makeRuntime: () => Effect.never,
+      } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0],
+      "/home/ada",
+    );
 
     assert.isFalse(flavor.interruptPromptOnCancel);
     // User Stop (requestRuntimeRestart) keeps the hard process-group kill and
@@ -139,9 +186,12 @@ describe("GrokAdapterV2 capabilities", () => {
   });
 
   it("terminalizes only foreground tools under the actual Grok flavor", () => {
-    const flavor = makeGrokAcpAdapterFlavor({
-      makeRuntime: () => Effect.never,
-    } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0]);
+    const flavor = makeGrokAcpAdapterFlavor(
+      {
+        makeRuntime: () => Effect.never,
+      } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0],
+      "/home/ada",
+    );
     const foreground = {
       toolCallId: "foreground-1",
       title: "Terminal",
@@ -284,9 +334,12 @@ describe("ACP permission policy", () => {
 });
 
 describe("Grok permission prompts", () => {
-  const disposition = makeGrokAcpAdapterFlavor({
-    makeRuntime: () => Effect.never,
-  } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0]).permissionDisposition;
+  const disposition = makeGrokAcpAdapterFlavor(
+    {
+      makeRuntime: () => Effect.never,
+    } as unknown as Parameters<typeof makeGrokAcpAdapterFlavor>[0],
+    "/home/ada",
+  ).permissionDisposition;
 
   // grok_auto_blocked_command replays Auto end to end. When an explicit policy
   // launches Grok asking instead, Supacode's policy still answers its prompts.
@@ -352,7 +405,7 @@ describe("Grok launch permission mode", () => {
       return launches;
     }).pipe(
       // Keep the launch argv unwrapped by the Linux cgroup shim.
-      Effect.provideService(HostProcessPlatform, "darwin"),
+      Effect.provideService(HostProcess.Platform, "darwin"),
       Effect.provide(layerTest),
     );
 

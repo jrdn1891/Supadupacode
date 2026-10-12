@@ -1,0 +1,70 @@
+import { useMemo } from "react";
+import { View } from "react-native";
+import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
+import { NativeStackScreenOptions } from "../../native/StackHeader";
+import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
+import { EmptyState } from "../../components/EmptyState";
+import { MaterialScreenContent } from "../../components/MaterialScreenContent";
+import { HomeRouteScreen } from "../home/HomeRouteScreen";
+import { PullRequestsScreen } from "../pull-requests/PullRequestsScreen";
+import { MaterialPullRequestToolbar } from "../pull-requests/MaterialPullRequestToolbar.android";
+import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
+import { WORKSPACE_DOCK } from "./workspace-tabs-state";
+import { useWorkspaceDockHeight } from "./useWorkspaceDockHeight";
+
+export function WorkspaceRootScreen() {
+  const { layout } = useAdaptiveWorkspaceLayout();
+  const workspace = useWorkspaceTabs()!;
+  const insets = useSafeAreaInsets();
+  const dockHeight = useWorkspaceDockHeight();
+  const bottomClearance = Math.max(insets.bottom, 12) + WORKSPACE_DOCK.bottomGap + dockHeight + 16;
+  const context = useMemo(
+    () => ({
+      ...workspace,
+      bottomClearance,
+    }),
+    [workspace, bottomClearance],
+  );
+
+  // Split lists live beside the navigator; Home remains an empty detail pane.
+  if (layout.usesSplitView) {
+    return workspace.state.selectedTab === "threads" ? (
+      <HomeRouteScreen />
+    ) : (
+      <>
+        <NativeStackScreenOptions options={{ headerShown: false }} />
+        <AndroidScreenHeader title="Pull requests" />
+        <View className="flex-1 items-center justify-center px-10">
+          <EmptyState
+            title="Select a pull request"
+            detail="Choose a pull request from the sidebar to review it."
+            variant="plain"
+          />
+        </View>
+      </>
+    );
+  }
+
+  return (
+    <WorkspaceTabsContext value={context}>
+      <View className="flex-1 bg-header">
+        <NativeStackScreenOptions options={{ headerShown: false }} />
+        <SafeAreaInsetsContext value={insets}>
+          <View className="flex-1">
+            {workspace.state.selectedTab === "threads" ? (
+              <HomeRouteScreen />
+            ) : (
+              <>
+                <MaterialPullRequestToolbar />
+                <MaterialScreenContent>
+                  <PullRequestsScreen />
+                </MaterialScreenContent>
+              </>
+            )}
+          </View>
+        </SafeAreaInsetsContext>
+      </View>
+    </WorkspaceTabsContext>
+  );
+}

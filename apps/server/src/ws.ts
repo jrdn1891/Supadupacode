@@ -176,6 +176,7 @@ import * as ServerSelfUpdate from "./service/selfUpdate.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
 import * as ServerSettings from "./serverSettings.ts";
+import * as StorageCleanup from "./storageCleanup.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import { withTerminalOutputWindow } from "./terminal/OutputProtocol.ts";
 import * as PreviewAutomationBroker from "./mcp/PreviewAutomationBroker.ts";
@@ -222,11 +223,13 @@ import * as AnalyticsService from "./telemetry/AnalyticsService.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import * as TraceDiagnostics from "./diagnostics/TraceDiagnostics.ts";
 import * as PullRequestService from "./pullRequest/PullRequestService.ts";
+import * as PullRequestReviewGuideService from "./pullRequest/PullRequestReviewGuideService.ts";
 import { listLinkedPullRequestThreads } from "./pullRequest/linkedThreads.ts";
 import { pullRequestSyncKey } from "./pullRequest/pullRequestSyncKey.ts";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as PullRequestSyncReactor from "./orchestration-v2/PullRequestSyncReactor.ts";
 import * as SourceControlDiscovery from "./sourceControl/SourceControlDiscovery.ts";
+import * as OtlpEndpointCheck from "./observability/OtlpEndpointCheck.ts";
 import * as SourceControlRepositoryService from "./sourceControl/SourceControlRepositoryService.ts";
 import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as SessionStore from "./auth/SessionStore.ts";
@@ -1221,6 +1224,7 @@ const layerWsRpc = (
         | ThreadLaunchService.ThreadLaunchService
         | FileSystem.FileSystem
         | ServerConfig.ServerConfig
+        | ServerSettings.ServerSettingsService
       >();
       const applicationEvents = yield* OrchestrationEventStore.OrchestrationEventStore;
       const projectStore = yield* ProjectStore.ProjectStoreV2;
@@ -1247,6 +1251,7 @@ const layerWsRpc = (
       const providerSessionManager = yield* ProviderSessionManager.ProviderSessionManagerV2;
       const scheduledTasks = yield* ScheduledTasks.ScheduledTaskService;
       const pullRequests = yield* PullRequestService.PullRequestService;
+      const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
       const deviceService = yield* DeviceService.DeviceService;
       const deviceHostContext =
@@ -1302,6 +1307,7 @@ const layerWsRpc = (
       const serverSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
       const config = yield* ServerConfig.ServerConfig;
       const lifecycleEvents = yield* ServerLifecycleEvents.ServerLifecycleEvents;
+      const storageCleanup = yield* StorageCleanup.StorageCleanup;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
@@ -1326,6 +1332,7 @@ const layerWsRpc = (
       );
       const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
       const sourceControlDiscovery = yield* SourceControlDiscovery.SourceControlDiscovery;
+      const otlpEndpointCheck = yield* OtlpEndpointCheck.OtlpEndpointCheck;
       const automaticGitFetchInterval = serverSettings.getSettings.pipe(
         Effect.map(
           (settings) => resolveServerBackgroundActivitySettings(settings).automaticGitFetchInterval,
@@ -1338,7 +1345,6 @@ const layerWsRpc = (
       );
       const sourceControlRepositories =
         yield* SourceControlRepositoryService.SourceControlRepositoryService;
-      const withPullRequestViewer = pullRequests.withRoutingCredential;
       const bootstrapCredentials = yield* PairingGrantStore.PairingGrantStore;
       const sessions = yield* SessionStore.SessionStore;
       const processDiagnostics = yield* ProcessDiagnostics.ProcessDiagnostics;
@@ -1877,6 +1883,7 @@ const layerWsRpc = (
                 ),
             ),
           ),
+        [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: (input) => threadManagement.stopWorkflow(input),
         [ORCHESTRATION_V2_WS_METHODS.getWorkflowScript]: (input) =>
           readWorkflowScript({ scriptPath: input.scriptPath }),
         [ORCHESTRATION_V2_WS_METHODS.getTurnItem]: (input) =>
@@ -2037,6 +2044,13 @@ const layerWsRpc = (
                         commandId: input.commandId,
                         projectId: input.projectId,
                         message: "Failed to launch thread",
+                        cause,
+                      }),
+                    ThreadManagementProviderInstanceDisabledError: (cause) =>
+                      new OrchestrationV2ThreadLaunchError({
+                        commandId: input.commandId,
+                        projectId: input.projectId,
+                        message: cause.message,
                         cause,
                       }),
                   }),
@@ -2384,6 +2398,8 @@ const layerWsRpc = (
             const keybindingsConfig = yield* keybindings.removeKeybindingRule(rule);
             return { keybindings: keybindingsConfig, issues: [] };
           }),
+        [WS_METHODS.serverRunStorageCleanup]: () => storageCleanup.runNow,
+        [WS_METHODS.serverGetStorageCleanupReport]: () => storageCleanup.reports,
         [WS_METHODS.serverGetSettings]: (_input) =>
           serverSettings.getSettings.pipe(Effect.map(ServerSettings.redactServerSettingsForClient)),
         [WS_METHODS.serverUpdateSettings]: ({ patch, providerInstanceMutation }) =>
@@ -2399,7 +2415,7 @@ const layerWsRpc = (
               : serverSettings.updateProviderInstance(providerInstanceMutation, nextPatch);
             return ServerSettings.redactServerSettingsForClient(settings);
           }),
-        [WS_METHODS.serverDiscoverSourceControl]: (_input) => sourceControlDiscovery.discover,
+        [WS_METHODS.serverDiscoverSourceControl]: () => sourceControlDiscovery.discover,
         [WS_METHODS.serverGetTraceDiagnostics]: (_input) =>
           TraceDiagnostics.readTraceDiagnostics({
             traceFilePath: config.serverTracePath,
@@ -2414,6 +2430,7 @@ const layerWsRpc = (
         [WS_METHODS.serverGetUsageSummary]: (input) => usage.readSummary(input),
         [WS_METHODS.serverRefreshUsageRates]: (_input) => usage.refreshRates,
         [WS_METHODS.serverRetryResourceTelemetry]: (_input) => resourceTelemetry.retry,
+        [WS_METHODS.serverCheckOtlpEndpoint]: (input) => otlpEndpointCheck.check(input),
         [WS_METHODS.serverSignalProcess]: (input) => processDiagnostics.signal(input),
         [WS_METHODS.serverReportClientActivity]: (input, metadata) =>
           Ref.update(rpcClientIds, (clientIds) => {
@@ -2437,9 +2454,9 @@ const layerWsRpc = (
         [WS_METHODS.pullRequestsRoutingIdentity]: (input) => pullRequests.routingIdentity(input),
         [WS_METHODS.pullRequestsRouting]: (input) => pullRequests.routing(input),
         [WS_METHODS.pullRequestsSummary]: (input) =>
-          withPullRequestViewer(input, pullRequests.summary(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.summary(input)),
         [WS_METHODS.pullRequestsStack]: (input) =>
-          withPullRequestViewer(input, pullRequests.stack(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.stack(input)),
         [WS_METHODS.pullRequestsLinkedThreads]: (input) =>
           resolvePullRequestSyncKey(input).pipe(
             Effect.flatMap((key) =>
@@ -2451,45 +2468,52 @@ const layerWsRpc = (
             ),
           ),
         [WS_METHODS.pullRequestsDetail]: (input) =>
-          withPullRequestViewer(input, pullRequests.detail(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.detail(input)),
         [WS_METHODS.pullRequestsPreview]: (input) =>
-          withPullRequestViewer(input, pullRequests.preview(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.preview(input)),
         [WS_METHODS.pullRequestsChecks]: (input) =>
-          withPullRequestViewer(input, pullRequests.checks(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.checks(input)),
         [WS_METHODS.pullRequestsActivity]: (input) =>
-          withPullRequestViewer(input, pullRequests.activity(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.activity(input)),
+        [WS_METHODS.pullRequestsReviewGuide]: (input) =>
+          pullRequests.withRoutingCredential(input, reviewGuides.get(input)),
+        [WS_METHODS.pullRequestsGenerateReviewGuide]: (input) =>
+          pullRequests.withRoutingCredential(input, reviewGuides.generate(input)),
         [WS_METHODS.pullRequestsThreadComments]: (input) =>
-          withPullRequestViewer(input, pullRequests.threadComments(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.threadComments(input)),
         [WS_METHODS.pullRequestsDiffFileContents]: (input) =>
-          withPullRequestViewer(input, pullRequests.diffFileContents(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.diffFileContents(input)),
         [WS_METHODS.pullRequestsFilesViewed]: (input) =>
-          withPullRequestViewer(input, pullRequests.filesViewed(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.filesViewed(input)),
         [WS_METHODS.pullRequestsSetFilesViewed]: (input) =>
-          withPullRequestViewer(input, pullRequests.setFilesViewed(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setFilesViewed(input)),
         [WS_METHODS.pullRequestsRunAction]: (input) =>
-          withPullRequestViewer(input, pullRequests.runAction(input)).pipe(
-            Effect.tap(() =>
-              resolvePullRequestSyncKey(input).pipe(
-                Effect.flatMap((key) =>
-                  key === null ? Effect.void : pullRequestSync.requestSync(key),
+          pullRequests
+            .withRoutingCredential(input, pullRequests.runAction(input))
+            .pipe(
+              Effect.tap(() =>
+                resolvePullRequestSyncKey(input).pipe(
+                  Effect.flatMap((key) =>
+                    key === null ? Effect.void : pullRequestSync.requestSync(key),
+                  ),
                 ),
               ),
             ),
-          ),
         [WS_METHODS.pullRequestsUpdate]: (input) =>
-          withPullRequestViewer(input, pullRequests.update(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.update(input)),
         [WS_METHODS.pullRequestsComment]: (input) =>
-          withPullRequestViewer(input, pullRequests.comment(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.comment(input)),
         [WS_METHODS.pullRequestsUpdateComment]: (input) =>
-          withPullRequestViewer(input, pullRequests.updateComment(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.updateComment(input)),
         [WS_METHODS.pullRequestsSubmitReview]: (input) =>
-          withPullRequestViewer(input, pullRequests.submitReview(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.submitReview(input)),
         [WS_METHODS.pullRequestsReplyToThread]: (input) =>
-          withPullRequestViewer(input, pullRequests.replyToThread(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.replyToThread(input)),
         [WS_METHODS.pullRequestsSetThreadResolution]: (input) =>
-          withPullRequestViewer(input, pullRequests.setThreadResolution(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setThreadResolution(input)),
         [WS_METHODS.pullRequestsSetReaction]: (input) =>
-          withPullRequestViewer(input, pullRequests.setReaction(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setReaction(input)),
+        [WS_METHODS.pullRequestsReportState]: (input) => pullRequests.reportState(input),
         [WS_METHODS.pullRequestsInvalidate]: (input) =>
           pullRequests.invalidate(input, { notifyReaders: true }).pipe(
             // A reader asking for fresh host state also wants the thread badges it feeds to
@@ -2506,13 +2530,13 @@ const layerWsRpc = (
           ),
         [WS_METHODS.pullRequestsSubscribeRefreshes]: () => pullRequests.subscribeRefreshes,
         [WS_METHODS.pullRequestsReviewerCandidates]: (input) =>
-          withPullRequestViewer(input, pullRequests.reviewerCandidates(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.reviewerCandidates(input)),
         [WS_METHODS.pullRequestsRequestReviewers]: (input) =>
-          withPullRequestViewer(input, pullRequests.requestReviewers(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.requestReviewers(input)),
         [WS_METHODS.pullRequestsLabelCandidates]: (input) =>
-          withPullRequestViewer(input, pullRequests.labelCandidates(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.labelCandidates(input)),
         [WS_METHODS.pullRequestsSetLabels]: (input) =>
-          withPullRequestViewer(input, pullRequests.setLabels(input)),
+          pullRequests.withRoutingCredential(input, pullRequests.setLabels(input)),
         [WS_METHODS.sourceControlLookupRepository]: (input) =>
           sourceControlRepositories.lookupRepository(input),
         [WS_METHODS.sourceControlCloneRepository]: (input) =>
@@ -2652,6 +2676,7 @@ const layerWsRpc = (
             ),
           ),
         [WS_METHODS.shellOpenInEditor]: (input) => externalLauncher.launchEditor(input),
+        [WS_METHODS.filesystemGetMetadata]: (input) => workspaceFileSystem.getMetadata(input),
         [WS_METHODS.filesystemBrowse]: (input) =>
           workspaceEntries.browse(input).pipe(
             Effect.mapError(
@@ -3113,6 +3138,7 @@ export const layer = Layer.unwrap(
     const serverBrowser = yield* ServerBrowser.ServerBrowser;
     const serverSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
     const pullRequests = yield* PullRequestService.PullRequestService;
+    const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
     const sql = yield* SqlClient.SqlClient;
     return HttpRouter.add(
       "GET",
@@ -3176,6 +3202,14 @@ export const layer = Layer.unwrap(
               // One server-lifetime service means clients share the same PR caches, and a WS
               // mutation invalidates the HTTP diff cache that every client reads from.
               Layer.provide(Layer.succeed(PullRequestService.PullRequestService, pullRequests)),
+              Layer.provide(OtlpEndpointCheck.layer),
+              // Shared like the pull request service, so concurrent generations single-flight.
+              Layer.provide(
+                Layer.succeed(
+                  PullRequestReviewGuideService.PullRequestReviewGuideService,
+                  reviewGuides,
+                ),
+              ),
               Layer.provide(SourceControlDiscovery.layer),
             ),
           ),

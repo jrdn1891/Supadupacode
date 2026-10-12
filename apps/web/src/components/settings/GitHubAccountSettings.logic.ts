@@ -1,4 +1,5 @@
-import type { GitHubSettings, SourceControlProviderAuth } from "@supacode/contracts";
+import type { SourceControlProviderAuth } from "@supacode/contracts";
+import type { GitHubSettings } from "@supacode/client-runtime/source-control-clients";
 
 export type GitHubDiscoveredAccount = NonNullable<SourceControlProviderAuth["accounts"]>[number];
 
@@ -17,8 +18,9 @@ export interface GitHubHostGroup {
 /** Groups gh's logins by host, in the order gh reported the hosts. */
 export function groupGitHubAccounts(
   accounts: ReadonlyArray<GitHubDiscoveredAccount>,
+  additionalHosts: readonly string[] = [],
 ): ReadonlyArray<GitHubHostGroup> {
-  const hosts = [...new Set(accounts.map((entry) => entry.host))];
+  const hosts = [...new Set([...accounts.map((entry) => entry.host), ...additionalHosts])];
   return hosts.map((host) => {
     const entries = accounts.filter((entry) => entry.host === host);
     const stored = entries.filter((entry) => entry.environmentVariable === undefined);
