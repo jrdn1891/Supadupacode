@@ -27,7 +27,7 @@ describe("resolveVoiceComposerPresentation", () => {
     expect(
       resolveVoiceComposerPresentation({ phase: "recording", error: null, errorAction: null }, 64),
     ).toMatchObject({
-      leadingAction: "cancel",
+      leadingAction: "stop",
       trailingAction: "confirm",
       showsSend: false,
       statusLabel: "Recording 1:04",

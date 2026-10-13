@@ -20,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { AppActivityIndicator } from "../../components/AppActivityIndicator";
+import { GlassSurface } from "../../components/GlassSurface";
 import { AppText as Text } from "../../components/AppText";
 import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
 import { cn } from "../../lib/cn";
@@ -85,7 +86,7 @@ const DRAFT_TOOLBAR_ENTERING = toolbarFlip(90, 0);
 const DRAFT_TOOLBAR_EXITING = toolbarFlip(0, 90);
 const DICTATION_TOOLBAR_ENTERING = toolbarFlip(-90, 0);
 const DICTATION_TOOLBAR_EXITING = toolbarFlip(0, -90);
-const WAVEFORM_BAR_HEIGHT = 32;
+const WAVEFORM_BAR_HEIGHT = 16;
 const WAVEFORM_MIN_BAR_HEIGHT = 2;
 const WAVEFORM_BAR_SPACING = 5;
 const WAVEFORM_TIMING = {
@@ -163,7 +164,7 @@ const WaveformBar = memo(function WaveformBar(props: {
   const { audioLevels, sampleIndex } = props;
   const height = props.height ?? WAVEFORM_BAR_HEIGHT;
   const animatedStyle = useAnimatedStyle(() => {
-    const level = audioLevels.value[sampleIndex] ?? 0;
+    const level = audioLevels.get()[sampleIndex] ?? 0;
     return {
       opacity: withTiming(0.22 + level * 0.78, WAVEFORM_TIMING),
       transform: [
@@ -271,53 +272,48 @@ function VoiceActionButton(props: {
   readonly icon: AppSymbolName;
   readonly loading?: boolean;
   readonly onPress: () => void;
-  readonly variant?: "plain" | "primary";
+  readonly variant?: "plain" | "secondary" | "primary";
 }) {
   const variant = props.variant ?? "plain";
-  const loadingVisibility = useSharedValue(props.loading ? 1 : 0);
-  useLayoutEffect(() => {
-    loadingVisibility.set(withTiming(props.loading ? 1 : 0, DICTATION_TIMING));
-  }, [loadingVisibility, props.loading]);
-  const primaryStyle = useAnimatedStyle(() => ({ opacity: 1 - loadingVisibility.value }));
+  const content = props.loading ? (
+    <AppActivityIndicator
+      size="small"
+      colorClassName={variant === "primary" ? "accent-background" : "accent-icon-muted"}
+    />
+  ) : (
+    <SymbolView
+      name={props.icon}
+      size={20}
+      weight="semibold"
+      tintColorClassName={variant === "primary" ? "accent-background" : "accent-icon"}
+      type="monochrome"
+    />
+  );
 
   return (
     <Pressable
       accessibilityLabel={props.accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={{ busy: props.loading, disabled: props.disabled }}
-      className="size-[44px] shrink-0 items-center justify-center active:opacity-70"
+      className={cn(
+        "h-11 items-center justify-center active:opacity-70",
+        variant === "plain" ? "w-11 shrink-0" : "min-w-11 flex-1 rounded-full",
+        variant === "primary" && "bg-foreground",
+      )}
       disabled={props.disabled}
       onPress={props.onPress}
       style={{ opacity: props.disabled && !props.loading ? 0.4 : 1 }}
     >
-      <View
-        className={cn(
-          "items-center justify-center",
-          variant === "primary" ? "size-[30px] rounded-full bg-subtle" : "size-[44px]",
-        )}
-      >
-        {variant === "primary" ? (
-          <Animated.View
-            className="absolute inset-0 rounded-full bg-primary"
-            style={primaryStyle}
-          />
-        ) : null}
-        <View className="absolute inset-0 items-center justify-center">
-          {props.loading ? (
-            <AppActivityIndicator size="small" colorClassName="accent-icon-muted" />
-          ) : (
-            <SymbolView
-              name={props.icon}
-              size={variant === "primary" ? 16 : 20}
-              weight={variant === "primary" ? "semibold" : "regular"}
-              tintColorClassName={
-                variant === "primary" ? "accent-primary-foreground" : "accent-icon"
-              }
-              type="monochrome"
-            />
-          )}
-        </View>
-      </View>
+      {variant === "secondary" ? (
+        <GlassSurface
+          className="h-11 w-full items-center justify-center"
+          style={{ borderRadius: 22 }}
+        >
+          {content}
+        </GlassSurface>
+      ) : (
+        content
+      )}
     </Pressable>
   );
 }
@@ -334,16 +330,16 @@ export function ComposerDictationStatus(props: {
     recordingVisibility.set(withTiming(props.phase === "recording" ? 1 : 0, DICTATION_TIMING));
   }, [props.phase, recordingVisibility]);
   const waveformStyle = useAnimatedStyle(() => ({
-    opacity: recordingVisibility.value,
+    opacity: recordingVisibility.get(),
   }));
   const labelStyle = useAnimatedStyle(() => ({
-    opacity: 1 - recordingVisibility.value,
+    opacity: 1 - recordingVisibility.get(),
   }));
 
   if (!props.presentation.statusLabel) return null;
   const isError = props.presentation.statusKind === "error";
   return (
-    <View className="relative h-11 min-w-0 flex-1 justify-center">
+    <View className="relative h-11 min-w-0 flex-[1.4] justify-center">
       {isError ? (
         <View className="min-w-0 flex-row items-center gap-1.5 px-2">
           <Text className="min-w-0 flex-1 text-sm text-danger-foreground" numberOfLines={2}>
@@ -365,43 +361,47 @@ export function ComposerDictationStatus(props: {
           </Pressable>
         </View>
       ) : (
-        <View
+        <GlassSurface
           accessible
           accessibilityLabel={props.presentation.statusLabel}
           accessibilityLiveRegion={props.phase === "recording" ? "none" : "polite"}
           className="h-11"
+          style={{ borderRadius: 22 }}
         >
           <Animated.View
-            className="absolute inset-0 min-w-0 flex-row items-center gap-2 px-1"
+            className="absolute inset-0 min-w-0 flex-row items-center gap-2 px-3"
             style={waveformStyle}
           >
-            <VoiceWaveform audioLevels={props.audioLevels} />
             <DictationElapsedTime
-              className="text-foreground-muted"
+              className="text-xl font-semibold text-foreground"
               seconds={props.elapsedSeconds}
             />
+            <VoiceWaveform audioLevels={props.audioLevels} />
           </Animated.View>
           <Animated.View className="absolute inset-0 justify-center px-2" style={labelStyle}>
             <Text className="text-center text-sm text-foreground-muted" numberOfLines={1}>
               {props.presentation.statusLabel}
             </Text>
           </Animated.View>
-        </View>
+        </GlassSurface>
       )}
     </View>
   );
 }
 
-export function ComposerDictationCancelAction(props: {
+export function ComposerDictationLeadingAction(props: {
   readonly presentation: VoiceComposerPresentation;
+  readonly onStop: () => void;
   readonly onCancel: () => void;
 }) {
-  if (props.presentation.leadingAction !== "cancel") return null;
+  const action = props.presentation.leadingAction;
+  if (!action) return null;
   return (
     <VoiceActionButton
-      accessibilityLabel="Cancel dictation"
-      icon="xmark"
-      onPress={props.onCancel}
+      accessibilityLabel={action === "stop" ? "Stop dictation and review" : "Cancel dictation"}
+      icon={action === "stop" ? "stop.fill" : "xmark"}
+      onPress={action === "stop" ? props.onStop : props.onCancel}
+      variant="secondary"
     />
   );
 }
@@ -413,18 +413,20 @@ export function ComposerDictationPrimaryAction(props: {
   readonly disabled?: boolean;
   readonly onStart: () => void;
   readonly onConfirm: () => void;
+  readonly submitsMessage?: boolean;
   readonly onCancel: () => void;
 }) {
   if (props.presentation.trailingAction === "confirm") {
+    const confirmationLabel = props.submitsMessage ? "Transcribe and send" : "Finish dictation";
     return (
       <VoiceActionButton
         accessibilityLabel={
           props.presentation.confirmationEnabled
-            ? "Finish dictation"
+            ? confirmationLabel
             : (props.presentation.statusLabel ?? "Preparing voice input")
         }
-        disabled={!props.presentation.confirmationEnabled}
-        icon="checkmark"
+        disabled={props.disabled || !props.presentation.confirmationEnabled}
+        icon={props.submitsMessage ? "arrow.up" : "checkmark"}
         loading={!props.presentation.confirmationEnabled}
         onPress={props.onConfirm}
         variant="primary"
