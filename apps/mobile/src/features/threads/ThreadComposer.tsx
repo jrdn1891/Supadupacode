@@ -104,7 +104,7 @@ import { ComposerPopoverAnchor } from "./ComposerPopoverAnchor";
 import { ComposerQueuedEditAttachments } from "./ComposerQueuedEdit";
 import { useComposerCommandMenu } from "./use-composer-command-menu";
 import {
-  ComposerDictationCancelAction,
+  ComposerDictationLeadingAction,
   ComposerDictationDraftContent,
   ComposerDictationPrimaryAction,
   ComposerDictationStartAction,
@@ -324,6 +324,7 @@ export function ComposerSurface(props: {
   readonly style: ViewStyle;
   /** Morphs between the compact and expanded composer layouts. */
   readonly animateLayout?: boolean;
+  readonly transparent?: boolean;
 }) {
   const colors = useUniwindTheme();
   const targetBorderRadius =
@@ -350,7 +351,9 @@ export function ComposerSurface(props: {
   return (
     <Animated.View
       className={
-        Platform.OS === "android" ? undefined : "shadow-[0_6px_28px] shadow-adaptive-black-a15-a35"
+        Platform.OS === "android" || props.transparent
+          ? undefined
+          : "shadow-[0_6px_28px] shadow-adaptive-black-a15-a35"
       }
       layout={layoutTransition}
       style={[
@@ -360,20 +363,22 @@ export function ComposerSurface(props: {
         },
       ]}
     >
-      <AnimatedGlassSurface
-        chrome="none"
-        fallbackColor={colors["--color-composer-surface"]}
-        fallbackClassName="border border-composer-border"
-        glassEffectStyle="regular"
-        // The composer is a passive material containing interactive controls.
-        // Keep native glass out of the interactive content's layout path.
-        pointerEvents="none"
-        tintColor="transparent"
-        layout={layoutTransition}
-        style={[{ position: "absolute", inset: 0 }, animatedShapeStyle]}
-      >
-        {null}
-      </AnimatedGlassSurface>
+      {!props.transparent ? (
+        <AnimatedGlassSurface
+          chrome="none"
+          fallbackColor={colors["--color-composer-surface"]}
+          fallbackClassName="border border-composer-border"
+          glassEffectStyle="regular"
+          // The composer is a passive material containing interactive controls.
+          // Keep native glass out of the interactive content's layout path.
+          pointerEvents="none"
+          tintColor="transparent"
+          layout={layoutTransition}
+          style={[{ position: "absolute", inset: 0 }, animatedShapeStyle]}
+        >
+          {null}
+        </AnimatedGlassSurface>
+      ) : null}
       <Animated.View
         collapsable={false}
         layout={layoutTransition}
@@ -532,14 +537,17 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     selection: composerMenu.selection,
     onChangeDraftMessage: (text) => setComposerDraftText(composerDraftKey, text),
     onChangeSelection: composerMenu.onSelectionChange,
+    onSubmit: () => {
+      if (canSend) void handleSend();
+    },
   });
   const voicePresentation = resolveVoiceComposerPresentation(
     voiceInput.state,
     voiceInput.elapsedSeconds,
   );
   const isVoiceInputPresented = voicePresentation.statusLabel !== null;
-  // An open draft stays visible; only a collapsed composer becomes a voice strip.
-  const isExpanded = isFocused || settingsSheetPresentation.keepsComposerExpanded;
+  const isExpanded =
+    !voiceInput.isBusy && (isFocused || settingsSheetPresentation.keepsComposerExpanded);
   const showsCompactDictation = isVoiceInputPresented && !isExpanded;
   const isToolbarVisible = isExpanded || isVoiceInputPresented;
   const attachmentBlockReason = composerAttachmentUploadBlockReason({
@@ -555,13 +563,12 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     props.sendBlockedReason ??
     (pendingPastedTextAttachmentCount > 0 ? "Attaching pasted text" : null) ??
     attachmentBlockReason;
-  const canSend =
+  const canSubmitDraft =
     (props.canOperateThread || props.connectionState !== "connected") &&
-    hasContent &&
     !contextImports[composerDraftKey] &&
-    !voiceInput.blocksSubmission &&
     sendBlockedReason === null &&
     !modelUnavailable;
+  const canSend = canSubmitDraft && hasContent && !voiceInput.blocksSubmission;
 
   // Keep the feed inset aligned with the card or compact dictation strip.
   useEffect(() => {
@@ -786,6 +793,10 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     [navigation, settingsSheetPresentation.onStackTransitionsFinished],
   );
 
+  const startDictation = () => {
+    inputRef.current?.blur();
+    voiceInput.start();
+  };
   const draftAction = showStopAction ? (
     <ComposerActionButton
       accessibilityLabel="Stop agent"
@@ -808,7 +819,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     <ComposerDictationStartAction
       state={voiceInput.state}
       isAvailable={voiceInput.isAvailable}
-      onStart={voiceInput.start}
+      onStart={startDictation}
       onCancel={voiceInput.cancel}
     />
   );
@@ -878,6 +889,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
         ) : null}
 
         <ComposerSurface
+          transparent={voiceInput.isBusy}
           style={
             isExpanded
               ? {
@@ -1139,10 +1151,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                 paddingBottom={0}
                 paddingHorizontal={0}
                 paddingTop={0}
-                style={{ gap: 0, justifyContent: "space-between" }}
+                style={{ gap: voiceInput.isBusy ? 8 : 0, justifyContent: "space-between" }}
               >
-                <ComposerDictationCancelAction
+                <ComposerDictationLeadingAction
                   presentation={voicePresentation}
+                  onStop={voiceInput.stop}
                   onCancel={voiceInput.cancel}
                 />
                 {isVoiceInputPresented ? (
@@ -1188,8 +1201,10 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                     state={voiceInput.state}
                     presentation={voicePresentation}
                     isAvailable={voiceInput.isAvailable}
-                    onStart={voiceInput.start}
-                    onConfirm={voiceInput.stop}
+                    disabled={!canSubmitDraft}
+                    onStart={startDictation}
+                    onConfirm={voiceInput.stopAndSubmit}
+                    submitsMessage
                     onCancel={voiceInput.cancel}
                   />
                 )}

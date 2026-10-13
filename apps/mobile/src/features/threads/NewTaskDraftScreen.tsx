@@ -84,7 +84,7 @@ import { COMPOSER_LAYOUT_TRANSITION, ComposerSurface } from "./ThreadComposer";
 import { ComposerCommandPopover } from "./ComposerCommandPopover";
 import { useComposerCommandMenu } from "./use-composer-command-menu";
 import {
-  ComposerDictationCancelAction,
+  ComposerDictationLeadingAction,
   ComposerDictationPrimaryAction,
   ComposerDictationStatus,
   ComposerDictationToolbar,
@@ -589,6 +589,9 @@ export function NewTaskDraftScreen(props: {
     disabled: isIncomingShareTransferPending || isImportingShare || flow.submitting,
     onChangeDraftMessage: flow.setPrompt,
     onChangeSelection: composerMenu.onSelectionChange,
+    onSubmit: () => {
+      if (canStart) void handleStart();
+    },
   });
   const voicePresentation = resolveVoiceComposerPresentation(
     voiceInput.state,
@@ -628,6 +631,19 @@ export function NewTaskDraftScreen(props: {
     !props.incomingShareId ||
     (hasImportedIncomingShare && !incomingShare) ||
     isIncomingShareUnavailable;
+  const hasContent = flow.prompt.trim().length > 0 || flow.attachments.length > 0;
+  const canSubmitDraft =
+    !isComposerInteractionLocked &&
+    !cloneBlocksStart &&
+    taskPermissionReason === null &&
+    attachmentBlockReason === null &&
+    !modelUnavailable &&
+    Boolean(flow.selectedProject) &&
+    Boolean(flow.selectedModel) &&
+    isIncomingShareReady &&
+    !isImportingShare &&
+    pendingPastedTextAttachmentCount === 0;
+  const canStart = canSubmitDraft && hasContent && !voiceInput.blocksSubmission;
   const appliedInitialProjectKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (cancelledIncomingShareId === props.incomingShareId) {
@@ -1456,20 +1472,6 @@ export function NewTaskDraftScreen(props: {
   }
 
   const isAndroid = Platform.OS === "android";
-  const hasContent = flow.prompt.trim().length > 0 || flow.attachments.length > 0;
-  const canStart =
-    !isComposerInteractionLocked &&
-    !cloneBlocksStart &&
-    taskPermissionReason === null &&
-    attachmentBlockReason === null &&
-    !modelUnavailable &&
-    Boolean(flow.selectedProject) &&
-    Boolean(flow.selectedModel) &&
-    hasContent &&
-    isIncomingShareReady &&
-    !isImportingShare &&
-    pendingPastedTextAttachmentCount === 0 &&
-    !voiceInput.blocksSubmission;
   const openDraftDocument = (attachment: ComposerDocumentAttachment) => {
     // A draft attachment lives only in the draft. Without its key the screen would fall through
     // to a remote lookup for bytes the server has never seen.
@@ -1753,49 +1755,56 @@ export function NewTaskDraftScreen(props: {
       ) : null}
 
       <ComposerSurface
-        style={{
-          borderRadius: 26,
-          minHeight: 140,
-          overflow: "hidden",
-          paddingBottom: 6,
-          paddingTop: 14,
-        }}
+        transparent={voiceInput.isBusy}
+        style={
+          voiceInput.isBusy
+            ? { borderRadius: 27, paddingVertical: 2 }
+            : {
+                borderRadius: 26,
+                minHeight: 140,
+                overflow: "hidden",
+                paddingBottom: 6,
+                paddingTop: 14,
+              }
+        }
       >
-        {stripAttachments.length > 0 ? (
-          <Animated.View className="px-[14px] pb-2.5" exiting={FadeOut.duration(120)}>
-            <ComposerAttachmentStrip
-              environmentId={selectedProject.environmentId}
-              attachments={stripAttachments}
-              imageBorderRadius={16}
-              imageSize={72}
-              onRemove={
-                isComposerInteractionLocked || voiceInput.isBusy
-                  ? () => undefined
-                  : flow.removeAttachment
-              }
-              onPressPreview={
-                isComposerInteractionLocked || voiceInput.isBusy ? undefined : openFilePreview
-              }
-              onPressVideo={
-                isComposerInteractionLocked || voiceInput.isBusy ? undefined : openVideoPreview
-              }
-              onPressDocument={
-                isComposerInteractionLocked || voiceInput.isBusy
-                  ? undefined
-                  : (attachment) =>
-                      openDraftDocument({
-                        attachmentId: attachment.id,
-                        name: attachment.name,
-                        mimeType: attachment.mimeType,
-                        sizeBytes: attachment.sizeBytes,
-                      })
-              }
-            />
-          </Animated.View>
-        ) : null}
+        <View style={voiceInput.isBusy ? { display: "none" } : undefined}>
+          {stripAttachments.length > 0 ? (
+            <Animated.View className="px-[14px] pb-2.5" exiting={FadeOut.duration(120)}>
+              <ComposerAttachmentStrip
+                environmentId={selectedProject.environmentId}
+                attachments={stripAttachments}
+                imageBorderRadius={16}
+                imageSize={72}
+                onRemove={
+                  isComposerInteractionLocked || voiceInput.isBusy
+                    ? () => undefined
+                    : flow.removeAttachment
+                }
+                onPressPreview={
+                  isComposerInteractionLocked || voiceInput.isBusy ? undefined : openFilePreview
+                }
+                onPressVideo={
+                  isComposerInteractionLocked || voiceInput.isBusy ? undefined : openVideoPreview
+                }
+                onPressDocument={
+                  isComposerInteractionLocked || voiceInput.isBusy
+                    ? undefined
+                    : (attachment) =>
+                        openDraftDocument({
+                          attachmentId: attachment.id,
+                          name: attachment.name,
+                          mimeType: attachment.mimeType,
+                          sizeBytes: attachment.sizeBytes,
+                        })
+                }
+              />
+            </Animated.View>
+          ) : null}
 
-        <View className="px-[14px]">{promptEditor}</View>
-        <View className="h-1" />
+          <View className="px-[14px]">{promptEditor}</View>
+          <View className="h-1" />
+        </View>
 
         <Animated.View layout={COMPOSER_LAYOUT_TRANSITION} collapsable={false}>
           <ComposerDictationToolbar showsDictation={isVoiceInputPresented}>
@@ -1803,10 +1812,11 @@ export function NewTaskDraftScreen(props: {
               paddingBottom={0}
               paddingHorizontal={0}
               paddingTop={0}
-              style={{ gap: 0, justifyContent: "space-between" }}
+              style={{ gap: voiceInput.isBusy ? 8 : 0, justifyContent: "space-between" }}
             >
-              <ComposerDictationCancelAction
+              <ComposerDictationLeadingAction
                 presentation={voicePresentation}
+                onStop={voiceInput.stop}
                 onCancel={voiceInput.cancel}
               />
               {isVoiceInputPresented ? (
@@ -1877,9 +1887,17 @@ export function NewTaskDraftScreen(props: {
                   state={voiceInput.state}
                   presentation={voicePresentation}
                   isAvailable={voiceInput.isAvailable}
-                  disabled={isIncomingShareTransferPending || isImportingShare || flow.submitting}
-                  onStart={voiceInput.start}
-                  onConfirm={voiceInput.stop}
+                  disabled={
+                    voiceInput.isBusy
+                      ? !canSubmitDraft
+                      : isIncomingShareTransferPending || isImportingShare || flow.submitting
+                  }
+                  onStart={() => {
+                    promptInputRef.current?.blur();
+                    voiceInput.start();
+                  }}
+                  onConfirm={voiceInput.stopAndSubmit}
+                  submitsMessage
                   onCancel={voiceInput.cancel}
                 />
               )}

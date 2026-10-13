@@ -180,14 +180,16 @@ and use **Attach again** or remove the missing file before sending.
 
 ## Voice input on iPhone
 
-On supported iPhones with iOS 26 or later, use the composer's microphone to record,
-then confirm to transcribe. Text is inserted where your selection was when
-recording started, ready for you to review and edit before sending.
+On supported iPhones with iOS 26 or later, use the composer's microphone to record.
+Stop to transcribe and review the text, or tap the up arrow to transcribe and send.
+Text is inserted where your selection was when recording started. In scheduled-task
+prompts, confirming only updates the draft; save the schedule separately.
 
 The first use may download Apple's speech model and needs a network connection.
 Later transcription works offline for that language. Recordings can be up to five
-minutes long. Canceling, leaving the screen, or an audio interruption discards the
-recording and preserves your existing draft. While recording, the screen stays
+minutes long. Canceling or an audio interruption discards the recording and preserves
+your existing draft. Leaving the screen keeps dictation available in the floating
+control, but cancels a pending send. While recording, the screen stays
 awake; it can sleep normally once recording stops.
 
 Voice input records from the first connected microphone in **Settings → Microphone**.
