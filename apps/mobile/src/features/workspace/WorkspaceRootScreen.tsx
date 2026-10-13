@@ -27,7 +27,6 @@ import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import { workspaceToolbarHeight } from "./workspace-tabs-state";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import { useSidebarWorkspaceTabs } from "./useSidebarWorkspaceTabs";
-import { useWorkspaceDockBottomInset } from "./useWorkspaceDockBottomInset";
 
 const TAB_TITLES = {
   threads: "Threads",
@@ -68,7 +67,6 @@ function WorkspaceRootContent() {
       (nativeMetrics !== null && nativeMetrics.verticalBarEdge !== "none"));
   const width = columnMetrics?.width ?? windowWidth;
   const insets = useSafeAreaInsets();
-  const dockBottomInset = useWorkspaceDockBottomInset();
   const keyboardHeight = useKeyboardState((keyboard) => keyboard.height);
   const workspace = useWorkspaceTabs()!;
   const { state } = workspace;
@@ -88,13 +86,9 @@ function WorkspaceRootContent() {
     [width, navigation],
   );
   const tab = state.tabs[state.selectedTab];
-  const iosBottomClearance =
-    keyboardHeight > 0
-      ? Math.max(insets.bottom, keyboardHeight, 12) + 16
-      : dockBottomInset + workspace.dockHeight + 16;
   const bottomClearance =
     Platform.OS === "ios"
-      ? iosBottomClearance
+      ? Math.max(insets.bottom, keyboardHeight) + 16
       : keyboardHeight > 0 && tab.searchMode !== "resting"
         ? keyboardHeight + 64
         : Math.max(insets.bottom, 12) + workspaceToolbarHeight(tab.searchMode) + 16;
