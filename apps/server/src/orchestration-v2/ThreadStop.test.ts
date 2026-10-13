@@ -18,6 +18,8 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
+import * as Stream from "effect/Stream";
+import * as EventStore from "./EventStore.ts";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
@@ -27,6 +29,8 @@ import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import { OrchestrationEffectRequestV2 } from "./EffectOutbox.ts";
 import * as Orchestrator from "./Orchestrator.ts";
+import * as EffectWorker from "./EffectWorker.ts";
+import * as EffectOutbox from "./EffectOutbox.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
@@ -49,6 +53,8 @@ const layerTest = ThreadManagementService.layer.pipe(
     Layer.mergeAll(
       layerDatabase,
       ProjectionStore.layer.pipe(Layer.provide(layerDatabase)),
+      EventStore.layer.pipe(Layer.provide(layerDatabase)),
+      EffectOutbox.layer.pipe(Layer.provide(layerDatabase)),
       ProviderReplayHarness.layerWithRegistry(
         { name: "thread-stop" },
         ProviderAdapterRegistry.layerFromAdapters([adapter]),
@@ -589,9 +595,9 @@ it.effect("thread.stop marks a turn it cannot interrupt so a late agent watch is
   }).pipe(Effect.provide(layerTest)),
 );
 
-it.effect.each([false, true])(
-  "a native child stop with workflowOnly=%s persists its targeted effect and leaves its owner's queue and watch alone",
-  (workflowOnly) =>
+it.effect.each(["missing session", "completed", "failed", "cancelled"] as const)(
+  "a native child Stop only settles a confirmed %s outcome and preserves its owner and sibling",
+  (providerState) =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
       const projections = yield* ProjectionStore.ProjectionStoreV2;
@@ -615,8 +621,6 @@ it.effect.each([false, true])(
         },
         status: "running" as const,
         startedAt: now,
-        updatedAt: now,
-        ...(workflowOnly ? { workflow: { phases: [], agents: [] } } : {}),
       };
       yield* projections.apply({
         id: EventId.make("event:native-child-stop:agent"),
@@ -626,6 +630,49 @@ it.effect.each([false, true])(
         nodeId: subagent.id,
         occurredAt: now,
         payload: subagent,
+      });
+      const sibling = {
+        ...subagent,
+        id: NodeId.make("node:native-stop-sibling"),
+        childThreadId: null,
+      };
+      yield* projections.apply({
+        id: EventId.make("event:native-child-stop:sibling"),
+        type: "subagent.updated",
+        threadId,
+        runId: run.id,
+        nodeId: sibling.id,
+        occurredAt: now,
+        payload: sibling,
+      });
+      const item = before.turnItems.find(
+        (item) => item.type === "subagent" && item.subagentId === subagent.id,
+      )!;
+      yield* projections.apply({
+        id: EventId.make("event:native-child-stop:item"),
+        type: "turn-item.updated",
+        threadId,
+        runId: run.id,
+        occurredAt: now,
+        payload: { ...item, status: "running", completedAt: null },
+      });
+      const childRoot = {
+        ...before.nodes.find((node) => node.id === run.rootNodeId)!,
+        id: NodeId.make("node:native-stop-child-root"),
+        threadId: subagent.childThreadId!,
+        runId: null,
+        parentNodeId: null,
+        status: "running" as const,
+        countsForRun: false,
+        completedAt: null,
+      };
+      yield* projections.apply({
+        id: EventId.make("event:native-child-stop:child-root"),
+        type: "node.updated",
+        threadId: childRoot.threadId,
+        nodeId: childRoot.id,
+        occurredAt: now,
+        payload: childRoot,
       });
       const providerThread = before.providerThreads.find(
         (thread) => thread.id === run.providerThreadId,
@@ -671,34 +718,24 @@ it.effect.each([false, true])(
       });
       yield* send(threadId, "queued", "queue_after_active");
       const stateBefore = yield* threadState(threadId);
-      const commandId = CommandId.make(
-        workflowOnly
-          ? `server:workflow-stop:${subagent.id}:${DateTime.formatIso(now)}`
-          : "stop-native-child",
-      );
-      if (workflowOnly) {
-        const threads = yield* ThreadManagementService.ThreadManagementService;
-        yield* threads.stopWorkflow({ threadId, subagentId: subagent.id });
-      } else {
-        const refused = yield* Effect.exit(
-          orchestrator.dispatch({
-            type: "subagent.stop",
-            commandId: CommandId.make("stop-nonworkflow"),
-            threadId,
-            runId: run.id,
-            subagentId: subagent.id,
-            workflowOnly: true,
-          }),
-        );
-        assert.isTrue(Exit.isFailure(refused));
-        yield* orchestrator.dispatch({
-          type: "subagent.stop",
-          commandId,
-          threadId,
-          runId: run.id,
-          subagentId: subagent.id,
-        });
-      }
+      const eventStore = yield* EventStore.EventStoreV2;
+      const afterSequence = yield* eventStore.latestSequence({ threadId });
+      const confirmedStatus =
+        providerState === "completed" || providerState === "failed" || providerState === "cancelled"
+          ? providerState
+          : null;
+      const confirmedOutcome =
+        confirmedStatus === null
+          ? undefined
+          : { status: confirmedStatus, completedAt: now, result: "Actual provider outcome" };
+      const commandId = CommandId.make("stop-native-child");
+      yield* orchestrator.dispatch({
+        type: "subagent.stop",
+        commandId,
+        threadId,
+        runId: run.id,
+        subagentId: subagent.id,
+      });
       assert.deepEqual(yield* threadState(threadId), stateBefore);
       const effects = yield* sql<{ payload_json: string }>`
       SELECT payload_json FROM orchestration_v2_effect_outbox WHERE command_id = ${commandId}
@@ -725,5 +762,115 @@ it.effect.each([false, true])(
         }),
       );
       assert.isTrue(Exit.isFailure(unrelated));
+      // The provider outcome predates the delayed projection repair.
+      yield* TestClock.adjust("1 second");
+      // Only execute Stop's durable effect, with no terminal event ingestion.
+      yield* sql`DELETE FROM orchestration_v2_effect_outbox WHERE command_id != ${commandId}`;
+      if (providerState === "missing session") {
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        yield* worker.drain();
+      } else {
+        yield* orchestrator.dispatch({
+          type: "thread.background-work.settle",
+          commandId: CommandId.make("repair-native-child"),
+          threadId,
+          providerThreadId: providerThread.id,
+          providerTurnId,
+          subagent: { id: subagent.id, stoppedAt: now, outcome: confirmedOutcome! },
+        });
+      }
+      const settled = yield* orchestrator.getThreadProjection(threadId);
+      const cancelled = settled.subagents.find((task) => task.id === subagent.id)!;
+      if (confirmedOutcome === undefined) {
+        const events = yield* eventStore.read({ threadId, afterSequence }).pipe(Stream.runCollect);
+        assert.isFalse(
+          events.some(
+            ({ event }) =>
+              (event.type === "subagent.updated" ||
+                event.type === "node.updated" ||
+                event.type === "turn-item.updated") &&
+              ["completed", "failed", "cancelled", "interrupted"].includes(event.payload.status),
+          ),
+        );
+        assert.equal(cancelled.status, "running");
+        assert.equal(
+          (yield* orchestrator.getThreadProjection(childRoot.threadId)).nodes.find(
+            (node) => node.id === childRoot.id,
+          )?.status,
+          "running",
+        );
+        assert.deepEqual(yield* threadState(threadId), stateBefore);
+        return;
+      }
+
+      // Cached clients resume from this sequence, so all lifecycle repairs
+      // must be stored in the parent stream, not just applied to projections.
+      const repaired = yield* eventStore.read({ threadId, afterSequence }).pipe(Stream.runCollect);
+      const terminal = repaired.flatMap(({ event }) =>
+        (event.type === "subagent.updated" ||
+          event.type === "node.updated" ||
+          event.type === "turn-item.updated") &&
+        event.payload.status === confirmedStatus
+          ? [event]
+          : [],
+      );
+      assert.deepEqual(terminal.map((event) => event.type).sort(), [
+        "node.updated",
+        "subagent.updated",
+        "turn-item.updated",
+      ]);
+      for (const event of terminal) {
+        assert.equal(event.nodeId, subagent.id);
+        assert.equal(
+          DateTime.toEpochMillis(event.payload.completedAt!),
+          DateTime.toEpochMillis(confirmedOutcome!.completedAt),
+        );
+        if (event.type === "subagent.updated" || event.type === "turn-item.updated") {
+          assert.isDefined(event.payload.updatedAt);
+        }
+      }
+
+      assert.equal(cancelled.status, confirmedStatus);
+      assert.isNotNull(cancelled.completedAt);
+      assert.equal(
+        DateTime.toEpochMillis(cancelled.completedAt!),
+        DateTime.toEpochMillis(confirmedOutcome!.completedAt),
+      );
+      assert.equal(cancelled.result, confirmedOutcome!.result);
+      assert.equal(
+        settled.turnItems.find((candidate) => candidate.id === item.id)?.status,
+        confirmedStatus,
+      );
+      const child = yield* orchestrator.getThreadProjection(childRoot.threadId);
+      assert.equal(child.nodes.find((node) => node.id === childRoot.id)?.status, confirmedStatus);
+      assert.isNotNull(child.nodes.find((node) => node.id === childRoot.id)?.completedAt);
+      assert.equal(settled.subagents.find((task) => task.id === sibling.id)?.status, "running");
+      assert.deepEqual(yield* threadState(threadId), stateBefore);
+      // An old Stop follow-up cannot cancel a genuine subsequent resume.
+      yield* TestClock.adjust("1 second");
+      const resumedAt = yield* DateTime.now;
+      yield* projections.apply({
+        id: EventId.make("event:native-child-stop:resume"),
+        type: "subagent.updated",
+        threadId,
+        runId: run.id,
+        nodeId: subagent.id,
+        occurredAt: resumedAt,
+        payload: { ...cancelled, status: "running", startedAt: resumedAt, completedAt: null },
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.background-work.settle",
+        commandId: CommandId.make("old-stop-after-resume"),
+        threadId,
+        providerThreadId: providerThread.id,
+        providerTurnId,
+        subagent: { id: subagent.id, stoppedAt: now, outcome: confirmedOutcome },
+      });
+      assert.equal(
+        (yield* orchestrator.getThreadProjection(threadId)).subagents.find(
+          (task) => task.id === subagent.id,
+        )?.status,
+        "running",
+      );
     }).pipe(Effect.provide(layerTest)),
 );
