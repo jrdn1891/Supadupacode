@@ -543,6 +543,7 @@ import {
   resolveProactiveTurnDiffAction,
   resolveThreadMetadataUpdateForNextTurn,
   resolveSendEnvMode,
+  shouldRequireWorktreeBaseBranch,
   revokeBlobPreviewUrl,
   revokeUserMessagePreviewUrls,
   startNewThreadForProject,
@@ -7098,14 +7099,18 @@ export default function ChatView(props: ChatViewProps) {
     environmentId,
     cwd: isSelectingWorktreeBase && !selectedThreadBranch ? gitStatusCwd : null,
   });
+  const worktreeBaseRefsLoading =
+    worktreeBaseRefs.isRefreshing ||
+    (worktreeBaseRefs.data === null && worktreeBaseRefs.error === null);
   const activeThreadBranch = isSelectingWorktreeBase
     ? resolveWorktreeBaseBranch({
         selectedBranch: selectedThreadBranch,
         refs: worktreeBaseRefs.refs,
-        refsLoading: worktreeBaseRefs.data === null && worktreeBaseRefs.error === null,
+        refsLoading: worktreeBaseRefsLoading,
         currentGitBranch: gitStatusQuery.data?.refName ?? null,
       })
     : selectedThreadBranch;
+  const worktreeBaseRefsSettled = worktreeBaseRefs.data !== null && !worktreeBaseRefs.isRefreshing;
   const localCheckoutBranchMismatch = useMemo(
     () =>
       isServerThread
@@ -8995,7 +9000,12 @@ export default function ChatView(props: ChatViewProps) {
       multipleModelSelections !== null &&
       (!isLocalDraftThread ||
         !isGitRepo ||
-        (!activeThreadBranch && !activeEnvironmentUnavailable) ||
+        shouldRequireWorktreeBaseBranch({
+          shouldCreateWorktree: true,
+          activeThreadBranch,
+          refsSettled: worktreeBaseRefsSettled,
+          environmentUnavailable: activeEnvironmentUnavailable,
+        }) ||
         multipleModelSelections.length === 0)
     ) {
       toastManager.add(
@@ -9292,7 +9302,14 @@ export default function ChatView(props: ChatViewProps) {
 
     const shouldCreateWorktree =
       isFirstMessage && sendEnvMode === "worktree" && !activeThread.worktreePath;
-    if (shouldCreateWorktree && !activeThreadBranch && !activeEnvironmentUnavailable) {
+    if (
+      shouldRequireWorktreeBaseBranch({
+        shouldCreateWorktree,
+        activeThreadBranch,
+        refsSettled: worktreeBaseRefsSettled,
+        environmentUnavailable: activeEnvironmentUnavailable,
+      })
+    ) {
       setThreadError(threadIdForSend, "Select a base branch before sending in New worktree mode.");
       return;
     }
