@@ -793,6 +793,10 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     [navigation, settingsSheetPresentation.onStackTransitionsFinished],
   );
 
+  const startDictation = () => {
+    inputRef.current?.blur();
+    voiceInput.start();
+  };
   const draftAction = showStopAction ? (
     <ComposerActionButton
       accessibilityLabel="Stop agent"
@@ -815,7 +819,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     <ComposerDictationStartAction
       state={voiceInput.state}
       isAvailable={voiceInput.isAvailable}
-      onStart={voiceInput.start}
+      onStart={startDictation}
       onCancel={voiceInput.cancel}
     />
   );
@@ -1198,7 +1202,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                     presentation={voicePresentation}
                     isAvailable={voiceInput.isAvailable}
                     disabled={!canSubmitDraft}
-                    onStart={voiceInput.start}
+                    onStart={startDictation}
                     onConfirm={voiceInput.stopAndSubmit}
                     submitsMessage
                     onCancel={voiceInput.cancel}

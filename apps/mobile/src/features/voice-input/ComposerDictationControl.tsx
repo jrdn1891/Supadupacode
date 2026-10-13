@@ -278,14 +278,14 @@ function VoiceActionButton(props: {
   const content = props.loading ? (
     <AppActivityIndicator
       size="small"
-      colorClassName={variant === "primary" ? "accent-background" : "accent-icon-muted"}
+      colorClassName={variant === "primary" ? "accent-screen" : "accent-icon-muted"}
     />
   ) : (
     <SymbolView
       name={props.icon}
       size={20}
       weight="semibold"
-      tintColorClassName={variant === "primary" ? "accent-background" : "accent-icon"}
+      tintColorClassName={variant === "primary" ? "accent-screen" : "accent-icon"}
       type="monochrome"
     />
   );
@@ -297,7 +297,7 @@ function VoiceActionButton(props: {
       accessibilityState={{ busy: props.loading, disabled: props.disabled }}
       className={cn(
         "h-11 items-center justify-center active:opacity-70",
-        variant === "plain" ? "w-11 shrink-0" : "min-w-11 flex-1 rounded-full",
+        variant === "plain" ? "w-11 shrink-0" : "min-w-0 flex-1 rounded-full",
         variant === "primary" && "bg-foreground",
       )}
       disabled={props.disabled}

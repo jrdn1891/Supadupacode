@@ -1892,7 +1892,10 @@ export function NewTaskDraftScreen(props: {
                       ? !canSubmitDraft
                       : isIncomingShareTransferPending || isImportingShare || flow.submitting
                   }
-                  onStart={voiceInput.start}
+                  onStart={() => {
+                    promptInputRef.current?.blur();
+                    voiceInput.start();
+                  }}
                   onConfirm={voiceInput.stopAndSubmit}
                   submitsMessage
                   onCancel={voiceInput.cancel}
