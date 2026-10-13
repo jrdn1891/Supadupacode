@@ -9,6 +9,9 @@ import {
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
+  parseGitRemoteFetchUrls,
+  parseGitRemoteVerboseOutput,
+  parseGitRemoteVerboseUrls,
   repositoryBranchPrefix,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
   parseOriginUrlFromGitConfig,
@@ -153,6 +156,60 @@ describe("parseOriginUrlFromGitConfig", () => {
   it("returns null when there is no remote section", () => {
     expect(parseOriginUrlFromGitConfig("[core]\n\tbare = false\n")).toBeNull();
     expect(parseOriginUrlFromGitConfig("")).toBeNull();
+  });
+});
+
+describe("parseGitRemoteVerboseOutput", () => {
+  it("keeps partial-clone fetch remotes with trailing Git annotations", () => {
+    expect(
+      parseGitRemoteVerboseOutput(
+        [
+          "origin\thttps://github.com/acme/repo.git (fetch) [blob:none]",
+          "origin\thttps://github.com/acme/repo.git (push)",
+          "upstream\tgit@github.com:acme/repo.git (fetch)",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      {
+        name: "origin",
+        url: "https://github.com/acme/repo.git",
+        direction: "fetch",
+      },
+      {
+        name: "origin",
+        url: "https://github.com/acme/repo.git",
+        direction: "push",
+      },
+      {
+        name: "upstream",
+        url: "git@github.com:acme/repo.git",
+        direction: "fetch",
+      },
+    ]);
+
+    expect(
+      parseGitRemoteVerboseUrls(
+        [
+          "origin\thttps://github.com/acme/repo.git (fetch) [blob:none]",
+          "origin\thttps://github.com/acme/repo.git (push)",
+          "upstream\tgit@github.com:acme/repo.git (fetch)",
+        ].join("\n"),
+      ),
+    ).toEqual(
+      new Map([
+        [
+          "origin",
+          {
+            fetchUrl: "https://github.com/acme/repo.git",
+            pushUrl: "https://github.com/acme/repo.git",
+          },
+        ],
+        ["upstream", { fetchUrl: "git@github.com:acme/repo.git" }],
+      ]),
+    );
+    expect(
+      parseGitRemoteFetchUrls("origin\thttps://github.com/acme/repo.git (fetch) [blob:none]"),
+    ).toEqual(new Map([["origin", "https://github.com/acme/repo.git"]]));
   });
 });
 

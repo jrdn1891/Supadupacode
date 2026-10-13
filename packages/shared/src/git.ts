@@ -238,6 +238,59 @@ export function normalizeGitRemoteUrl(value: string): string {
   return normalized;
 }
 
+export type GitRemoteDirection = "fetch" | "push";
+
+export interface GitRemoteVerboseEntry {
+  readonly name: string;
+  readonly url: string;
+  readonly direction: GitRemoteDirection;
+}
+
+export interface GitRemoteVerboseUrls {
+  readonly fetchUrl?: string;
+  readonly pushUrl?: string;
+}
+
+export function parseGitRemoteVerboseOutput(output: string): ReadonlyArray<GitRemoteVerboseEntry> {
+  const remotes: GitRemoteVerboseEntry[] = [];
+  for (const line of output.split("\n")) {
+    const match = /^(\S+)\s+(.+?)\s+\((fetch|push)\)(?:\s+.*)?$/u.exec(line.trim());
+    if (!match) continue;
+    const [, name, url, direction] = match;
+    if (!name || !url || !direction) continue;
+    remotes.push({
+      name,
+      url,
+      direction: direction === "fetch" ? "fetch" : "push",
+    });
+  }
+  return remotes;
+}
+
+export function parseGitRemoteVerboseUrls(
+  output: string,
+): ReadonlyMap<string, GitRemoteVerboseUrls> {
+  const remotes = new Map<string, GitRemoteVerboseUrls>();
+  for (const remote of parseGitRemoteVerboseOutput(output)) {
+    const current = remotes.get(remote.name) ?? {};
+    remotes.set(
+      remote.name,
+      remote.direction === "fetch"
+        ? { ...current, fetchUrl: remote.url }
+        : { ...current, pushUrl: remote.url },
+    );
+  }
+  return remotes;
+}
+
+export function parseGitRemoteFetchUrls(output: string): ReadonlyMap<string, string> {
+  const fetchUrls = new Map<string, string>();
+  for (const [name, remote] of parseGitRemoteVerboseUrls(output)) {
+    if (remote.fetchUrl) fetchUrls.set(name, remote.fetchUrl);
+  }
+  return fetchUrls;
+}
+
 /**
  * Unquote a git config value: strip an inline `#` or `;` comment outside
  * quotes, then drop surrounding quotes and backslash escapes.

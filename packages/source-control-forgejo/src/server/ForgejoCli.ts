@@ -11,6 +11,7 @@ import * as NodePath from "node:path";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 import { decodeJsonResult } from "@supacode/shared/schemaJson";
+import { parseGitRemoteVerboseUrls } from "@supacode/shared/git";
 import * as HostProcess from "@supacode/shared/HostProcess";
 import * as SourceControlHost from "@supacode/source-control-core/server/SourceControlHost";
 import { collectUint8StreamText } from "@supacode/provider-core/server/collectStreamText";
@@ -515,12 +516,12 @@ export const make = Effect.gen(function* () {
       if (input.host) {
         const matchingUrls = [
           ...new Set(
-            result.stdout.split("\n").flatMap((line) => {
-              const url = /^\S+\s+(https?:\/\/\S+)\s+\(fetch\)$/.exec(line.trim())?.[1];
-              return url && parseForgejoRemote(url)?.host === input.host?.toLowerCase()
-                ? [url]
-                : [];
-            }),
+            [...parseGitRemoteVerboseUrls(result.stdout).values()]
+              .flatMap((remote) => (remote.fetchUrl ? [remote.fetchUrl] : []))
+              .filter((url) => /^https?:\/\//i.test(url))
+              .flatMap((url) =>
+                parseForgejoRemote(url)?.host === input.host?.toLowerCase() ? [url] : [],
+              ),
           ),
         ];
         const origins = [...new Set(matchingUrls.map((url) => new URL(url).origin))];
