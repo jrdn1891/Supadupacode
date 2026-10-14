@@ -30,6 +30,7 @@ export interface SceneDragView {
 
 const IDLE: SceneDragView = { preview: null, ghost: null };
 let view = IDLE;
+let snappedTo: string | null = null;
 const listeners = new Set<() => void>();
 
 function setView(next: SceneDragView) {
@@ -80,7 +81,18 @@ export function sceneDropTargetAt(
   return { kind: "pane", paneId, zone: sceneDropZone(rect, point), rect };
 }
 
+function targetKey(target: SceneDropTarget | null): string | null {
+  return target === null
+    ? null
+    : target.kind === "pane"
+      ? `${target.paneId}:${target.zone}`
+      : "backstage";
+}
+
 export function showSceneDrag(target: SceneDropTarget | null, ghost: SceneDragView["ghost"]) {
+  const key = targetKey(target);
+  if (key !== snappedTo && key !== null) void window.desktopBridge?.performHaptic?.("alignment");
+  snappedTo = key;
   setView({
     preview:
       target === null
@@ -93,5 +105,6 @@ export function showSceneDrag(target: SceneDropTarget | null, ghost: SceneDragVi
 }
 
 export function endSceneDrag() {
+  snappedTo = null;
   if (view !== IDLE) setView(IDLE);
 }

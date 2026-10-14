@@ -262,6 +262,11 @@ keeps a todo list, the chip shows how many steps are done; otherwise it shows ho
 has been working. Click a chip to bring the thread on stage, or drag it onto a pane to place it.
 Move the pointer over a finished chip and choose **×** to dismiss it.
 
+On macOS, the desktop app also lists backstage threads in the menu bar, with the count and the
+most urgent cue as the item's title. Choose a thread there to bring it on stage. On a Force Touch
+trackpad, the trackpad gives a light tap as a dragged thread or pane snaps to a drop zone, and a
+firmer one when you send a pane backstage.
+
 On iPhone and iPad, a **Backstage** card at the top of the thread list sums up the same threads,
 such as "1 needs you · 2 working". Tap it to list them, then tap one to open it. The phone gives
 a haptic tap when a backstage thread finishes or needs you.

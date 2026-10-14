@@ -3,29 +3,19 @@ import {
   type BackstageCue,
   type BackstageEntry,
   backstageDetail,
-  backstageEntries,
 } from "@supacode/client-runtime/state/backstage";
 import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/models";
 import { resolveProjectContext } from "@supacode/shared/projectSettings";
 import { XIcon } from "lucide-react";
-import { useMemo } from "react";
 
-import {
-  hasUnseenCompletion,
-  resolveSidebarThreadStatus,
-  resolveThreadLastVisitedAt,
-} from "../components/Sidebar.logic";
 import { ThreadContextMarker } from "../components/sidebar/ThreadLabels";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useAcknowledgeThreadWoke } from "../hooks/useThreadActions";
-import { useNowMinute } from "../hooks/useNowMinute";
 import { cn } from "../lib/utils";
-import { useServerConfigs, useThreadShells } from "../state/entities";
-import { useUiStateStore } from "../uiStateStore";
-import { sceneTargetKey, scenePanes } from "./scene.logic";
+import { useServerConfigs } from "../state/entities";
 import { useSceneDragView } from "./sceneDrag";
 import { beginSceneDrag } from "./sceneDragGesture";
-import { useSceneStore } from "./sceneStore";
+import { useBackstageEntries } from "./useBackstageEntries";
 import { useSceneActions } from "./useSceneActions";
 
 const RING_RADIUS = 5;
@@ -39,25 +29,8 @@ const CUE_COLOR: Readonly<Record<BackstageCue, string>> = {
 };
 
 export function SceneBackstage() {
-  const threads = useThreadShells();
-  const scene = useSceneStore((state) => state.scene);
-  const localVisits = useUiStateStore((state) => state.threadLastVisitedAtById);
-  const nowMinute = useNowMinute();
+  const { entries, nowMs } = useBackstageEntries(true);
   const dragging = useSceneDragView().ghost !== null;
-  const entries = useMemo(() => {
-    const stageKeys = new Set(scenePanes(scene).map((pane) => sceneTargetKey(pane.target)));
-    return backstageEntries({
-      threads,
-      onStage: (key) => stageKeys.has(key),
-      status: resolveSidebarThreadStatus,
-      unseen: (thread, key) =>
-        hasUnseenCompletion({
-          ...thread,
-          lastVisitedAt: resolveThreadLastVisitedAt(thread.lastVisitedAt, localVisits[key]),
-        }),
-      now: `${nowMinute}:00Z`,
-    });
-  }, [localVisits, nowMinute, scene, threads]);
   if (entries.length === 0 && !dragging) return null;
   return (
     <div
@@ -73,9 +46,7 @@ export function SceneBackstage() {
       {entries.length === 0 ? (
         <span className="text-xs text-muted-foreground">Drop a pane here to send it backstage</span>
       ) : (
-        entries.map((entry) => (
-          <BackstageChip key={entry.key} entry={entry} nowMinute={nowMinute} />
-        ))
+        entries.map((entry) => <BackstageChip key={entry.key} entry={entry} nowMs={nowMs} />)
       )}
     </div>
   );
@@ -83,10 +54,10 @@ export function SceneBackstage() {
 
 function BackstageChip({
   entry,
-  nowMinute,
+  nowMs,
 }: {
   readonly entry: BackstageEntry;
-  readonly nowMinute: string;
+  readonly nowMs: number;
 }) {
   const { thread, cue } = entry;
   const actions = useSceneActions();
@@ -99,7 +70,7 @@ function BackstageChip({
     kind: "server",
     threadRef: scopeThreadRef(thread.environmentId, thread.id),
   } as const;
-  const detail = backstageDetail(thread, cue, Date.parse(`${nowMinute}:00Z`));
+  const detail = backstageDetail(thread, cue, nowMs);
   return (
     <Tooltip>
       <TooltipTrigger

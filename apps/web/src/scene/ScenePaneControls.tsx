@@ -53,9 +53,10 @@ export function ScenePaneControls({
                     exceptPaneId: paneId,
                     title,
                     onRelease: ({ target, travelY, velocityY }) => {
-                      if (target?.kind === "backstage" || sceneThrowCommits(travelY, velocityY))
+                      if (target?.kind === "backstage" || sceneThrowCommits(travelY, velocityY)) {
+                        void window.desktopBridge?.performHaptic?.("level-change");
                         actions.close(paneId);
-                      else if (target?.kind === "pane")
+                      } else if (target?.kind === "pane")
                         actions.move(paneId, target.paneId, target.zone);
                     },
                   })
