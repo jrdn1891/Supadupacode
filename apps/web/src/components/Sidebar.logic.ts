@@ -197,10 +197,10 @@ function sectionAtSidebarSlot(items: readonly SidebarListItem[], index: number):
 }
 
 /** Resolve the destination section and pointer order from an arrayMove across
- * the separators. Only the pinned order is kept on drop. The working and
- * snoozed shelves are never destinations. */
+ * the separators. Only the pinned order is kept on drop. The working shelf is
+ * never a destination; dropping into the snoozed shelf parks. */
 export type SidebarDropTarget = {
-  readonly section: "pinned" | "active" | "settled";
+  readonly section: "pinned" | "active" | "snoozed" | "settled";
   readonly pinnedOrder: readonly string[];
   readonly activeOrder: readonly string[];
 };
@@ -216,7 +216,7 @@ export function resolveSidebarDropTarget(
   const moved = items.filter((_, index) => index !== activeIndex);
   moved.splice(overIndex, 0, items[activeIndex]!);
   const section = sectionAtSidebarSlot(moved, overIndex);
-  if (section === "working" || section === "snoozed") return null;
+  if (section === "working") return null;
   const pinnedOrder: string[] = [];
   const activeOrder: string[] = [];
   let currentSection: SidebarSection = "pinned";
@@ -259,18 +259,20 @@ export type SidebarThreadDropPlan =
       readonly unsettle: boolean;
       readonly unsnooze: boolean;
     }
-  | { readonly kind: "settle" };
+  | { readonly kind: "settle" }
+  | { readonly kind: "park" };
 
 /** What dropping in `to` does to a thread lifted from `from`, for the badge
     on the lifted row. Null while reordering inside one section and for the
-    working and snoozed shelves, which cannot be drop targets. */
-export type SidebarDropVerb = "pin" | "unpin" | "settle" | "unsettle" | "wake";
+    working shelf, which cannot be a drop target. */
+export type SidebarDropVerb = "pin" | "unpin" | "settle" | "unsettle" | "wake" | "park";
 
 export function resolveSidebarDropVerb(
   from: SidebarSection,
   to: SidebarSection | null,
 ): SidebarDropVerb | null {
-  if (to === null || to === from || to === "working" || to === "snoozed") return null;
+  if (to === null || to === from || to === "working") return null;
+  if (to === "snoozed") return "park";
   if (to === "pinned") return "pin";
   if (to === "settled") return "settle";
   if (from === "pinned") return "unpin";
@@ -313,6 +315,8 @@ export function planSidebarThreadDrop(input: {
   readonly activePinned?: boolean;
   readonly activeSettled?: boolean;
   readonly supportsSettlement?: boolean;
+  /** False when the server cannot snooze or the thread cannot be put away now. */
+  readonly canPark?: boolean;
   readonly target: SidebarDropTarget;
   /** All pinned keys in displayed order before the drop. */
   readonly pinnedOrder: readonly string[];
@@ -364,6 +368,10 @@ export function planSidebarThreadDrop(input: {
           };
     case "settled":
       return activeSection === "settled" ? { kind: "none" } : { kind: "settle" };
+    case "snoozed":
+      return activeSection === "snoozed" || input.canPark === false
+        ? { kind: "none" }
+        : { kind: "park" };
     case "pinned": {
       const order = target.pinnedOrder;
       // Dropped back where it started: nothing to write.

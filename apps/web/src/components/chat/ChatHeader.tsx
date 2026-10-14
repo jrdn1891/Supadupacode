@@ -454,7 +454,7 @@ export const ChatHeader = memo(function ChatHeader({
           )}
         </WorkspaceBreadcrumbItem>
       </WorkspaceBreadcrumb>
-      <ScenePaneControls />
+      <ScenePaneControls title={activeThreadTitle} />
     </div>
   );
 });

@@ -8,13 +8,17 @@ import { randomUUID } from "../lib/utils";
 import type { ThreadRouteTarget } from "../threadRoutes";
 import {
   closeScenePane,
+  dropSceneThread,
   EMPTY_SCENE,
   focusScenePane,
+  moveScenePane,
   openScenePane,
+  releasableScenePaneId,
   retargetScenePane,
   type Scene,
+  type SceneDropZone,
+  type SceneEdge,
   type ScenePane,
-  type ScenePlacement,
   syncSceneRoute,
   toggleSceneSpotlight,
 } from "./scene.logic";
@@ -24,8 +28,11 @@ const SOLO_SCENE_IDS = { paneId: "pane-solo", columnId: "column-solo" } as const
 interface SceneStoreState {
   readonly scene: Scene;
   readonly syncRoute: (target: ThreadRouteTarget) => void;
-  readonly open: (target: ThreadRouteTarget, placement: ScenePlacement) => void;
+  readonly open: (target: ThreadRouteTarget, edge: SceneEdge) => void;
+  readonly drop: (target: ThreadRouteTarget, anchorPaneId: string, zone: SceneDropZone) => void;
+  readonly move: (paneId: string, anchorPaneId: string, zone: SceneDropZone) => void;
   readonly close: (paneId: string) => void;
+  readonly release: (targetKey: string) => void;
   readonly focus: (paneId: string) => void;
   readonly retarget: (paneId: string, target: ThreadRouteTarget) => void;
   readonly toggleSpotlight: (paneId: string) => void;
@@ -63,9 +70,22 @@ export const useSceneStore = create<SceneStoreState>()(
       scene: EMPTY_SCENE,
       syncRoute: (target) =>
         set(({ scene }) => ({ scene: syncSceneRoute(scene, target, SOLO_SCENE_IDS) })),
-      open: (target, placement) =>
-        set(({ scene }) => ({ scene: openScenePane(scene, target, placement, freshIds()) })),
+      open: (target, edge) =>
+        set(({ scene }) => ({ scene: openScenePane(scene, target, edge, freshIds()) })),
+      drop: (target, anchorPaneId, zone) =>
+        set(({ scene }) => ({
+          scene: dropSceneThread(scene, target, anchorPaneId, zone, freshIds()),
+        })),
+      move: (paneId, anchorPaneId, zone) =>
+        set(({ scene }) => ({
+          scene: moveScenePane(scene, paneId, anchorPaneId, zone, randomUUID()),
+        })),
       close: (paneId) => set(({ scene }) => ({ scene: closeScenePane(scene, paneId) })),
+      release: (targetKey) =>
+        set(({ scene }) => {
+          const paneId = releasableScenePaneId(scene, targetKey);
+          return { scene: paneId === null ? scene : closeScenePane(scene, paneId) };
+        }),
       focus: (paneId) => set(({ scene }) => ({ scene: focusScenePane(scene, paneId) })),
       retarget: (paneId, target) =>
         set(({ scene }) => ({ scene: retargetScenePane(scene, paneId, target) })),

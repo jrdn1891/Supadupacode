@@ -2141,6 +2141,29 @@ describe("Working shelf", () => {
       expect(resolveSidebarDropVerb("active", "working")).toBeNull();
     });
 
+    it("parks a row dropped into the Parked shelf when the thread can be put away", () => {
+      const withParked: readonly SidebarListItem[] = [
+        ...items.slice(0, -2),
+        marker("snoozed-header"),
+        row("z1", "snoozed"),
+        ...items.slice(-2),
+      ];
+      const target = resolveSidebarDropTarget(withParked, "a1", "z1");
+      expect(target?.section).toBe("snoozed");
+      expect(resolveSidebarDropVerb("active", "snoozed")).toBe("park");
+      const plan = (canPark: boolean) =>
+        planSidebarThreadDrop({
+          activeKey: "a1",
+          activeSection: "active",
+          canPark,
+          target: target!,
+          pinnedOrder: ["p1"],
+          pinnedKeysById: new Map(),
+        });
+      expect(plan(true)).toEqual({ kind: "park" });
+      expect(plan(false)).toEqual({ kind: "none" });
+    });
+
     it("arranges the pinned rows it can write when another row's server cannot store an order", () => {
       // None of the rows has a key yet, so the drop needs keys for its
       // neighbors too. "offline" sits on a server that cannot take them.

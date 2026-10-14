@@ -60,6 +60,7 @@ import { showThreadUndoNotice } from "./showThreadUndoNotice";
 import { useAtomCommand } from "../state/use-atom-command";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
+import { useSceneStore } from "../scene/sceneStore";
 
 export class ThreadArchiveBlockedError extends Schema.TaggedError<ThreadArchiveBlockedError>()(
   "ThreadArchiveBlockedError",
@@ -792,6 +793,7 @@ export function useThreadActions() {
       if (wokeAt !== null) {
         markThreadVisited(scopedThreadKey(target), wokeAt);
       }
+      useSceneStore.getState().release(scopedThreadKey(target));
       showThreadUndoNotice({
         action: "Settled",
         claim: action,
@@ -930,6 +932,7 @@ export function useThreadActions() {
         action.finish();
         return result;
       }
+      useSceneStore.getState().release(scopedThreadKey(target));
       // Snooze hides the row, so keep its confirmation in the sidebar.
       showThreadUndoNotice({
         action: snoozedUntil === null ? "Parked" : "Snoozed",

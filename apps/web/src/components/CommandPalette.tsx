@@ -54,6 +54,7 @@ import {
   type FilesystemBrowseResult,
   type ProjectId,
   type SourceControlDiscoveryResult,
+  type ThreadId,
   SourceControlProviderKind,
   type SourceControlRepositoryInfo,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
@@ -271,6 +272,8 @@ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { readPullRequestListPreferences } from "~/components/pullRequest/pullRequestListPreferences";
 
 const EMPTY_BROWSE_ENTRIES: FilesystemBrowseResult["entries"] = [];
+
+let paletteOptionHeld = false;
 
 function getEnvironmentBrowsePlatform(os: string | null | undefined): string {
   if (os === "windows") {
@@ -694,6 +697,31 @@ function OpenCommandPaletteDialog(props: {
   );
   const { onForkFromRun, disabled: forkDisabled } = useForkThread(activeThread, isRewinding);
   const sceneActions = useSceneActions();
+  useEffect(() => {
+    const record = (event: globalThis.KeyboardEvent | globalThis.PointerEvent) => {
+      paletteOptionHeld = event.altKey;
+    };
+    window.addEventListener("keydown", record, true);
+    window.addEventListener("pointerdown", record, true);
+    return () => {
+      window.removeEventListener("keydown", record, true);
+      window.removeEventListener("pointerdown", record, true);
+    };
+  }, []);
+  const openThread = useCallback(
+    async (thread: { readonly environmentId: EnvironmentId; readonly id: ThreadId }) => {
+      const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+      if (paletteOptionHeld) {
+        sceneActions.open({ kind: "server", threadRef }, "right");
+        return;
+      }
+      await navigate({
+        to: "/$environmentId/$threadId",
+        params: buildThreadRouteParams(threadRef),
+      });
+    },
+    [navigate, sceneActions],
+  );
   const sceneSplit = useSceneStore((state) => scenePanes(state.scene).length > 1);
   const sceneSpotlit = useSceneStore((state) => state.scene.spotlightPaneId !== null);
   const forkSource =
@@ -1436,17 +1464,12 @@ function OpenCommandPaletteDialog(props: {
               }
             : undefined;
         },
-        runThread: async (thread) => {
-          await navigate({
-            to: "/$environmentId/$threadId",
-            params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, thread.id)),
-          });
-        },
+        runThread: openThread,
       }),
     [
       activeThreadId,
       clientSettings.sidebarThreadSortOrder,
-      navigate,
+      openThread,
       projectByKey,
       projectEnvironmentLocationById,
       projectTitleById,
@@ -2530,12 +2553,7 @@ function OpenCommandPaletteDialog(props: {
             ...linkedThreadSearch.linkedThreads,
             query: linkedThreadSearch.query,
             icon: <MessageSquareIcon className={ITEM_ICON_CLASS} />,
-            runThread: async (thread) => {
-              await navigate({
-                to: "/$environmentId/$threadId",
-                params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, thread.id)),
-              });
-            },
+            runThread: openThread,
           })
         : allThreadItems,
   });

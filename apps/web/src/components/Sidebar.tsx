@@ -86,6 +86,7 @@ import {
   PlusIcon,
   SettingsIcon,
   ShieldQuestionIcon,
+  SquareParkingIcon,
   SquareParkingOffIcon,
   SquarePenIcon,
   TerminalIcon,
@@ -148,6 +149,9 @@ import {
   useThreadSelectionStore,
 } from "../threadSelectionStore";
 import { readProjectContextMenuState, useSetProjectContext } from "../hooks/useProjectContext";
+import { releasableScenePaneId, splitSceneTargetKeys } from "../scene/scene.logic";
+import { endSceneDrag, sceneDropTargetAt, showSceneDrag } from "../scene/sceneDrag";
+import { useSceneStore } from "../scene/sceneStore";
 import { useSceneActions } from "../scene/useSceneActions";
 import { ThreadContextMarker, ThreadPhasePips } from "./sidebar/ThreadLabels";
 import { useAcknowledgeThreadWoke, useThreadActions } from "../hooks/useThreadActions";
@@ -1156,6 +1160,12 @@ const dropVerbBadge: Record<SidebarDropVerb, ReactNode> = {
       Wake
     </>
   ),
+  park: (
+    <>
+      <SquareParkingIcon aria-hidden className="size-3" />
+      Park
+    </>
+  ),
 };
 
 function toastThreadActionFailure(title: string, result: AtomCommandResult<unknown, unknown>) {
@@ -1200,6 +1210,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   // the user visits the thread.
   wokeAt: string | null;
   isActive: boolean;
+  onStage: boolean;
   // The pin and settle shortcuts act on the active thread, so only its row receives them.
   pinShortcut: string | null;
   settleShortcut: string | null;
@@ -1670,11 +1681,13 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     variantAction === "unsettle" && "[&:not(:hover):not(:focus-within)_*]:text-secondary-label/70",
     props.isActive
       ? "bg-sidebar-row-active text-sidebar-foreground"
-      : isSelected || props.sweepAction !== null
-        ? "bg-sidebar-row-selected text-sidebar-foreground"
-        : shouldRecede
-          ? "text-sidebar-muted-foreground/75 hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
-          : "bg-transparent text-sidebar-foreground hover:bg-sidebar-row-hover",
+      : props.onStage
+        ? "bg-sidebar-row-active/45 text-sidebar-foreground hover:bg-sidebar-row-active/70"
+        : isSelected || props.sweepAction !== null
+          ? "bg-sidebar-row-selected text-sidebar-foreground"
+          : shouldRecede
+            ? "text-sidebar-muted-foreground/75 hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+            : "bg-transparent text-sidebar-foreground hover:bg-sidebar-row-hover",
     // Background work fades as a whole row, status label included, so it
     // takes less attention than rows that need a human (input, approval).
     shouldRecede &&
@@ -2269,6 +2282,8 @@ export default function Sidebar() {
   });
   const setProjectContext = useSetProjectContext();
   const sceneActions = useSceneActions();
+  const scene = useSceneStore((state) => state.scene);
+  const stageThreadKeys = useMemo(() => splitSceneTargetKeys(scene), [scene]);
   const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
     onCopy: ({ path }) => {
       toastManager.add({
@@ -3103,7 +3118,7 @@ export default function Sidebar() {
       }
       if (event.altKey) {
         event.preventDefault();
-        sceneActions.open({ kind: "server", threadRef }, event.shiftKey ? "below" : "right");
+        sceneActions.open({ kind: "server", threadRef }, event.shiftKey ? "bottom" : "right");
         return;
       }
       const isMac = isMacPlatform(navigator.platform);
@@ -3141,6 +3156,7 @@ export default function Sidebar() {
   const planForwardNavigation = useCallback(
     (threadKey: string, coParkingKeys?: ReadonlySet<string>): (() => void) | null => {
       if (routeThreadKeyRef.current !== threadKey) return null;
+      if (releasableScenePaneId(useSceneStore.getState().scene, threadKey) !== null) return null;
       const shell = threadByKeyRef.current.get(threadKey);
       const orderedKeys = orderedThreadKeysRef.current;
       const settledKeys = settledThreadKeysRef.current;
@@ -3279,6 +3295,7 @@ export default function Sidebar() {
     dragSensorRef.current = null;
     contextDragKeyRef.current = null;
     endThreadContextDrag();
+    endSceneDrag();
     if (started) {
       listMotionRef.current?.release();
       setDragState(null);
@@ -3315,12 +3332,14 @@ export default function Sidebar() {
       );
       if (!contextDrag) {
         endThreadContextDrag();
+        endSceneDrag();
         return false;
       }
       const threads = contextDragThreads();
       const title =
         threadByKeyRef.current.get(contextDragKeyRef.current ?? "")?.title.trim() || "Thread";
       moveThreadContextDragGhost(point, { title, count: threads.length });
+      showSceneDrag(sceneDropTargetAt(point, { yieldToComposer: true }), null);
       return true;
     },
     [contextDragThreads, pointerOutsideThreadList],
@@ -3328,11 +3347,20 @@ export default function Sidebar() {
   const dropThreadContextDrag = useCallback(
     (point: { x: number; y: number }) => {
       if (!pointerOutsideThreadList(point)) return false;
-      dropThreadContext(point, contextDragThreads());
-      // Releasing outside the list never reorders, whether or not a composer took the drop.
+      const threads = contextDragThreads();
+      const stageTarget = sceneDropTargetAt(point, { yieldToComposer: true });
+      if (dropThreadContext(point, threads)) return true;
+      if (stageTarget?.kind === "pane") {
+        sceneActions.dropAll(
+          threads.map((threadRef) => ({ kind: "server", threadRef })),
+          stageTarget.paneId,
+          stageTarget.zone,
+        );
+      }
+      // Releasing outside the list never reorders, whether or not anything took the drop.
       return true;
     },
-    [contextDragThreads, pointerOutsideThreadList],
+    [contextDragThreads, pointerOutsideThreadList, sceneActions],
   );
   const dndSensors = useSensors(
     useSensor(SidebarPointerSensor, {
@@ -3783,6 +3811,9 @@ export default function Sidebar() {
             supportsSettlement:
               serverConfigs.get(source.environmentId)?.environment.capabilities.threadSettlement ===
               true,
+            canPark:
+              serverConfigs.get(source.environmentId)?.environment.capabilities.threadSnooze ===
+                true && canSnooze(source, { now: new Date().toISOString() }),
             target,
             pinnedOrder: pinnedKeys,
             pinnedKeysById,
@@ -3825,12 +3856,35 @@ export default function Sidebar() {
         supportsSettlement:
           serverConfigs.get(activeThread.environmentId)?.environment.capabilities
             .threadSettlement === true,
+        canPark:
+          serverConfigs.get(activeThread.environmentId)?.environment.capabilities.threadSnooze ===
+            true && canSnooze(activeThread, { now: new Date().toISOString() }),
         target,
         pinnedOrder: pinnedKeys,
         pinnedKeysById,
         reorderableKeys: draggableThreadKeys,
       });
       if (plan.kind === "none") return;
+      if (plan.kind === "park") {
+        if (!checkThreadOperations([activeThread])) return;
+        const navigateAfterPark = planForwardNavigation(activeKey);
+        void snoozeThread(threadRef, null).then((result) => {
+          toastThreadActionFailure("Failed to park thread", result);
+          if (
+            result._tag === "Success" &&
+            shouldNavigateAfterThreadPark({
+              threadKey: activeKey,
+              currentThreadKey: routeThreadKeyRef.current,
+              action: "snooze",
+              now: new Date().toISOString(),
+              thread: readThreadShell(threadRef),
+            })
+          )
+            navigateAfterPark?.();
+        });
+        return;
+      }
+      if (target.section === "snoozed") return;
       if (plan.kind === "settle" && settlingThreadKeysRef.current.has(activeKey)) return;
       const assignments =
         plan.kind === "pin"
@@ -3962,6 +4016,7 @@ export default function Sidebar() {
       sectionByThreadKey,
       settleThread,
       sidebarListItems,
+      snoozeThread,
       threadByKey,
       unpinThread,
       unsettleThread,
@@ -4465,7 +4520,7 @@ export default function Sidebar() {
         if (clicked.value === "open-beside" || clicked.value === "open-below") {
           sceneActions.open(
             { kind: "server", threadRef },
-            clicked.value === "open-beside" ? "right" : "below",
+            clicked.value === "open-beside" ? "right" : "bottom",
           );
           return;
         }
@@ -5058,6 +5113,7 @@ export default function Sidebar() {
                           // rows resolve to null on their own.
                           wokeAt={threadWokeAt(thread, { now: snoozeNow })}
                           isActive={isActive}
+                          onStage={stageThreadKeys.has(threadKey)}
                           pinShortcut={isActive ? pinShortcut : null}
                           settleShortcut={isActive ? settleShortcut : null}
                           openPullRequestsInRightPanel={routeThreadRef !== null}

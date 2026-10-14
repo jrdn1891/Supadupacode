@@ -81,13 +81,12 @@ returns it to the usual settlement rules, and settling a pinned thread removes i
 On web and desktop, drag a thread between sections to change its state. Drag a thread up into
 the pinned section to pin it at the spot you drop it; drag a pinned thread down into the active
 list to unpin it. Dragging a thread onto the **Settled** header settles it, and dragging a settled
-thread into the active list un-settles it. A thread can be dragged out of the **Parked** shelf,
-which wakes it, but not into it: use **Park thread** or **Snooze** from the thread's menu
-instead. Dragging a pinned thread out of the pinned section does not ask for unpin confirmation.
+thread into the active list un-settles it. Dragging a thread into the **Parked** shelf parks it, and
+dragging one out wakes it. To snooze until a set time, use **Snooze** from the thread's menu. Dragging a pinned thread out of the pinned section does not ask for unpin confirmation.
 Pinned and active boundary labels appear only while dragging, without moving the rows. The
 other rows slide aside to show where the thread will land. When you cross into another section,
 the dragged thread shows the action the drop performs, with its icon: **Pin**, **Unpin**,
-**Settle**, **Un-settle**, or **Wake**. Its status and hover actions hide during the drag. A pinned
+**Settle**, **Un-settle**, **Wake**, or **Park**. Its status and hover actions hide during the drag. A pinned
 thread keeps its pin only while it stays in the pinned section; once it leaves, the badge takes
 over. Reordering within the same section shows no badge. When there are no pins, drag to the top
 edge to pin a thread. Section labels stay readable for the whole drag, and the section the
@@ -240,7 +239,14 @@ On web and desktop, put as many threads on the stage as you like. Choose **Open 
 for below). The focused pane is the one the address bar, shortcuts, and pasted text follow;
 click a pane to focus it, or press `mod+alt+arrowright` and `mod+alt+arrowleft` to move between
 panes. Clicking a thread in the sidebar shows it in the focused pane, or focuses the pane that
-already shows it.
+already shows it. Threads on the stage keep a light highlight in the sidebar. In the command
+palette, press Option-Enter on a thread to open it beside.
+
+You can also drag a thread from the sidebar onto the stage. Drop it near a pane's edge to open it
+on that side, or in the middle to show it in that pane instead. To rearrange the stage, drag a
+pane by the grip in its header onto another pane the same way; dropping in the middle swaps the
+two. Flick a pane's grip downward to send it off the stage. Parking or settling a thread also
+takes it off the stage.
 
 To give one thread the whole stage, choose **Spotlight** in its header or press `mod+alt+s`.
 While in Spotlight, moving to another pane spotlights that one instead; press `mod+alt+s` again

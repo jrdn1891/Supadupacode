@@ -1,7 +1,9 @@
 import { useAtomValue } from "@effect/atom-react";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { isCommandPaletteOpen } from "../commandPaletteBus";
+import { ThreadDragGhostCard } from "../components/chat/ThreadContextDragGhost";
 import { ThreadRouteView } from "../components/ThreadRouteView";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../components/ui/resizable";
 import { SidebarInset } from "../components/ui/sidebar";
@@ -13,6 +15,7 @@ import { cn } from "../lib/utils";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import type { ThreadRouteTarget } from "../threadRoutes";
 import { findScenePane, type ScenePane, sceneTargetKey, scenePanes } from "./scene.logic";
+import { useSceneDragView } from "./sceneDrag";
 import { ScenePaneProvider } from "./ScenePaneContext";
 import { useSceneStore } from "./sceneStore";
 import { useSceneActions } from "./useSceneActions";
@@ -29,6 +32,11 @@ export function SceneStage({ target }: { readonly target: ThreadRouteTarget }) {
     syncedKey.current = targetKey;
     syncRoute(target);
   });
+  const { showFocused } = useSceneActions();
+  useEffect(() => {
+    const onStage = scenePanes(scene).some((pane) => sceneTargetKey(pane.target) === targetKey);
+    if (!onStage && scene.columns.length > 0) showFocused();
+  }, [scene, showFocused, targetKey]);
 
   const split = scenePanes(scene).length > 1;
   const spotlight = findScenePane(scene, scene.spotlightPaneId);
@@ -41,6 +49,7 @@ export function SceneStage({ target }: { readonly target: ThreadRouteTarget }) {
   return (
     <SidebarInset className="h-svh min-h-0 overflow-hidden overscroll-y-none md:h-dvh">
       <SceneShortcuts />
+      <SceneDragOverlay />
       <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
         {columns.map((column, columnIndex) => (
           <Fragment key={column.id}>
@@ -124,6 +133,24 @@ function ScenePaneFrame({
         <ThreadRouteView target={pane.target} onLeave={(next) => actions.leave(pane.id, next)} />
       </ScenePaneProvider>
     </div>
+  );
+}
+
+function SceneDragOverlay() {
+  const { preview, ghost } = useSceneDragView();
+  if (preview === null && ghost === null) return null;
+  return createPortal(
+    <>
+      {preview ? (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-[90] rounded-lg border-2 border-primary/50 bg-primary/8 transition-[left,top,width,height] duration-150 ease-out motion-reduce:transition-none"
+          style={preview}
+        />
+      ) : null}
+      {ghost ? <ThreadDragGhostCard {...ghost} count={1} /> : null}
+    </>,
+    document.body,
   );
 }
 

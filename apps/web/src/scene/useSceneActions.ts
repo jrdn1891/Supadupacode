@@ -6,7 +6,13 @@ import {
   buildThreadRouteParams,
   type ThreadRouteTarget,
 } from "../threadRoutes";
-import { adjacentScenePaneId, findScenePane, type ScenePlacement, scenePanes } from "./scene.logic";
+import {
+  adjacentScenePaneId,
+  findScenePane,
+  type SceneDropZone,
+  type SceneEdge,
+  scenePanes,
+} from "./scene.logic";
 import { useSceneStore } from "./sceneStore";
 
 export function useSceneActions() {
@@ -24,10 +30,10 @@ export function useSceneActions() {
             params: buildDraftThreadRouteParams(target.draftId),
             replace,
           });
-    const showFocused = () => {
+    const showFocused = (replace = true) => {
       const { scene } = useSceneStore.getState();
       const pane = findScenePane(scene, scene.focusedPaneId);
-      if (pane !== null) void show(pane.target, true);
+      if (pane !== null) void show(pane.target, replace);
     };
     const focus = (paneId: string) => {
       const store = useSceneStore.getState();
@@ -35,12 +41,7 @@ export function useSceneActions() {
       store.focus(paneId);
       showFocused();
     };
-    const close = (paneId: string) => {
-      const store = useSceneStore.getState();
-      const wasFocused = store.scene.focusedPaneId === paneId;
-      store.close(paneId);
-      if (wasFocused) showFocused();
-    };
+    const close = (paneId: string) => useSceneStore.getState().close(paneId);
     const toggleSpotlight = (paneId: string) => {
       const store = useSceneStore.getState();
       const refocus = store.scene.focusedPaneId !== paneId;
@@ -52,6 +53,7 @@ export function useSceneActions() {
       if (focusedPaneId !== null) run(focusedPaneId);
     };
     return {
+      showFocused: () => showFocused(),
       focus,
       close,
       closeFocused: withFocusedPane(close),
@@ -61,9 +63,29 @@ export function useSceneActions() {
         const paneId = adjacentScenePaneId(useSceneStore.getState().scene, direction);
         if (paneId !== null) focus(paneId);
       },
-      open: (target: ThreadRouteTarget, placement: ScenePlacement) => {
-        useSceneStore.getState().open(target, placement);
+      open: (target: ThreadRouteTarget, edge: SceneEdge) => {
+        useSceneStore.getState().open(target, edge);
         void show(target, false);
+      },
+      dropAll: (
+        targets: ReadonlyArray<ThreadRouteTarget>,
+        anchorPaneId: string,
+        zone: SceneDropZone,
+      ) => {
+        let anchor = anchorPaneId;
+        let placement = zone;
+        for (const target of targets) {
+          const store = useSceneStore.getState();
+          store.drop(target, anchor, placement);
+          const dropped = useSceneStore.getState().scene.focusedPaneId;
+          if (dropped !== null && placement !== "left" && placement !== "top") anchor = dropped;
+          if (placement === "center") placement = "right";
+        }
+        showFocused(false);
+      },
+      move: (paneId: string, anchorPaneId: string, zone: SceneDropZone) => {
+        useSceneStore.getState().move(paneId, anchorPaneId, zone);
+        showFocused();
       },
       leave: (paneId: string, target: ThreadRouteTarget | null) => {
         const store = useSceneStore.getState();

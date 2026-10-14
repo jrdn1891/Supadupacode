@@ -18,7 +18,14 @@ export interface Scene {
   readonly spotlightPaneId: string | null;
 }
 
-export type ScenePlacement = "right" | "below";
+export type SceneEdge = "left" | "right" | "top" | "bottom";
+
+export type SceneDropZone = SceneEdge | "center";
+
+interface SceneIds {
+  readonly paneId: string;
+  readonly columnId: string;
+}
 
 export const EMPTY_SCENE: Scene = { columns: [], focusedPaneId: null, spotlightPaneId: null };
 
@@ -55,11 +62,7 @@ export function focusScenePane(scene: Scene, paneId: string): Scene {
   };
 }
 
-export function syncSceneRoute(
-  scene: Scene,
-  target: ThreadRouteTarget,
-  ids: { readonly paneId: string; readonly columnId: string },
-): Scene {
+export function syncSceneRoute(scene: Scene, target: ThreadRouteTarget, ids: SceneIds): Scene {
   const existing = findPaneByTarget(scene, target);
   if (existing !== null) return focusScenePane(scene, existing.id);
   const focused = findScenePane(scene, scene.focusedPaneId);
@@ -79,45 +82,160 @@ export function retargetScenePane(scene: Scene, paneId: string, target: ThreadRo
   return mapPanes(scene, (pane) => (pane.id === paneId ? { ...pane, target } : pane));
 }
 
+function placePane(
+  columns: ReadonlyArray<SceneColumn>,
+  pane: ScenePane,
+  anchorPaneId: string | null,
+  edge: SceneEdge,
+  columnId: string,
+): ReadonlyArray<SceneColumn> {
+  const anchorColumn = columns.findIndex((column) =>
+    column.panes.some((candidate) => candidate.id === anchorPaneId),
+  );
+  if (anchorColumn === -1) return [...columns, { id: columnId, panes: [pane] }];
+  if (edge === "left" || edge === "right") {
+    const at = anchorColumn + (edge === "right" ? 1 : 0);
+    return [...columns.slice(0, at), { id: columnId, panes: [pane] }, ...columns.slice(at)];
+  }
+  return columns.map((column, index) => {
+    if (index !== anchorColumn) return column;
+    const at =
+      column.panes.findIndex((candidate) => candidate.id === anchorPaneId) +
+      (edge === "bottom" ? 1 : 0);
+    return { ...column, panes: [...column.panes.slice(0, at), pane, ...column.panes.slice(at)] };
+  });
+}
+
+function withoutPane(
+  columns: ReadonlyArray<SceneColumn>,
+  paneId: string,
+): ReadonlyArray<SceneColumn> {
+  return columns.flatMap((column) => {
+    const panes = column.panes.filter((pane) => pane.id !== paneId);
+    return panes.length > 0 ? [{ ...column, panes }] : [];
+  });
+}
+
 export function openScenePane(
   scene: Scene,
   target: ThreadRouteTarget,
-  placement: ScenePlacement,
-  ids: { readonly paneId: string; readonly columnId: string },
+  edge: SceneEdge,
+  ids: SceneIds,
 ): Scene {
   const existing = findPaneByTarget(scene, target);
   if (existing !== null) return { ...focusScenePane(scene, existing.id), spotlightPaneId: null };
   const pane: ScenePane = { id: ids.paneId, target };
-  const focusedColumnIndex = scene.columns.findIndex((column) =>
-    column.panes.some((candidate) => candidate.id === scene.focusedPaneId),
-  );
-  const anchorIndex = focusedColumnIndex === -1 ? scene.columns.length - 1 : focusedColumnIndex;
-  const columns =
-    placement === "right" || anchorIndex === -1
-      ? [
-          ...scene.columns.slice(0, anchorIndex + 1),
-          { id: ids.columnId, panes: [pane] },
-          ...scene.columns.slice(anchorIndex + 1),
-        ]
-      : scene.columns.map((column, index) => {
-          if (index !== anchorIndex) return column;
-          const at = column.panes.findIndex((candidate) => candidate.id === scene.focusedPaneId);
-          const insertAt = at === -1 ? column.panes.length : at + 1;
-          return {
-            ...column,
-            panes: [...column.panes.slice(0, insertAt), pane, ...column.panes.slice(insertAt)],
-          };
-        });
-  return { columns, focusedPaneId: pane.id, spotlightPaneId: null };
+  const anchor = findScenePane(scene, scene.focusedPaneId) ?? scenePanes(scene).at(-1) ?? null;
+  return {
+    columns: placePane(scene.columns, pane, anchor?.id ?? null, edge, ids.columnId),
+    focusedPaneId: pane.id,
+    spotlightPaneId: null,
+  };
+}
+
+export function moveScenePane(
+  scene: Scene,
+  paneId: string,
+  anchorPaneId: string,
+  zone: SceneDropZone,
+  columnId: string,
+): Scene {
+  const pane = findScenePane(scene, paneId);
+  const anchor = findScenePane(scene, anchorPaneId);
+  if (pane === null || anchor === null || pane.id === anchor.id) return scene;
+  if (zone === "center") {
+    return {
+      ...mapPanes(scene, (candidate) =>
+        candidate.id === pane.id
+          ? { ...candidate, target: anchor.target }
+          : candidate.id === anchor.id
+            ? { ...candidate, target: pane.target }
+            : candidate,
+      ),
+      focusedPaneId: anchor.id,
+      spotlightPaneId: null,
+    };
+  }
+  return {
+    columns: placePane(withoutPane(scene.columns, pane.id), pane, anchor.id, zone, columnId),
+    focusedPaneId: pane.id,
+    spotlightPaneId: null,
+  };
+}
+
+export function dropSceneThread(
+  scene: Scene,
+  target: ThreadRouteTarget,
+  anchorPaneId: string,
+  zone: SceneDropZone,
+  ids: SceneIds,
+): Scene {
+  const existing = findPaneByTarget(scene, target);
+  if (existing !== null) {
+    return existing.id === anchorPaneId
+      ? { ...focusScenePane(scene, existing.id), spotlightPaneId: null }
+      : moveScenePane(scene, existing.id, anchorPaneId, zone, ids.columnId);
+  }
+  if (findScenePane(scene, anchorPaneId) === null) return scene;
+  if (zone === "center") {
+    return {
+      ...mapPanes(scene, (pane) => (pane.id === anchorPaneId ? { ...pane, target } : pane)),
+      focusedPaneId: anchorPaneId,
+      spotlightPaneId: null,
+    };
+  }
+  const pane: ScenePane = { id: ids.paneId, target };
+  return {
+    columns: placePane(scene.columns, pane, anchorPaneId, zone, ids.columnId),
+    focusedPaneId: pane.id,
+    spotlightPaneId: null,
+  };
+}
+
+export function sceneDropZone(
+  rect: {
+    readonly left: number;
+    readonly top: number;
+    readonly width: number;
+    readonly height: number;
+  },
+  point: { readonly x: number; readonly y: number },
+): SceneDropZone {
+  const x = (point.x - rect.left) / rect.width;
+  const y = (point.y - rect.top) / rect.height;
+  const [edge, distance] = (
+    [
+      ["left", x],
+      ["right", 1 - x],
+      ["top", y],
+      ["bottom", 1 - y],
+    ] as const
+  ).reduce((nearest, candidate) => (candidate[1] < nearest[1] ? candidate : nearest));
+  return distance < 0.25 ? edge : "center";
+}
+
+export function sceneThrowCommits(travelY: number, velocityY: number): boolean {
+  return velocityY > 0.6 && travelY + velocityY * 180 > 240;
+}
+
+export function releasableScenePaneId(scene: Scene, targetKey: string): string | null {
+  const panes = scenePanes(scene);
+  if (panes.length < 2) return null;
+  return panes.find((pane) => sceneTargetKey(pane.target) === targetKey)?.id ?? null;
+}
+
+const NO_KEYS: ReadonlySet<string> = new Set();
+
+export function splitSceneTargetKeys(scene: Scene): ReadonlySet<string> {
+  const panes = scenePanes(scene);
+  return panes.length < 2 ? NO_KEYS : new Set(panes.map((pane) => sceneTargetKey(pane.target)));
 }
 
 export function closeScenePane(scene: Scene, paneId: string): Scene {
   const panes = scenePanes(scene);
   const index = panes.findIndex((pane) => pane.id === paneId);
   if (index === -1 || panes.length === 1) return scene;
-  const columns = scene.columns
-    .map((column) => ({ ...column, panes: column.panes.filter((pane) => pane.id !== paneId) }))
-    .filter((column) => column.panes.length > 0);
+  const columns = withoutPane(scene.columns, paneId);
   const remaining = columns.flatMap((column) => column.panes);
   const focusedPaneId =
     scene.focusedPaneId === paneId ? remaining[Math.max(0, index - 1)]!.id : scene.focusedPaneId;
