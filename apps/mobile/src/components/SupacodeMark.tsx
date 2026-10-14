@@ -11,7 +11,7 @@ export function SupacodeMark(props: {
 }) {
   return (
     <Svg
-      accessibilityLabel="Supacode"
+      accessibilityLabel="Supadupacode"
       height={props.height}
       width={props.height * (76.4 / 52.95)}
       viewBox="25.69 37.17 76.40 52.95"

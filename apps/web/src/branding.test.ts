@@ -26,7 +26,7 @@ describe("branding", () => {
     const branding = await import("./branding");
 
     expect(branding.APP_STAGE_LABEL).toBeNull();
-    expect(branding.APP_DISPLAY_NAME).toBe("Supacode");
+    expect(branding.APP_DISPLAY_NAME).toBe("Supadupacode");
   });
 
   it("keeps development web builds labeled", async () => {
@@ -36,7 +36,7 @@ describe("branding", () => {
     const branding = await import("./branding");
 
     expect(branding.APP_STAGE_LABEL).toBe("Dev");
-    expect(branding.APP_DISPLAY_NAME).toBe("Supacode (Dev)");
+    expect(branding.APP_DISPLAY_NAME).toBe("Supadupacode (Dev)");
   });
 
   it("preserves an absent desktop stage over the web build fallback", async () => {
@@ -90,7 +90,7 @@ describe("branding", () => {
     expect(branding.HOSTED_APP_CHANNEL).toBe("nightly");
     expect(branding.HOSTED_APP_CHANNEL_LABEL).toBe("Nightly");
     expect(branding.APP_STAGE_LABEL).toBe("Nightly");
-    expect(branding.APP_DISPLAY_NAME).toBe("Supacode (Nightly)");
+    expect(branding.APP_DISPLAY_NAME).toBe("Supadupacode (Nightly)");
   });
 
   it("does not label the latest hosted app channel", async () => {
@@ -101,7 +101,7 @@ describe("branding", () => {
     expect(branding.HOSTED_APP_CHANNEL).toBe("latest");
     expect(branding.HOSTED_APP_CHANNEL_LABEL).toBe("Latest");
     expect(branding.APP_STAGE_LABEL).toBe("Latest");
-    expect(branding.APP_DISPLAY_NAME).toBe("Supacode");
+    expect(branding.APP_DISPLAY_NAME).toBe("Supadupacode");
   });
 
   it("ignores unknown hosted app channels", async () => {

@@ -112,7 +112,7 @@ function WorkspaceRootContent() {
           />
         ) : (
           <AndroidScreenHeader
-            title="Supacode"
+            title="Supadupacode"
             titleContent={renderHeaderTitle()}
             actions={[
               {

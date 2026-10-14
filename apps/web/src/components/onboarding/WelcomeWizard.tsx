@@ -34,6 +34,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
+import { APP_BASE_NAME } from "../../branding";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
 import { useCompleteOnboarding } from "../../onboarding/firstRun";
@@ -224,9 +225,9 @@ export function WelcomeWizard({
         initialFocus={() => document.getElementById("onboarding-pairing-url") ?? true}
       >
         <WizardHeader
-          title="Set up Supacode"
+          title={`Set up ${APP_BASE_NAME}`}
           identity={
-            <div className="flex items-baseline gap-1.5" role="img" aria-label="Supacode">
+            <div className="flex items-baseline gap-1.5" role="img" aria-label={APP_BASE_NAME}>
               <SupacodeMark className="h-7 w-auto text-muted-foreground" aria-hidden />
             </div>
           }

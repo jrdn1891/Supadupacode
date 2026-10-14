@@ -93,7 +93,7 @@ export class DesktopEnvironment extends Context.Service<
   }
 >()("@supacode/desktop/app/DesktopEnvironment") {}
 
-const APP_BASE_NAME = "Supacode";
+const APP_BASE_NAME = "Supadupacode";
 
 function resolveDesktopAppStageLabel(input: {
   readonly isDevelopment: boolean;
