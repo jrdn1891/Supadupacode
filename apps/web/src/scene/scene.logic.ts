@@ -226,6 +226,12 @@ export function releasableScenePaneId(scene: Scene, targetKey: string): string |
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 
+export function visibleSceneTargetKeys(scene: Scene): ReadonlySet<string> {
+  const spotlight = findScenePane(scene, scene.spotlightPaneId);
+  const panes = spotlight === null ? scenePanes(scene) : [spotlight];
+  return new Set(panes.map((pane) => sceneTargetKey(pane.target)));
+}
+
 export function splitSceneTargetKeys(scene: Scene): ReadonlySet<string> {
   const panes = scenePanes(scene);
   return panes.length < 2 ? NO_KEYS : new Set(panes.map((pane) => sceneTargetKey(pane.target)));

@@ -554,6 +554,7 @@ import {
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
 import { useScenePane } from "../scene/ScenePaneContext";
+import { useSceneActions } from "../scene/useSceneActions";
 import {
   awaitAttachmentUploads,
   getUploadedAttachments,
@@ -1911,7 +1912,13 @@ export default function ChatView(props: ChatViewProps) {
   const composerFilesRef = useRef<ComposerFileAttachment[]>([]);
   const composerTerminalContextsRef = useRef<TerminalContextDraft[]>([]);
   const composerRef = useChatComposerRef();
-  const { focused: paneFocused, compact: paneCompact } = useScenePane();
+  const {
+    paneId: scenePaneId,
+    focused: paneFocused,
+    split: paneSplit,
+    compact: paneCompact,
+  } = useScenePane();
+  const sceneActions = useSceneActions();
   const branchToolbarRef = useRef<BranchToolbarHandle>(null);
   const pasteAsTextShortcutUntilRef = useRef(0);
   const [restingComposerControlsHost, setRestingComposerControlsHost] =
@@ -9616,8 +9623,11 @@ export default function ChatView(props: ChatViewProps) {
       if (isLocalDraftThread && multipleModelSelections === null)
         markPromotedDraftThreadByRef(scopeThreadRef(environmentId, threadIdForSend));
       clearUsageLimitsFor(routeThreadKey);
-      if (submissionIntent === "background") handleNewThreadInActiveProject();
-      else if (isLocalDraftThread && targets[0]) {
+      if (submissionIntent === "background") {
+        if (paneSplit && scenePaneId !== null && !isLocalDraftThread)
+          sceneActions.close(scenePaneId);
+        else handleNewThreadInActiveProject();
+      } else if (isLocalDraftThread && targets[0]) {
         void navigate({
           to: "/$environmentId/$threadId",
           params: { environmentId, threadId: targets[0].threadId },

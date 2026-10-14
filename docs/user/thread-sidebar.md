@@ -253,6 +253,24 @@ While in Spotlight, moving to another pane spotlights that one instead; press `m
 to bring every pane back. Close a pane with its **×** or `mod+alt+w`. The stage is remembered
 when you reload.
 
+## Backstage
+
+A thread that is running but not on the stage is backstage. On web and desktop, a bar under the
+stage lists each one with a cue light: gray while it works, amber on its last step, green when it
+has finished, and red when it needs you for an approval, a question, or an error. If the agent
+keeps a todo list, the chip shows how many steps are done; otherwise it shows how long the agent
+has been working. Click a chip to bring the thread on stage, or drag it onto a pane to place it.
+Move the pointer over a finished chip and choose **×** to dismiss it.
+
+To send a thread backstage, choose the arrow in its pane header, flick the pane's grip down, or
+drag the pane onto the bar. In a pane on a split stage, `mod+alt+enter` sends your message and
+sends the pane backstage in one step; with a single thread it still starts a new thread.
+
+Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
+General → Threads** to get a toast with **Bring on stage** when a backstage thread finishes or
+needs you. With system notifications on, the desktop app also bounces its Dock icon, or flashes
+the taskbar button on Windows and Linux.
+
 ## Park or snooze for later
 
 Choose **Park thread** from a thread's menu, or press `mod+alt+p` on web and desktop, to put

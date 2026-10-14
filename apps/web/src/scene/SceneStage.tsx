@@ -15,6 +15,7 @@ import { cn } from "../lib/utils";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import type { ThreadRouteTarget } from "../threadRoutes";
 import { findScenePane, type ScenePane, sceneTargetKey, scenePanes } from "./scene.logic";
+import { SceneBackstage } from "./SceneBackstage";
 import { useSceneDragView } from "./sceneDrag";
 import { ScenePaneProvider } from "./ScenePaneContext";
 import { useSceneStore } from "./sceneStore";
@@ -77,6 +78,7 @@ export function SceneStage({ target }: { readonly target: ThreadRouteTarget }) {
           </Fragment>
         ))}
       </ResizablePanelGroup>
+      <SceneBackstage />
     </SidebarInset>
   );
 }

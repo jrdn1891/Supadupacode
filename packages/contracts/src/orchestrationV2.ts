@@ -1341,6 +1341,27 @@ export const OrchestrationV2PlanArtifact = Schema.Union([
 ]);
 export type OrchestrationV2PlanArtifact = typeof OrchestrationV2PlanArtifact.Type;
 
+export const OrchestrationV2ThreadProgress = Schema.Struct({
+  done: NonNegativeInt,
+  total: PositiveInt,
+  current: Schema.NullOr(Schema.String),
+});
+export type OrchestrationV2ThreadProgress = typeof OrchestrationV2ThreadProgress.Type;
+
+export function orchestrationV2TodoProgress(
+  steps: ReadonlyArray<Pick<OrchestrationV2PlanStep, "text" | "status">>,
+): OrchestrationV2ThreadProgress | null {
+  if (steps.length === 0) return null;
+  const current =
+    steps.find((step) => step.status === "running") ??
+    steps.find((step) => step.status === "pending");
+  return {
+    done: steps.filter((step) => step.status === "completed").length,
+    total: steps.length,
+    current: current?.text ?? null,
+  };
+}
+
 export const OrchestrationV2CheckpointFileSummary = Schema.Struct({
   path: TrimmedNonEmptyString,
   kind: TrimmedNonEmptyString,
@@ -2040,6 +2061,8 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   /** Slot in the user-arranged active order; omitted by pre-reorder servers. */
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)),
+  /** The active run's todo list, counted; null when the run keeps none. */
+  progress: Schema.optional(Schema.NullOr(OrchestrationV2ThreadProgress)),
   /**
    * Omitted by servers that predate server-side visited tracking; clients fall
    * back to their local visited state when the field is absent.

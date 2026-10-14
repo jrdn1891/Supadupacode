@@ -1,16 +1,38 @@
-import { GripVerticalIcon, Maximize2Icon, Minimize2Icon, XIcon } from "lucide-react";
+import { scopeThreadRef } from "@supacode/client-runtime/environment";
+import type { EnvironmentId, ThreadId } from "@supacode/contracts";
+import {
+  ArrowDownToLineIcon,
+  GripVerticalIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+  XIcon,
+} from "lucide-react";
 
 import { Button } from "../components/ui/button";
 import { Toggle } from "../components/ui/toggle";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
+import { resolveSidebarThreadStatus } from "../components/Sidebar.logic";
 import { useShortcutLabel } from "../hooks/useShortcutLabel";
+import { useThreadShell } from "../state/entities";
 import { sceneThrowCommits } from "./scene.logic";
-import { beginScenePaneDrag } from "./scenePaneDrag";
+import { beginSceneDrag } from "./sceneDragGesture";
 import { useScenePane } from "./ScenePaneContext";
 import { useSceneActions } from "./useSceneActions";
 
-export function ScenePaneControls({ title }: { readonly title: string }) {
+export function ScenePaneControls({
+  title,
+  environmentId,
+  threadId,
+}: {
+  readonly title: string;
+  readonly environmentId: EnvironmentId;
+  readonly threadId: ThreadId;
+}) {
   const { paneId, split, spotlit } = useScenePane();
+  const thread = useThreadShell(scopeThreadRef(environmentId, threadId));
+  const status = thread === null ? null : resolveSidebarThreadStatus(thread);
+  const running = status === "working" || status === "waiting";
+  const leaveLabel = running ? "Send backstage" : "Close pane";
   const actions = useSceneActions();
   const spotlightShortcut = useShortcutLabel("stage.toggleSpotlight");
   const closeShortcut = useShortcutLabel("stage.closePane");
@@ -27,8 +49,8 @@ export function ScenePaneControls({ title }: { readonly title: string }) {
                 aria-label="Move pane"
                 className="flex size-6 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
                 onPointerDown={(event) =>
-                  beginScenePaneDrag(event, {
-                    paneId,
+                  beginSceneDrag(event, {
+                    exceptPaneId: paneId,
                     title,
                     onRelease: ({ target, travelY, velocityY }) => {
                       if (target?.kind === "backstage" || sceneThrowCommits(travelY, velocityY))
@@ -43,7 +65,9 @@ export function ScenePaneControls({ title }: { readonly title: string }) {
           >
             <GripVerticalIcon className="size-3.5" />
           </TooltipTrigger>
-          <TooltipPopup side="bottom">Drag to move, flick down to send off stage</TooltipPopup>
+          <TooltipPopup side="bottom">
+            {running ? "Drag to move, flick down to send backstage" : "Drag to move"}
+          </TooltipPopup>
         </Tooltip>
       )}
       <Tooltip>
@@ -71,15 +95,15 @@ export function ScenePaneControls({ title }: { readonly title: string }) {
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Close pane"
+                aria-label={leaveLabel}
                 onClick={() => actions.close(paneId)}
               />
             }
           >
-            <XIcon />
+            {running ? <ArrowDownToLineIcon /> : <XIcon />}
           </TooltipTrigger>
           <TooltipPopup side="bottom" shortcut={closeShortcut}>
-            Close pane
+            {leaveLabel}
           </TooltipPopup>
         </Tooltip>
       )}

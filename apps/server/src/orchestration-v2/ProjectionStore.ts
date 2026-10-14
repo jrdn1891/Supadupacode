@@ -56,6 +56,7 @@ import {
   OrchestrationV2SubagentJson as OrchestrationV2SubagentJsonSchema,
   OrchestrationV2TurnItemJson as OrchestrationV2TurnItemJsonSchema,
   orchestrationV2RunWorkStartedAt,
+  orchestrationV2TodoProgress,
   orchestrationV2SnoozeHolds,
   RunId,
   MessageId,
@@ -995,6 +996,7 @@ type ShellThreadRow = {
   readonly latest_user_message_at: string | null;
   readonly latest_user_authored_message_at: string | null;
   readonly has_actionable_proposed_plan: number;
+  readonly activity_todo_plan_payload_json: string | null;
   readonly item_count: number;
   readonly runless_item_count: number;
 };
@@ -1446,6 +1448,7 @@ export function threadShellFromProjection(
       ? {}
       : { activeOrderKey: projection.thread.activeOrderKey }),
     ...(projection.thread.phase === undefined ? {} : { phase: projection.thread.phase }),
+    progress: activityProgressForShell(projection.plans, activityRun?.id ?? null),
     lineage: projection.thread.lineage,
     forkedFrom: projection.thread.forkedFrom,
     activeProviderThreadId: projection.thread.activeProviderThreadId,
@@ -1577,6 +1580,7 @@ type ShellThreadState = {
   readonly latestUserMessageAt: DateTime.Utc | null;
   readonly latestUserAuthoredMessageAt: DateTime.Utc | null;
   readonly hasActionableProposedPlan: boolean;
+  readonly progress: OrchestrationV2ThreadShell["progress"];
   readonly pendingBackgroundTasks: OrchestrationV2ThreadShell["pendingBackgroundTasks"];
   readonly providerInstanceHistory: OrchestrationV2ThreadShell["providerInstanceHistory"];
   readonly goal: OrchestrationV2ThreadShell["goal"];
@@ -1586,6 +1590,20 @@ type ShellThreadState = {
   readonly runOrdinalById: ReadonlyMap<RunId, number>;
   readonly itemCountByRunId: ReadonlyMap<RunId, number>;
 };
+
+function activityProgressForShell(
+  plans: OrchestrationV2ThreadProjection["plans"],
+  activityRunId: RunId | null,
+): OrchestrationV2ThreadShell["progress"] {
+  if (activityRunId === null) return null;
+  const plan = plans.findLast(
+    (candidate) =>
+      candidate.kind === "todo_list" &&
+      candidate.runId === activityRunId &&
+      candidate.status !== "superseded",
+  );
+  return plan?.kind === "todo_list" ? orchestrationV2TodoProgress(plan.steps) : null;
+}
 
 function shellStatusFromStoredRunStatus(status: string | null): OrchestrationV2ShellThreadStatus {
   switch (status) {
@@ -1715,6 +1733,7 @@ function shellFromState(input: {
       ? {}
       : { activeOrderKey: input.state.thread.activeOrderKey }),
     ...(input.state.thread.phase === undefined ? {} : { phase: input.state.thread.phase }),
+    progress: input.state.progress,
     lineage: input.state.thread.lineage,
     forkedFrom: input.state.thread.forkedFrom,
     activeProviderThreadId: input.state.thread.activeProviderThreadId,
@@ -5272,6 +5291,22 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                   AND plan.kind = 'proposed_plan'
                   AND plan.status = 'active'
               ) AS has_actionable_proposed_plan,
+              (
+                SELECT plan.payload_json
+                FROM orchestration_v2_projection_plans plan
+                WHERE plan.run_id = (
+                    SELECT r.run_id
+                    FROM orchestration_v2_projection_runs r
+                    WHERE r.thread_id = t.thread_id
+                      AND r.status IN ('preparing', 'starting', 'running', 'waiting')
+                    ORDER BY r.ordinal DESC, r.run_id DESC
+                    LIMIT 1
+                  )
+                  AND plan.kind = 'todo_list'
+                  AND plan.status <> 'superseded'
+                ORDER BY plan.rowid DESC
+                LIMIT 1
+              ) AS activity_todo_plan_payload_json,
               -- Count per run on the covering (thread_id, run_id) index, then
               -- look up each run once, instead of one run lookup per item.
               (
@@ -5669,6 +5704,12 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 : DateTime.makeUnsafe(row.blocking_run_completed_at);
           }
         }
+        const activityTodoPlan =
+          row.activity_todo_plan_payload_json === null
+            ? null
+            : yield* decodePlanPayload(row.activity_todo_plan_payload_json).pipe(
+                Effect.orElseSucceed(() => null),
+              );
         const pendingBackgroundTasks = [
           ...derivePendingBackgroundWork({
             latestRun:
@@ -5719,6 +5760,10 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
               ? null
               : DateTime.makeUnsafe(row.latest_user_authored_message_at),
           hasActionableProposedPlan: row.has_actionable_proposed_plan === 1,
+          progress:
+            activityTodoPlan?.kind === "todo_list"
+              ? orchestrationV2TodoProgress(activityTodoPlan.steps)
+              : null,
           pendingBackgroundTasks,
           providerInstanceHistory: providerInstanceHistoryForShell({
             threadId: thread.id,

@@ -5,18 +5,18 @@ import { endSceneDrag, type SceneDropTarget, sceneDropTargetAt, showSceneDrag } 
 const DRAG_DISTANCE = 4;
 const VELOCITY_WINDOW_MS = 80;
 
-export interface ScenePaneRelease {
+export interface SceneDragRelease {
   readonly target: SceneDropTarget | null;
   readonly travelY: number;
   readonly velocityY: number;
 }
 
-export function beginScenePaneDrag(
+export function beginSceneDrag(
   event: ReactPointerEvent<HTMLElement>,
   input: {
-    readonly paneId: string;
     readonly title: string;
-    readonly onRelease: (release: ScenePaneRelease) => void;
+    readonly exceptPaneId?: string;
+    readonly onRelease: (release: SceneDragRelease) => void;
   },
 ) {
   if (event.button !== 0) return;
@@ -25,7 +25,10 @@ export function beginScenePaneDrag(
   const samples: Array<{ readonly y: number; readonly t: number }> = [];
   let dragging = false;
   const targetAt = (moved: PointerEvent) =>
-    sceneDropTargetAt({ x: moved.clientX, y: moved.clientY }, { exceptPaneId: input.paneId });
+    sceneDropTargetAt(
+      { x: moved.clientX, y: moved.clientY },
+      input.exceptPaneId === undefined ? {} : { exceptPaneId: input.exceptPaneId },
+    );
   const onMove = (moved: PointerEvent) => {
     if (!dragging && Math.hypot(moved.clientX - start.x, moved.clientY - start.y) < DRAG_DISTANCE)
       return;

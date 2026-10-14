@@ -1124,6 +1124,7 @@ export interface DesktopBridge {
   getEnvironmentMachineIcons?: () => DesktopEnvironmentMachineIcons;
   setNotificationBadge?: (badge: { count: number; image: string | null }) => Promise<void>;
   onNotificationBadgeClear?: (listener: () => void) => () => void;
+  requestAttention?: (kind: "informational" | "critical") => Promise<void>;
   onTrackpadScrollEnd?: (listener: () => void) => () => void;
   /**
    * The OS locale as a BCP-47 tag, which the renderer cannot read for itself:

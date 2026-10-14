@@ -73,6 +73,7 @@ import {
 import * as PreviewIpc from "./methods/preview.ts";
 import * as WebLinksIpc from "./methods/webLinks.ts";
 import * as AppActivationIpc from "./methods/appActivation.ts";
+import { requestAttention } from "./methods/attention.ts";
 import { getWslState, setWslBackendEnabled, setWslDistro, setWslOnly } from "./methods/wsl.ts";
 import {
   getCliCommandState,
@@ -85,6 +86,7 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* installNotificationBadge();
   yield* PreviewIpc.installPreviewEventForwarding();
 
+  yield* ipc.handle(requestAttention);
   yield* ipc.handle(WebLinksIpc.setReady);
   yield* ipc.handle(AppActivationIpc.setReady);
   yield* ipc.handle(AppActivationIpc.complete);
