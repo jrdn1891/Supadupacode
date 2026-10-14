@@ -323,6 +323,10 @@
       "types": "./src/state/threadSettled.ts",
       "default": "./src/state/threadSettled.ts"
     },
+    "./state/backstage": {
+      "types": "./src/state/backstage.ts",
+      "default": "./src/state/backstage.ts"
+    },
     "./state/thread-phase": {
       "types": "./src/state/threadPhase.ts",
       "default": "./src/state/threadPhase.ts"

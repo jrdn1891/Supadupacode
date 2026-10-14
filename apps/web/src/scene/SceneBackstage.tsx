@@ -1,14 +1,20 @@
 import { scopeThreadRef } from "@supacode/client-runtime/environment";
-import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/models";
 import {
-  formatWorkingDurationLabel,
-  resolveThreadListDurationStartedAt,
-} from "@supacode/client-runtime/state/thread-timing";
+  type BackstageCue,
+  type BackstageEntry,
+  backstageDetail,
+  backstageEntries,
+} from "@supacode/client-runtime/state/backstage";
+import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/models";
 import { resolveProjectContext } from "@supacode/shared/projectSettings";
 import { XIcon } from "lucide-react";
 import { useMemo } from "react";
 
-import { resolveThreadLastVisitedAt } from "../components/Sidebar.logic";
+import {
+  hasUnseenCompletion,
+  resolveSidebarThreadStatus,
+  resolveThreadLastVisitedAt,
+} from "../components/Sidebar.logic";
 import { ThreadContextMarker } from "../components/sidebar/ThreadLabels";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useAcknowledgeThreadWoke } from "../hooks/useThreadActions";
@@ -16,7 +22,6 @@ import { useNowMinute } from "../hooks/useNowMinute";
 import { cn } from "../lib/utils";
 import { useServerConfigs, useThreadShells } from "../state/entities";
 import { useUiStateStore } from "../uiStateStore";
-import { type BackstageCue, type BackstageEntry, backstageEntries } from "./backstage.logic";
 import { sceneTargetKey, scenePanes } from "./scene.logic";
 import { useSceneDragView } from "./sceneDrag";
 import { beginSceneDrag } from "./sceneDragGesture";
@@ -43,9 +48,13 @@ export function SceneBackstage() {
     const stageKeys = new Set(scenePanes(scene).map((pane) => sceneTargetKey(pane.target)));
     return backstageEntries({
       threads,
-      stageKeys,
-      lastVisitedAt: (thread, key) =>
-        resolveThreadLastVisitedAt(thread.lastVisitedAt, localVisits[key]),
+      onStage: (key) => stageKeys.has(key),
+      status: resolveSidebarThreadStatus,
+      unseen: (thread, key) =>
+        hasUnseenCompletion({
+          ...thread,
+          lastVisitedAt: resolveThreadLastVisitedAt(thread.lastVisitedAt, localVisits[key]),
+        }),
       now: `${nowMinute}:00Z`,
     });
   }, [localVisits, nowMinute, scene, threads]);
@@ -189,32 +198,4 @@ function CueRing({
       />
     </svg>
   );
-}
-
-function backstageDetail(
-  thread: EnvironmentThreadShell,
-  cue: BackstageCue,
-  nowMs: number,
-): string | null {
-  switch (cue) {
-    case "needs-you":
-      return thread.hasPendingApprovals
-        ? "Needs approval"
-        : thread.hasPendingUserInput
-          ? "Has a question"
-          : thread.runtime?.lastErrorClass === "usage_limit"
-            ? "Usage limit"
-            : "Failed";
-    case "ready":
-      return "Ready";
-    case "standby":
-    case "working": {
-      const progress = thread.progress;
-      if (progress !== null) return `${progress.done}/${progress.total}`;
-      const startedAt = resolveThreadListDurationStartedAt(thread);
-      if (startedAt === null) return null;
-      const elapsedMs = nowMs - Date.parse(startedAt);
-      return elapsedMs < 60_000 ? "<1m" : formatWorkingDurationLabel(elapsedMs);
-    }
-  }
 }

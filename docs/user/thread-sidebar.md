@@ -262,6 +262,10 @@ keeps a todo list, the chip shows how many steps are done; otherwise it shows ho
 has been working. Click a chip to bring the thread on stage, or drag it onto a pane to place it.
 Move the pointer over a finished chip and choose **×** to dismiss it.
 
+On iPhone and iPad, a **Backstage** card at the top of the thread list sums up the same threads,
+such as "1 needs you · 2 working". Tap it to list them, then tap one to open it. The phone gives
+a haptic tap when a backstage thread finishes or needs you.
+
 To send a thread backstage, choose the arrow in its pane header, flick the pane's grip down, or
 drag the pane onto the bar. In a pane on a split stage, `mod+alt+enter` sends your message and
 sends the pane backstage in one step; with a single thread it still starts a new thread.
