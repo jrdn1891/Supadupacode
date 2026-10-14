@@ -56,7 +56,11 @@ export function SceneStage({ target }: { readonly target: ThreadRouteTarget }) {
           <Fragment key={column.id}>
             {columnIndex > 0 ? <ResizableHandle aria-label="Resize stage columns" /> : null}
             <ResizablePanel id={column.id} minSize={240} className="flex">
-              <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+              <ResizablePanelGroup
+                orientation="vertical"
+                className="min-h-0 flex-1"
+                data-scene-column
+              >
                 {column.panes.map((pane, paneIndex) => (
                   <Fragment key={pane.id}>
                     {paneIndex > 0 ? (

@@ -19,9 +19,9 @@ export type SceneDropTarget =
       readonly kind: "pane";
       readonly paneId: string;
       readonly zone: SceneDropZone;
-      readonly rect: Rect;
+      readonly preview: Rect;
     }
-  | { readonly kind: "backstage"; readonly rect: Rect };
+  | { readonly kind: "backstage"; readonly preview: Rect };
 
 export interface SceneDragView {
   readonly preview: Rect | null;
@@ -49,18 +49,23 @@ export function useSceneDragView(): SceneDragView {
   );
 }
 
-function zoneRect(rect: Rect, zone: SceneDropZone): Rect {
+function boundsOf(element: Element): Rect {
+  const { left, top, width, height } = element.getBoundingClientRect();
+  return { left, top, width, height };
+}
+
+function zoneRect(pane: Rect, column: Rect, zone: SceneDropZone): Rect {
   switch (zone) {
     case "left":
-      return { ...rect, width: rect.width / 2 };
+      return { ...column, width: column.width / 2 };
     case "right":
-      return { ...rect, left: rect.left + rect.width / 2, width: rect.width / 2 };
+      return { ...column, left: column.left + column.width / 2, width: column.width / 2 };
     case "top":
-      return { ...rect, height: rect.height / 2 };
+      return { ...pane, height: pane.height / 2 };
     case "bottom":
-      return { ...rect, top: rect.top + rect.height / 2, height: rect.height / 2 };
+      return { ...pane, top: pane.top + pane.height / 2, height: pane.height / 2 };
     case "center":
-      return rect;
+      return pane;
   }
 }
 
@@ -71,14 +76,16 @@ export function sceneDropTargetAt(
   const element = document.elementFromPoint(point.x, point.y);
   if (element === null) return null;
   const backstage = element.closest<HTMLElement>("[data-scene-backstage]");
-  if (backstage !== null) return { kind: "backstage", rect: backstage.getBoundingClientRect() };
+  if (backstage !== null) return { kind: "backstage", preview: boundsOf(backstage) };
   if (options.yieldToComposer && element.closest("[data-thread-context-drop]") !== null)
     return null;
   const pane = element.closest<HTMLElement>("[data-scene-pane]");
   const paneId = pane?.dataset.scenePane;
   if (pane == null || paneId === undefined || paneId === options.exceptPaneId) return null;
-  const rect = pane.getBoundingClientRect();
-  return { kind: "pane", paneId, zone: sceneDropZone(rect, point), rect };
+  const rect = boundsOf(pane);
+  const zone = sceneDropZone(rect, point);
+  const column = boundsOf(pane.closest("[data-scene-column]") ?? pane);
+  return { kind: "pane", paneId, zone, preview: zoneRect(rect, column, zone) };
 }
 
 function targetKey(target: SceneDropTarget | null): string | null {
@@ -93,15 +100,7 @@ export function showSceneDrag(target: SceneDropTarget | null, ghost: SceneDragVi
   const key = targetKey(target);
   if (key !== snappedTo && key !== null) void window.desktopBridge?.performHaptic?.("alignment");
   snappedTo = key;
-  setView({
-    preview:
-      target === null
-        ? null
-        : target.kind === "pane"
-          ? zoneRect(target.rect, target.zone)
-          : target.rect,
-    ghost,
-  });
+  setView({ preview: target?.preview ?? null, ghost });
 }
 
 export function endSceneDrag() {
