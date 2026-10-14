@@ -8,6 +8,7 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "./baseSchemas.ts";
+import { OrchestrationV2ThreadPhase } from "./orchestrationV2.ts";
 import { ThreadLinkedPullRequest } from "./threadPullRequest.ts";
 import { ThreadTitleRegeneration } from "./threadTitle.ts";
 
@@ -63,9 +64,10 @@ export const ThreadMetadataMcpAction = Schema.Literals([
   "regenerate_title",
   "link_pull_request",
   "unlink_pull_request",
+  "set_phase",
 ]).annotate({
   description:
-    "Metadata mutation: rename, regenerate_title, link_pull_request, or unlink_pull_request.",
+    "Metadata mutation: rename, regenerate_title, link_pull_request, unlink_pull_request, or set_phase.",
 });
 export type ThreadMetadataMcpAction = typeof ThreadMetadataMcpAction.Type;
 
@@ -87,9 +89,16 @@ export const ThreadMetadataMcpUpdateInput = Schema.Struct({
   pullRequest: Schema.optional(ThreadMetadataMcpPullRequest).annotate({
     description: "Pull request to link. Required only when action is link_pull_request.",
   }),
+  phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)).annotate({
+    description:
+      "Work phase: explore, build, or ready (to merge); null clears it. Required only when action is set_phase.",
+  }),
   clientRequestId: Schema.optional(ThreadMetadataClientRequestId),
 }).check(
   Schema.makeFilter((input) => {
+    if (input.action !== "set_phase" && input.phase !== undefined) {
+      return `${input.action} does not accept phase.`;
+    }
     switch (input.action) {
       case "rename":
         return input.title !== undefined && input.pullRequest === undefined
@@ -99,6 +108,12 @@ export const ThreadMetadataMcpUpdateInput = Schema.Struct({
         return input.pullRequest !== undefined && input.title === undefined
           ? true
           : "link_pull_request requires pullRequest and does not accept title.";
+      case "set_phase":
+        return input.phase !== undefined &&
+          input.title === undefined &&
+          input.pullRequest === undefined
+          ? true
+          : "set_phase requires phase and does not accept title or pullRequest.";
       case "regenerate_title":
       case "unlink_pull_request":
         return input.title === undefined && input.pullRequest === undefined
@@ -117,6 +132,7 @@ export const ThreadMetadataMcpUpdateResult = Schema.Struct({
   title: Schema.String,
   titleRegeneration: Schema.NullOr(ThreadTitleRegeneration),
   linkedPullRequest: Schema.NullOr(ThreadLinkedPullRequest),
+  phase: Schema.NullOr(OrchestrationV2ThreadPhase),
   updatedAt: IsoDateTime,
 });
 export type ThreadMetadataMcpUpdateResult = typeof ThreadMetadataMcpUpdateResult.Type;

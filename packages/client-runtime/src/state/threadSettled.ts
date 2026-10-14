@@ -92,10 +92,24 @@ export interface ThreadSnoozeShell extends QueuedThreadShell {
   readonly hasPendingUserInput: boolean;
 }
 
+function snoozedRunCompletedAt(shell: ThreadSnoozeShell): string | null {
+  const latestRun = shell.latestRun ?? shell.latestTurn ?? null;
+  if (
+    shell.snoozedUntil != null &&
+    shell.snoozedAt != null &&
+    (latestRun?.state === "completed" || latestRun?.status === "completed") &&
+    latestRun.completedAt != null &&
+    Date.parse(latestRun.completedAt) > Date.parse(shell.snoozedAt)
+  ) {
+    return latestRun.completedAt;
+  }
+  return null;
+}
+
 /**
  * A snoozed thread "raises its hand" when something happens that outranks
  * the user's snooze: the agent is blocked on them (approval / user input),
- * the session failed, or a run completed after the snooze was set — the
+ * the session failed, or a run completed after a timed snooze was set — the
  * v1 taste of event-based snooze ("something happened" wakes early).
  * Raising a hand never clears the server-side snooze fields; it only stops
  * the thread from classifying as snoozed.
@@ -103,7 +117,6 @@ export interface ThreadSnoozeShell extends QueuedThreadShell {
 export function threadRaisedHandWhileSnoozed(shell: ThreadSnoozeShell): boolean {
   if (shell.hasPendingApprovals || shell.hasPendingUserInput) return true;
   const runtime = shell.runtime ?? shell.session ?? null;
-  const latestRun = shell.latestRun ?? shell.latestTurn ?? null;
   // Only a FRESH failure raises the hand: a thread snoozed while already
   // failed stays snoozed — that snooze was the user saying "I saw it, not
   // now". session.updatedAt stamps the status edge, so an error newer than
@@ -115,15 +128,7 @@ export function threadRaisedHandWhileSnoozed(shell: ThreadSnoozeShell): boolean 
   ) {
     return true;
   }
-  if (
-    shell.snoozedAt != null &&
-    (latestRun?.state === "completed" || latestRun?.status === "completed") &&
-    latestRun.completedAt != null &&
-    Date.parse(latestRun.completedAt) > Date.parse(shell.snoozedAt)
-  ) {
-    return true;
-  }
-  return false;
+  return snoozedRunCompletedAt(shell) !== null;
 }
 
 /**
@@ -153,21 +158,23 @@ export function canSnooze(
 }
 
 /**
- * Snoozed resolution: hidden from the inbox while the wake time is in the
- * future and the thread has not raised its hand. Timer wakes are derived —
- * no server event fires when snoozedUntil passes; the stale fields simply
- * stop classifying as snoozed (and feed the woke indicator until the user
- * visits or re-engages).
+ * Snoozed resolution: hidden from the inbox until the wake time passes (a
+ * park without one waits for the user) and while the thread has not raised
+ * its hand. Timer wakes are derived — no server event fires when
+ * snoozedUntil passes; the stale fields simply stop classifying as snoozed
+ * (and feed the woke indicator until the user visits or re-engages).
  */
 export function effectiveSnoozed(
   shell: ThreadSnoozeShell,
   options: { readonly now: string },
 ): boolean {
-  if (shell.snoozedUntil == null) return false;
-  const wakeAtMs = Date.parse(shell.snoozedUntil);
-  // Malformed data never hides a thread.
-  if (Number.isNaN(wakeAtMs)) return false;
-  if (wakeAtMs <= Date.parse(options.now)) return false;
+  if (shell.snoozedAt == null) return false;
+  if (shell.snoozedUntil != null) {
+    const wakeAtMs = Date.parse(shell.snoozedUntil);
+    // Malformed data never hides a thread.
+    if (Number.isNaN(wakeAtMs)) return false;
+    if (wakeAtMs <= Date.parse(options.now)) return false;
+  }
   return !threadRaisedHandWhileSnoozed(shell);
 }
 
@@ -186,28 +193,19 @@ export function threadWokeAt(
   shell: ThreadSnoozeShell,
   options: { readonly now: string },
 ): string | null {
-  if (shell.snoozedUntil == null) return null;
-  const wakeAtMs = Date.parse(shell.snoozedUntil);
-  if (Number.isNaN(wakeAtMs)) return null;
+  if (shell.snoozedAt == null) return null;
+  const wakeAt = shell.snoozedUntil ?? null;
+  if (wakeAt !== null && Number.isNaN(Date.parse(wakeAt))) return null;
   // An early hand-raise wake stays authoritative even after the scheduled
   // wake time passes: reporting snoozedUntil then would resurface a Woke
   // indicator the user already cleared by visiting (snoozedUntil is newer
   // than that visit's lastVisitedAt).
   if (threadRaisedHandWhileSnoozed(shell)) {
-    const latestRun = shell.latestRun ?? shell.latestTurn ?? null;
     const runtime = shell.runtime ?? shell.session ?? null;
-    if (
-      shell.snoozedAt != null &&
-      (latestRun?.state === "completed" || latestRun?.status === "completed") &&
-      latestRun.completedAt != null &&
-      Date.parse(latestRun.completedAt) > Date.parse(shell.snoozedAt)
-    ) {
-      return latestRun.completedAt;
-    }
-    return runtime?.updatedAt ?? shell.snoozedAt ?? null;
+    return snoozedRunCompletedAt(shell) ?? runtime?.updatedAt ?? shell.snoozedAt;
   }
   // No raised hand: woke iff the timer elapsed (still-snoozed → null).
-  return wakeAtMs <= Date.parse(options.now) ? shell.snoozedUntil : null;
+  return wakeAt !== null && Date.parse(wakeAt) <= Date.parse(options.now) ? wakeAt : null;
 }
 
 const HOUR_MS = 60 * 60 * 1_000;

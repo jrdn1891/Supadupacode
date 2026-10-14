@@ -1954,7 +1954,7 @@ describe("navigation after parking a thread", () => {
           thread: {
             settledOverride,
             snoozedUntil,
-            snoozedAt: null,
+            snoozedAt: snoozedUntil === null ? null : "2026-09-12T09:30:00.000Z",
             session: null,
             latestTurn: null,
             hasPendingApprovals,
@@ -1964,6 +1964,26 @@ describe("navigation after parking a thread", () => {
       ).toBe(expected);
     },
   );
+
+  it("moves on after parking the open thread", () => {
+    expect(
+      shouldNavigateAfterThreadPark({
+        threadKey: "thread",
+        currentThreadKey: "thread",
+        action: "snooze",
+        now: "2026-09-12T10:00:00.000Z",
+        thread: {
+          settledOverride: null,
+          snoozedUntil: null,
+          snoozedAt: "2026-09-12T09:30:00.000Z",
+          session: null,
+          latestTurn: null,
+          hasPendingApprovals: false,
+          hasPendingUserInput: false,
+        },
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("unseen completion with background work", () => {

@@ -189,6 +189,27 @@ describe("thread list environment projection", () => {
     }
   });
 
+  it("follows project context settings without re-deriving for unrelated settings", () => {
+    const h = harness();
+    try {
+      const projectContexts = [{ id: "work", name: "Work", color: "sky" }] as const;
+      const withContexts = { ...config, settings: { ...config.settings, projectContexts } };
+      h.write(withContexts as unknown as ServerConfig);
+      expect(h.read().contextSettingsByEnvironmentId.get(ID)?.projectContexts).toBe(
+        projectContexts,
+      );
+      const current = h.read();
+      h.write({
+        ...withContexts,
+        settings: { ...withContexts.settings, defaultTheme: "dark" },
+      } as unknown as ServerConfig);
+      expect(h.read()).toBe(current);
+      expect(h.notifications().list).toBe(1);
+    } finally {
+      h.registry.dispose();
+    }
+  });
+
   it("restores detected machine kind after removing an override", () => {
     const h = harness();
     try {

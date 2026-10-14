@@ -1,5 +1,14 @@
-import type { ContextMenuItem } from "@supacode/contracts";
+import {
+  type ContextMenuItem,
+  OrchestrationV2ThreadPhase,
+  type ProjectContext,
+} from "@supacode/contracts";
+import { THREAD_PHASE_LABELS } from "@supacode/client-runtime/state/thread-phase";
 import type { SnoozePreset } from "@supacode/client-runtime/state/thread-settled";
+
+export function phaseFromMenuAction(action: ThreadActionMenuId): OrchestrationV2ThreadPhase | null {
+  return OrchestrationV2ThreadPhase.literals.find((phase) => action === `phase:${phase}`) ?? null;
+}
 
 /**
  * Ids for the per-thread action menu. Snooze presets are dispatched as
@@ -17,9 +26,14 @@ export type ThreadActionMenuId =
   | "auto-settle"
   | "auto-settle:enabled"
   | "auto-settle:disabled"
+  | "park"
   | "snooze"
   | `snooze:${string}`
   | "unsnooze"
+  | "phase"
+  | `phase:${OrchestrationV2ThreadPhase | "none"}`
+  | "context"
+  | `context:${string}`
   | "rename"
   | "regenerate-title"
   | "mark-unread"
@@ -86,7 +100,14 @@ export interface ThreadActionMenuState {
   /** False while the user has turned automatic settlement off for this thread. */
   readonly autoSettleEnabled: boolean;
   readonly isSnoozed: boolean;
+  readonly isParked: boolean;
   readonly canSnoozeNow: boolean;
+  readonly phase: OrchestrationV2ThreadPhase | null;
+  /** The project's context and the choices for it; null for threads without a project. */
+  readonly context: {
+    readonly current: ProjectContext | null;
+    readonly options: ReadonlyArray<ProjectContext>;
+  } | null;
   readonly isRegeneratingTitle: boolean;
   /** Archive rejects a thread with an attached provider, so disable it here rather than let the action fail. */
   readonly isRunning: boolean;
@@ -150,22 +171,75 @@ export function buildThreadActionMenuItems(
         ]
       : []),
     ...(state.supports.snooze
+      ? state.isSnoozed
+        ? [
+            {
+              id: "unsnooze" as const,
+              label: state.isParked ? "Unpark thread" : "Wake thread",
+              icon: state.isParked ? "square-parking" : "clock",
+            },
+          ]
+        : [
+            {
+              id: "park" as const,
+              label: "Park thread",
+              icon: "square-parking",
+              disabled: !state.canSnoozeNow,
+            },
+            {
+              id: "snooze" as const,
+              label: "Snooze",
+              icon: "clock",
+              disabled: !state.canSnoozeNow,
+              children: [
+                ...state.snoozePresets.map((preset) => ({
+                  id: `snooze:${preset.id}` as const,
+                  label: `${preset.label} (${preset.whenLabel})`,
+                })),
+                { id: "snooze:custom" as const, label: "Custom…", separatorBefore: true },
+              ],
+            },
+          ]
+      : []),
+    {
+      id: "phase",
+      label: "Phase",
+      icon: "flag",
+      separatorBefore: true,
+      children: [
+        ...(Object.keys(THREAD_PHASE_LABELS) as OrchestrationV2ThreadPhase[]).map((phase) => ({
+          id: `phase:${phase}` as const,
+          label: THREAD_PHASE_LABELS[phase],
+          checked: state.phase === phase,
+        })),
+        {
+          id: "phase:none" as const,
+          label: "No phase",
+          checked: state.phase === null,
+          separatorBefore: true,
+        },
+      ],
+    },
+    ...(state.context && state.context.options.length > 0
       ? [
-          state.isSnoozed
-            ? { id: "unsnooze" as const, label: "Wake thread", icon: "clock" }
-            : {
-                id: "snooze" as const,
-                label: "Snooze",
-                icon: "clock",
-                disabled: !state.canSnoozeNow,
-                children: [
-                  ...state.snoozePresets.map((preset) => ({
-                    id: `snooze:${preset.id}` as const,
-                    label: `${preset.label} (${preset.whenLabel})`,
-                  })),
-                  { id: "snooze:custom" as const, label: "Custom…", separatorBefore: true },
-                ],
+          {
+            id: "context" as const,
+            label: "Project context",
+            icon: "tag",
+            children: [
+              ...state.context.options.map((option) => ({
+                id: `context:${option.id}` as const,
+                label: option.name,
+                checked: state.context?.current?.id === option.id,
+              })),
+              {
+                id: "context:none" as const,
+                label: "No context",
+                checked: state.context.current === null,
+                separatorBefore: true,
               },
+            ],
+          },
         ]
       : []),
     { id: "rename", label: "Rename thread", icon: "pencil", separatorBefore: true },

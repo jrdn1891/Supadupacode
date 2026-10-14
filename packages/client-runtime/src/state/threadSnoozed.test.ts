@@ -148,6 +148,31 @@ describe("effectiveSnoozed", () => {
   });
 });
 
+describe("parking without a wake time", () => {
+  const parked = (input: Parameters<typeof makeShell>[0] = {}) =>
+    makeShell({ ...input, snoozedUntil: null, snoozedAt: SNOOZED_AT });
+
+  it("hides the thread until it is picked back up", () => {
+    expect(effectiveSnoozed(parked(), { now: NOW })).toBe(true);
+    expect(threadWokeAt(parked(), { now: NOW })).toBe(null);
+  });
+
+  it("stays parked when the run finishes", () => {
+    const finished = parked({ turnCompletedAt: "2026-04-10T10:30:00.000Z" });
+    expect(threadRaisedHandWhileSnoozed(finished)).toBe(false);
+    expect(effectiveSnoozed(finished, { now: NOW })).toBe(true);
+    expect(threadWokeAt(finished, { now: NOW })).toBe(null);
+  });
+
+  it("comes back when the agent is blocked on the user or fails", () => {
+    expect(effectiveSnoozed(parked({ pending: "approval" }), { now: NOW })).toBe(false);
+    expect(effectiveSnoozed(parked({ sessionStatus: "error" }), { now: NOW })).toBe(false);
+    expect(threadWokeAt(parked({ sessionStatus: "error" }), { now: NOW })).toBe(
+      "2026-04-10T11:00:00.000Z",
+    );
+  });
+});
+
 describe("threadRaisedHandWhileSnoozed", () => {
   it("is false for a quiet snoozed thread", () => {
     expect(threadRaisedHandWhileSnoozed(makeShell({ snoozedUntil: FUTURE_WAKE }))).toBe(false);

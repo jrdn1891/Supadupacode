@@ -1,4 +1,4 @@
-import type { ThreadId } from "@supacode/contracts";
+import { orchestrationV2SnoozeUnchanged, type ThreadId } from "@supacode/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -451,23 +451,27 @@ export function createThreadEnvironmentAtoms<R, E>(
       settledAt: null,
       unsettledAt: thread.settledOverride === "active" ? (thread.unsettledAt ?? null) : now,
     })),
-    snooze: optimistic.wrap(commands.snooze, (thread, input, now, accepted) =>
-      (!accepted &&
-        (thread.pendingRuntimeRequest !== null ||
-          ["preparing", "queued", "starting"].includes(thread.status))) ||
-      !(Date.parse(input.snoozedUntil) > DateTime.toEpochMillis(now))
-        ? thread
-        : {
-            ...thread,
-            pendingRuntimeRequest: null,
-            snoozedUntil: DateTime.makeUnsafe(input.snoozedUntil),
-            snoozedAt:
-              thread.snoozedUntil != null &&
-              DateTime.formatIso(thread.snoozedUntil) === input.snoozedUntil
-                ? (thread.snoozedAt ?? now)
-                : now,
-          },
-    ),
+    snooze: optimistic.wrap(commands.snooze, (thread, input, now, accepted) => {
+      if (
+        (!accepted &&
+          (thread.pendingRuntimeRequest !== null ||
+            ["preparing", "queued", "starting"].includes(thread.status))) ||
+        (input.snoozedUntil !== null &&
+          !(Date.parse(input.snoozedUntil) > DateTime.toEpochMillis(now)))
+      ) {
+        return thread;
+      }
+      const snoozedUntil =
+        input.snoozedUntil === null ? null : DateTime.makeUnsafe(input.snoozedUntil);
+      return {
+        ...thread,
+        pendingRuntimeRequest: null,
+        snoozedUntil,
+        snoozedAt: orchestrationV2SnoozeUnchanged(thread, snoozedUntil)
+          ? (thread.snoozedAt ?? now)
+          : now,
+      };
+    }),
     unsnooze: optimistic.wrap(commands.unsnooze, (thread) => ({
       ...thread,
       snoozedUntil: null,
@@ -504,5 +508,8 @@ export function createThreadEnvironmentAtoms<R, E>(
       ...thread,
       activeOrderKey: input.orderKey,
     })),
+    updateMetadata: optimistic.wrap(commands.updateMetadata, (thread, input) =>
+      input.phase === undefined ? thread : { ...thread, phase: input.phase },
+    ),
   };
 }

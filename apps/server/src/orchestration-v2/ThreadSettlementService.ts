@@ -3,6 +3,7 @@ import { resolveProjectSettings } from "@supacode/shared/projectSettings";
 import { visibleThreadPullRequests } from "@supacode/shared/threadPullRequests";
 import {
   CommandId,
+  orchestrationV2SnoozeHolds,
   type ThreadId,
   type OrchestrationV2DomainEvent,
   type OrchestrationV2ThreadShell,
@@ -149,17 +150,19 @@ export function isAutoSettlementCandidate(
   if (thread.activityRunStatus != null) return false;
   if (backgroundWorkHoldsCompletion(thread.pendingBackgroundTasks ?? [])) return false;
   if (threadHasQueuedTurnStart(thread, nowMs)) return false;
-  const snoozedUntilMs = toMillis(thread.snoozedUntil);
-  if (snoozedUntilMs === null || snoozedUntilMs <= nowMs) return true;
-  // A snoozed thread that woke early (error or completed work) can settle;
-  // one still parked on its wake time keeps its stronger statement.
+  if (!orchestrationV2SnoozeHolds(thread, nowMs)) return true;
+  // A snoozed thread that woke early (error, or completed work on a timed
+  // snooze) can settle; one still parked keeps its stronger statement.
   const snoozedAtMs = toMillis(thread.snoozedAt);
   const completedAtMs = toMillis(thread.latestRunCompletedAt);
   const wokeOnError =
     thread.status === "failed" &&
     (snoozedAtMs === null || (completedAtMs !== null && completedAtMs > snoozedAtMs));
   const wokeOnCompletion =
-    snoozedAtMs !== null && completedAtMs !== null && completedAtMs > snoozedAtMs;
+    thread.snoozedUntil != null &&
+    snoozedAtMs !== null &&
+    completedAtMs !== null &&
+    completedAtMs > snoozedAtMs;
   return wokeOnError || wokeOnCompletion;
 }
 
@@ -170,8 +173,7 @@ export function isSnoozed(
   >,
   nowMs: number,
 ): boolean {
-  const snoozedUntilMs = toMillis(thread.snoozedUntil);
-  if (snoozedUntilMs === null || snoozedUntilMs <= nowMs) return false;
+  if (!orchestrationV2SnoozeHolds(thread, nowMs)) return false;
   if (thread.pendingRuntimeRequest !== null) return false;
   const snoozedAtMs = toMillis(thread.snoozedAt);
   const completedAtMs = toMillis(thread.latestRunCompletedAt);
@@ -180,6 +182,7 @@ export function isSnoozed(
     (snoozedAtMs === null || (completedAtMs !== null && completedAtMs > snoozedAtMs));
 
   const wokeOnCompletion =
+    thread.snoozedUntil != null &&
     thread.status === "completed" &&
     snoozedAtMs !== null &&
     completedAtMs !== null &&

@@ -774,7 +774,8 @@ export function useThreadActions() {
       // has to put those back as well.
       const pinOrderKey = resolved?.thread.pinnedAt != null ? resolved.thread.pinOrderKey : null;
       const wasPinned = resolved?.thread.pinnedAt != null;
-      const snoozedUntil = resolved?.thread.snoozedUntil ?? null;
+      const snooze =
+        resolved?.thread.snoozedAt != null ? { snoozedUntil: resolved.thread.snoozedUntil } : null;
       // An older unpin/snooze Undo would re-pin or re-snooze, and the server
       // treats either as a promotion that un-settles; settling supersedes them.
       ThreadUndo.invalidate("pin", scopedThreadKey(target));
@@ -804,10 +805,10 @@ export function useThreadActions() {
             );
             if (pinned._tag !== "Success") return pinned;
           }
-          if (snoozedUntil !== null) {
+          if (snooze !== null) {
             return snoozeThreadMutation({
               environmentId: target.environmentId,
-              input: { threadId: target.threadId, snoozedUntil },
+              input: { threadId: target.threadId, snoozedUntil: snooze.snoozedUntil },
             });
           }
           return unsettled;
@@ -894,7 +895,7 @@ export function useThreadActions() {
   );
 
   const snoozeThread = useCallback(
-    async (target: ScopedThreadRef, snoozedUntil: string) => {
+    async (target: ScopedThreadRef, snoozedUntil: string | null) => {
       // Version skew: never send the command to a server that predates it.
       if (!readEnvironmentSupportsSnooze(target.environmentId)) {
         return AsyncResult.failure(
@@ -931,10 +932,10 @@ export function useThreadActions() {
       }
       // Snooze hides the row, so keep its confirmation in the sidebar.
       showThreadUndoNotice({
-        action: "Snoozed",
+        action: snoozedUntil === null ? "Parked" : "Snoozed",
         claim: action,
         undo: () => unsnoozeThread(target),
-        failureTitle: "Failed to wake thread",
+        failureTitle: snoozedUntil === null ? "Failed to unpark thread" : "Failed to wake thread",
       });
       return result;
     },

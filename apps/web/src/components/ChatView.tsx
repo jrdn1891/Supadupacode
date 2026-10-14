@@ -302,6 +302,7 @@ import { resolveChatShortcutCommand, shortcutLabelForCommand } from "../keybindi
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import {
   AlarmClockIcon,
+  SquareParkingIcon,
   CheckCircle2Icon,
   MessageCircleIcon,
   DownloadIcon,
@@ -1634,7 +1635,7 @@ export default function ChatView(props: ChatViewProps) {
   const canReadTerminal = useEnvironmentScope(environmentId, AuthTerminalReadScope);
   const draftId = routeKind === "draft" ? props.draftId : null;
   const handleNewThread = useNewThreadHandler();
-  const { settleThread, pinThread, confirmAndUnpinThread } = useThreadActions();
+  const { settleThread, pinThread, confirmAndUnpinThread, snoozeThread } = useThreadActions();
   const routeThreadRef = useMemo(
     () => scopeThreadRef(environmentId, threadId),
     [environmentId, threadId],
@@ -7788,13 +7789,21 @@ export default function ChatView(props: ChatViewProps) {
     const nowMs = Date.parse(`${nowMinute}:00.000Z`);
     return activeThreadSnoozed ? (
       <ThreadStatusLine
-        icon={<AlarmClockIcon />}
+        icon={activeSnoozedUntil ? <AlarmClockIcon /> : <SquareParkingIcon />}
         label={
           activeSnoozedUntil
             ? `Snoozed, ${formatRelativeTimeUntilLabel(activeSnoozedUntil, nowMs)}`
-            : "Snoozed"
+            : "Parked"
         }
-        actionLabel={isUnsnoozing ? "Waking..." : "Wake now"}
+        actionLabel={
+          activeSnoozedUntil
+            ? isUnsnoozing
+              ? "Waking..."
+              : "Wake now"
+            : isUnsnoozing
+              ? "Unparking..."
+              : "Unpark"
+        }
         actionDisabled={!canOperateThread || isUnsnoozing}
         onAction={() => void handleUnsnoozeActiveThread()}
       />
@@ -8242,6 +8251,29 @@ export default function ChatView(props: ChatViewProps) {
         return;
       }
 
+      if (command === "thread.park") {
+        if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isServerThread || !activeThreadRef || !supportsSnooze || event.repeat) return;
+        if (activeThreadSnoozed) {
+          void handleUnsnoozeActiveThread();
+          return;
+        }
+        void snoozeThread(activeThreadRef, null).then((result) => {
+          if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
+          const error = squashAtomCommandFailure(result);
+          toastManager.add(
+            stackedThreadToast({
+              type: "error",
+              title: "Failed to park thread",
+              description: error instanceof Error ? error.message : "An error occurred.",
+            }),
+          );
+        });
+        return;
+      }
+
       if (command === "thread.pin") {
         if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return;
         event.preventDefault();
@@ -8515,14 +8547,18 @@ export default function ChatView(props: ChatViewProps) {
     keybindings,
     scriptKeybindings,
     handleUnsettleActiveThread,
+    handleUnsnoozeActiveThread,
+    activeThreadSnoozed,
     isServerThread,
     serverConfig?.threadFind,
     onInterrupt,
     onToggleDiff,
     pinThread,
     settleThread,
+    snoozeThread,
     supportsPinning,
     supportsSettlement,
+    supportsSnooze,
     confirmAndUnpinThread,
     copyActiveThreadReference,
     forkDisabled,

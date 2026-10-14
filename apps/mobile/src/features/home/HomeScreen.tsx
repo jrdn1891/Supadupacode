@@ -13,7 +13,11 @@ import {
   threadSearchMatchKey,
   type EnvironmentThreadSearchMatch,
 } from "@supacode/client-runtime/state/thread-search";
-import { type EnvironmentId, type SidebarProjectGroupingMode } from "@supacode/contracts";
+import {
+  type EnvironmentId,
+  type OrchestrationV2ThreadPhase,
+  type SidebarProjectGroupingMode,
+} from "@supacode/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { HeaderHeightContext } from "@react-navigation/elements";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -124,8 +128,13 @@ interface HomeScreenProps {
   readonly onSettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly onSnoozeThread: (
     thread: EnvironmentThreadShell,
-    snoozedUntil: string,
+    snoozedUntil: string | null,
   ) => Promise<boolean>;
+  readonly onSetThreadPhase: (
+    thread: EnvironmentThreadShell,
+    phase: OrchestrationV2ThreadPhase | null,
+  ) => void;
+  readonly onSetProjectContext: (thread: EnvironmentThreadShell, contextId: string | null) => void;
   readonly onUnsnoozeThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly onUnsettleThread: (thread: EnvironmentThreadShell) => void;
   readonly onPinThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
@@ -482,7 +491,7 @@ export function HomeScreen(props: HomeScreenProps) {
     onRenameThread,
   } = props;
   const handleSnoozeThread = useCallback(
-    (thread: EnvironmentThreadShell, snoozedUntil: string) => {
+    (thread: EnvironmentThreadShell, snoozedUntil: string | null) => {
       void onSnoozeThread(thread, snoozedUntil);
     },
     [onSnoozeThread],
@@ -585,6 +594,7 @@ export function HomeScreen(props: HomeScreenProps) {
     autoSettleOptOutEnvironmentIds,
     pinReorderEnvironmentIds,
     titleRegenerationEnvironmentIds,
+    contextSettingsByEnvironmentId,
   } = listEnvironments;
   const resolveProviderInstance = useThreadRowProviderInstanceResolver(providersByEnvironmentId);
   const pendingOrder = usePendingThreadOrder(nowMinute, snoozeWakeTick);
@@ -825,6 +835,9 @@ export function HomeScreen(props: HomeScreenProps) {
           onPinThread={handlePinThread}
           onUnpinThread={handleUnpinThread}
           onSetThreadAutoSettle={handleSetThreadAutoSettle}
+          onSetThreadPhase={props.onSetThreadPhase}
+          onSetProjectContext={props.onSetProjectContext}
+          contextSettings={contextSettingsByEnvironmentId.get(thread.environmentId) ?? null}
           onSwipeableClose={handleSwipeableClose}
           onSwipeableWillOpen={handleSwipeableWillOpen}
           simultaneousSwipeGesture={homeScrollGesture}
@@ -846,6 +859,9 @@ export function HomeScreen(props: HomeScreenProps) {
       handleUnsettleThread,
       handleSetThreadAutoSettle,
       homeScrollGesture,
+      contextSettingsByEnvironmentId,
+      props.onSetThreadPhase,
+      props.onSetProjectContext,
       autoSettleOptOutEnvironmentIds,
       pinningEnvironmentIds,
       autoSettleOptOutEnvironmentIds,

@@ -4,12 +4,18 @@ import {
   type EnvironmentMachineKind,
   type ServerConfig,
   type ServerProvider,
+  type ServerSettings,
 } from "@supacode/contracts";
 import { Atom } from "effect/reactivity";
 
 export type ThreadListProvider = Pick<
   ServerProvider,
   "instanceId" | "driver" | "displayName" | "accentColor" | "iconUrl"
+>;
+
+export type ThreadListContextSettings = Pick<
+  ServerSettings,
+  "projectContexts" | "projectContext" | "projectSettingsOverrides"
 >;
 
 const capabilityKeys = [
@@ -34,7 +40,20 @@ function selectEnvironment(config: ServerConfig) {
     ),
     machineKind: resolveEnvironmentMachineKind(config),
     capabilities: config.environment.capabilities,
+    contextSettings: {
+      projectContexts: config.settings.projectContexts,
+      projectContext: config.settings.projectContext,
+      projectSettingsOverrides: config.settings.projectSettingsOverrides,
+    } satisfies ThreadListContextSettings,
   };
+}
+
+function sameContextSettings(left: ThreadListContextSettings, right: ThreadListContextSettings) {
+  return (
+    left.projectContexts === right.projectContexts &&
+    left.projectContext === right.projectContext &&
+    left.projectSettingsOverrides === right.projectSettingsOverrides
+  );
 }
 
 type ListEnvironment = ReturnType<typeof selectEnvironment>;
@@ -67,9 +86,11 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   const autoSettleOptOutEnvironmentIds = new Set<EnvironmentId>();
   const pinReorderEnvironmentIds = new Set<EnvironmentId>();
   const titleRegenerationEnvironmentIds = new Set<EnvironmentId>();
-  for (const [id, { providers, machineKind, capabilities }] of environments) {
+  const contextSettingsByEnvironmentId = new Map<EnvironmentId, ThreadListContextSettings>();
+  for (const [id, { providers, machineKind, capabilities, contextSettings }] of environments) {
     providersByEnvironmentId.set(id, providers);
     machineByEnvironmentId.set(id, machineKind);
+    contextSettingsByEnvironmentId.set(id, contextSettings);
     if (capabilities.threadSettlement === true) settlementEnvironmentIds.add(id);
     if (capabilities.threadSnooze === true) snoozeEnvironmentIds.add(id);
     if (capabilities.threadAutoSettleOptOut === true) autoSettleOptOutEnvironmentIds.add(id);
@@ -86,6 +107,7 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
     autoSettleOptOutEnvironmentIds,
     pinReorderEnvironmentIds,
     titleRegenerationEnvironmentIds,
+    contextSettingsByEnvironmentId,
   };
 }
 
@@ -109,6 +131,7 @@ export function createThreadListEnvironmentsAtom(
         prior &&
         prior.providers === selected.providers &&
         prior.machineKind === selected.machineKind &&
+        sameContextSettings(prior.contextSettings, selected.contextSettings) &&
         capabilityKeys.every(
           (key) => (prior.capabilities[key] === true) === (selected.capabilities[key] === true),
         );

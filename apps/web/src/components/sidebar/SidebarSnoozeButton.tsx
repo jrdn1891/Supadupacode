@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useClientSettings } from "~/hooks/useSettings";
 
 import { requestCustomSnooze } from "../CustomSnoozeDialog";
-import { resolveSnoozePresets, type SnoozePreset } from "../Sidebar.snooze";
+import { resolveSnoozePresets, type SnoozeChoice } from "../Sidebar.snooze";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
@@ -15,7 +15,7 @@ export function SidebarSnoozeButton({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSnooze: (preset: Pick<SnoozePreset, "snoozedUntil">) => void;
+  onSnooze: (choice: SnoozeChoice) => void;
 }) {
   const timestampFormat = useClientSettings((settings) => settings.timestampFormat);
   // Resolve relative presets when the menu opens, rather than when the row mounts.
@@ -47,6 +47,16 @@ export function SidebarSnoozeButton({
         <TooltipPopup>Snooze thread</TooltipPopup>
       </Tooltip>
       <MenuPopup side="bottom" align="end">
+        <MenuItem
+          onClick={(event) => {
+            event.stopPropagation();
+            onSnooze({ snoozedUntil: null });
+          }}
+        >
+          Park
+          <MenuShortcut>Until I'm back</MenuShortcut>
+        </MenuItem>
+        <MenuSeparator />
         {presets.map((preset) => (
           <MenuItem
             key={preset.id}

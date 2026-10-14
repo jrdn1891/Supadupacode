@@ -2827,6 +2827,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
             pendingRuntimeRequest: null,
             limitRecovery: sqlShell.limitRecovery,
             snoozedUntil: sqlShell.snoozedUntil,
+            snoozedAt: sqlShell.snoozedAt,
           });
         } else assert.isUndefined(candidate);
         assert.isUndefined(candidates.find((row) => row.id === otherThreadId));
@@ -3018,7 +3019,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
       );
       yield* sql`DELETE FROM orchestration_v2_projection_runtime_requests WHERE runtime_request_id = 'limit-shell:pending-request'`;
       yield* sql`UPDATE orchestration_v2_projection_threads
-        SET payload_json = json_set(payload_json, '$.snoozedUntil', ${DateTime.formatIso(DateTime.add(reset, { minutes: 1 }))})
+        SET payload_json = json_set(payload_json, '$.snoozedUntil', ${DateTime.formatIso(DateTime.add(reset, { minutes: 1 }))}, '$.snoozedAt', ${DateTime.formatIso(now)})
         WHERE thread_id = ${threadId}`;
       assert.isUndefined(
         (yield* store.getLimitRecoveryCandidates({ ...recoveryOptions, now: reset })).find(
@@ -3026,7 +3027,7 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
         ),
       );
       yield* sql`UPDATE orchestration_v2_projection_threads
-        SET payload_json = json_set(payload_json, '$.snoozedUntil', NULL, '$.limitRecovery.autoResume', json('false'))
+        SET payload_json = json_set(payload_json, '$.snoozedUntil', NULL, '$.snoozedAt', NULL, '$.limitRecovery.autoResume', json('false'))
         WHERE thread_id = ${threadId}`;
       assert.isUndefined(
         (yield* store.getLimitRecoveryCandidates({

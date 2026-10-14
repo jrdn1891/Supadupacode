@@ -186,6 +186,8 @@ function ThreadNavigationSidebarPane(
     setThreadAutoSettle,
     renameThread,
     regenerateThreadTitle,
+    setThreadPhase,
+    setProjectContext,
   } = useThreadListActions();
   const pendingTasks = usePendingNewTasks();
   const queuedThreadKeys = useQueuedThreadKeys();
@@ -359,6 +361,7 @@ function ThreadNavigationSidebarPane(
     autoSettleOptOutEnvironmentIds,
     pinReorderEnvironmentIds,
     titleRegenerationEnvironmentIds,
+    contextSettingsByEnvironmentId,
   } = listEnvironments;
   const resolveProviderInstance = useThreadRowProviderInstanceResolver(providersByEnvironmentId);
   const pendingOrder = usePendingThreadOrder(nowMinute, snoozeWakeTick);
@@ -714,6 +717,9 @@ function ThreadNavigationSidebarPane(
               onPinThread={pinThread}
               onUnpinThread={unpinThread}
               onSetThreadAutoSettle={setThreadAutoSettle}
+              onSetThreadPhase={setThreadPhase}
+              onSetProjectContext={setProjectContext}
+              contextSettings={contextSettingsByEnvironmentId.get(thread.environmentId) ?? null}
               onSwipeableClose={handleSwipeableClose}
               onSwipeableWillOpen={handleSwipeableWillOpen}
               simultaneousSwipeGesture={sidebarScrollGesture}
@@ -817,6 +823,9 @@ function ThreadNavigationSidebarPane(
       sidebarScrollGesture,
       snoozeEnvironmentIds,
       snoozeThread,
+      contextSettingsByEnvironmentId,
+      setThreadPhase,
+      setProjectContext,
       toggleSettledShelf,
       prepareListMotion,
       toggleSnoozedShelf,

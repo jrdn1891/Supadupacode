@@ -4,6 +4,7 @@ import {
   CommandId,
   latestProviderTurnForAttempt,
   MessageId,
+  orchestrationV2SnoozeHolds,
   type OrchestrationV2Run,
   type RunId,
   type ThreadId,
@@ -41,7 +42,7 @@ function restartContinuationBlocked(
     thread.archivedAt !== null ||
     thread.deletedAt !== null ||
     thread.settledOverride === "settled" ||
-    (thread.snoozedUntil != null && DateTime.isGreaterThan(thread.snoozedUntil, now))
+    orchestrationV2SnoozeHolds(thread, DateTime.toEpochMillis(now))
   )
     return true;
   const turn = latestProviderTurnForAttempt(projection.providerTurns, source.activeAttemptId);

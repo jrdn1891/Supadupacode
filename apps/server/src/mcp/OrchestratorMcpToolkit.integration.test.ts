@@ -744,6 +744,14 @@ describe("orchestrator MCP toolkit", () => {
             yield* invoke("supacode_thread_organize", { action: "unpin" });
             expect((yield* orchestrator.getThreadShell(parentThreadId))?.pinnedAt).toBeNull();
 
+            const parked = yield* invoke("supacode_thread_organize", { action: "park" });
+            expect(parked.isError).toBe(false);
+            const parkedShell = yield* orchestrator.getThreadShell(parentThreadId);
+            expect(parkedShell?.snoozedAt).not.toBeNull();
+            expect(parkedShell?.snoozedUntil).toBeNull();
+            yield* invoke("supacode_thread_organize", { action: "unsnooze" });
+            expect((yield* orchestrator.getThreadShell(parentThreadId))?.snoozedAt).toBeNull();
+
             if (parentRun === undefined || parentRun.rootNodeId === null) {
               return yield* Effect.die(new Error("Parent run missing."));
             }
@@ -2174,6 +2182,17 @@ describe("orchestrator MCP toolkit", () => {
               Effect.orDie,
             );
             expect(unlinked.linkedPullRequest).toBeNull();
+
+            const phaseCall = yield* invoke("supacode_thread_update", {
+              threadId: emptyThread.threadId,
+              action: "set_phase",
+              phase: "ready",
+              clientRequestId: "metadata-phase-1",
+            });
+            const phased = yield* decodeThreadUpdateResult(phaseCall.structuredContent).pipe(
+              Effect.orDie,
+            );
+            expect(phased.phase).toBe("ready");
 
             const regenerateCall = yield* invoke("supacode_thread_update", {
               threadId: emptyThread.threadId,

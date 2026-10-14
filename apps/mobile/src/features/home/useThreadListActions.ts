@@ -1,7 +1,11 @@
 import type { ThreadMoveDestination } from "../threads/threadOrder";
 import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/shell";
 import { canSnooze, effectiveSnoozed } from "@supacode/client-runtime/state/thread-settled";
-import { AuthOrchestrationOperateScope } from "@supacode/contracts";
+import {
+  AuthOrchestrationOperateScope,
+  type OrchestrationV2ThreadPhase,
+} from "@supacode/contracts";
+import { projectContextPatch } from "@supacode/shared/projectSettings";
 import * as Cause from "effect/Cause";
 import * as Haptics from "expo-haptics";
 import { useCallback, useRef } from "react";
@@ -13,7 +17,7 @@ import { scopedThreadKey } from "../../lib/scopedEntities";
 import { refreshArchivedThreadsForEnvironment } from "../archive/useArchivedThreadSnapshots";
 import { pinOrderKeyBetween } from "@supacode/client-runtime/state/thread-sort";
 import { appAtomRegistry } from "../../state/atom-registry";
-import { environmentServerConfigsAtom } from "../../state/server";
+import { environmentServerConfigsAtom, serverEnvironment } from "../../state/server";
 import { readEnvironmentScope } from "../../state/session";
 import { environmentThreadShells, threadEnvironment } from "../../state/threads";
 import { queuedThreadKeysAtom } from "../../state/use-thread-outbox";
@@ -249,7 +253,10 @@ export function useThreadListActions(): {
   readonly archiveThread: (thread: EnvironmentThreadShell) => void;
   readonly confirmDeleteThread: (thread: EnvironmentThreadShell) => void;
   readonly settleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
-  readonly snoozeThread: (thread: EnvironmentThreadShell, snoozedUntil: string) => Promise<boolean>;
+  readonly snoozeThread: (
+    thread: EnvironmentThreadShell,
+    snoozedUntil: string | null,
+  ) => Promise<boolean>;
   readonly unsnoozeThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly unsettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly pinThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
@@ -265,6 +272,11 @@ export function useThreadListActions(): {
   ) => Promise<boolean>;
   readonly renameThread: (thread: EnvironmentThreadShell) => void;
   readonly regenerateThreadTitle: (thread: EnvironmentThreadShell) => Promise<boolean>;
+  readonly setThreadPhase: (
+    thread: EnvironmentThreadShell,
+    phase: OrchestrationV2ThreadPhase | null,
+  ) => void;
+  readonly setProjectContext: (thread: EnvironmentThreadShell, contextId: string | null) => void;
 } {
   const executeAction = useThreadActionExecutor();
   const snoozeMutation = useAtomCommand(threadEnvironment.snooze, { reportFailure: false });
@@ -275,6 +287,9 @@ export function useThreadListActions(): {
     reportFailure: false,
   });
   const updateThreadMetadata = useAtomCommand(threadEnvironment.updateMetadata, {
+    reportFailure: false,
+  });
+  const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
     reportFailure: false,
   });
   const snoozeInFlightThreadKeys = useRef(new Set<string>());
@@ -291,8 +306,10 @@ export function useThreadListActions(): {
     [executeAction],
   );
   const snoozeThread = useCallback(
-    async (thread: EnvironmentThreadShell, snoozedUntil: string) => {
-      if (!checkThreadOperationPermission(thread, "Could not snooze thread")) return false;
+    async (thread: EnvironmentThreadShell, snoozedUntil: string | null) => {
+      const failureTitle =
+        snoozedUntil === null ? "Could not park thread" : "Could not snooze thread";
+      if (!checkThreadOperationPermission(thread, failureTitle)) return false;
       const key = scopedThreadKey(thread.environmentId, thread.id);
       if (snoozeInFlightThreadKeys.current.has(key)) {
         return false;
@@ -301,14 +318,14 @@ export function useThreadListActions(): {
       const run = async () => {
         if (!environmentSupportsSnooze(thread.environmentId)) {
           Alert.alert(
-            "Could not snooze thread",
+            failureTitle,
             "This environment's server does not support snoozing yet. Update the server to use Snooze.",
           );
           return false;
         }
         if (!canSnooze(thread, { now: new Date().toISOString() })) {
           Alert.alert(
-            "Could not snooze thread",
+            failureTitle,
             thread.hasPendingApprovals || thread.hasPendingUserInput
               ? "This thread is waiting on you. Respond to the pending request before snoozing it."
               : "This thread is still starting a turn. Try again once it's running.",
@@ -332,10 +349,10 @@ export function useThreadListActions(): {
         if (result._tag === "Failure") {
           const error = Cause.squash(result.cause);
           Alert.alert(
-            "Could not snooze thread",
+            failureTitle,
             error instanceof Error && error.message.trim().length > 0
               ? error.message
-              : "The thread could not be snoozed.",
+              : "The thread could not be put away.",
           );
           return false;
         }
@@ -753,6 +770,50 @@ export function useThreadListActions(): {
 
   const confirmDeleteThread = useConfirmDeleteThread(executeAction);
 
+  const setThreadPhase = useCallback(
+    (thread: EnvironmentThreadShell, phase: OrchestrationV2ThreadPhase | null) => {
+      if (!checkThreadOperationPermission(thread, "Could not set phase")) return;
+      selectionHaptic();
+      void updateThreadMetadata({
+        environmentId: thread.environmentId,
+        input: { threadId: thread.id, phase },
+      }).then((result) => {
+        if (result._tag === "Success") return;
+        const error = Cause.squash(result.cause);
+        Alert.alert(
+          "Could not set phase",
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : "The thread's phase could not be changed.",
+        );
+      });
+    },
+    [updateThreadMetadata],
+  );
+  const setProjectContext = useCallback(
+    (thread: EnvironmentThreadShell, contextId: string | null) => {
+      const settings = appAtomRegistry
+        .get(environmentServerConfigsAtom)
+        .get(thread.environmentId)?.settings;
+      if (!settings) return;
+      selectionHaptic();
+      void updateSettings({
+        environmentId: thread.environmentId,
+        input: { patch: projectContextPatch(settings, thread.projectId, contextId) },
+      }).then((result) => {
+        if (result._tag === "Success") return;
+        const error = Cause.squash(result.cause);
+        Alert.alert(
+          "Could not set project context",
+          error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : "The project's context could not be changed.",
+        );
+      });
+    },
+    [updateSettings],
+  );
+
   return {
     archiveThread,
     confirmDeleteThread,
@@ -766,6 +827,8 @@ export function useThreadListActions(): {
     moveThread,
     renameThread,
     regenerateThreadTitle,
+    setThreadPhase,
+    setProjectContext,
   };
 }
 

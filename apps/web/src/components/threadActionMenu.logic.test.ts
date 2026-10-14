@@ -14,7 +14,10 @@ const baseState: ThreadActionMenuState = {
   isSettled: false,
   autoSettleEnabled: true,
   isSnoozed: false,
+  isParked: false,
   canSnoozeNow: true,
+  phase: null,
+  context: null,
   isRegeneratingTitle: false,
   isRunning: false,
   supports: {
@@ -55,6 +58,7 @@ describe("buildThreadActionMenuItems", () => {
             "unpin",
             "unsettle",
             "unsnooze",
+            "phase",
             "rename",
             "regenerate-title",
             "auto-settle",
@@ -64,7 +68,9 @@ describe("buildThreadActionMenuItems", () => {
         : [
             "pin",
             "settle",
+            "park",
             "snooze",
+            "phase",
             "rename",
             "regenerate-title",
             "auto-settle",
@@ -103,7 +109,38 @@ describe("buildThreadActionMenuItems", () => {
           titleRegeneration: false,
         },
       }),
-    ).toEqual(["rename", "mark-unread", "copy", "project-settings", "archive", "delete"]);
+    ).toEqual(["phase", "rename", "mark-unread", "copy", "project-settings", "archive", "delete"]);
+  });
+
+  it("offers park beside snooze, and unpark for a parked thread", () => {
+    expect(ids(baseState).slice(2, 4)).toEqual(["park", "snooze"]);
+    const parked = buildThreadActionMenuItems({ ...baseState, isSnoozed: true, isParked: true });
+    expect(parked.find((item) => item.id === "unsnooze")?.label).toBe("Unpark thread");
+    expect(parked.some((item) => item.id === "park")).toBe(false);
+  });
+
+  it("checks the thread's current phase", () => {
+    const phase = buildThreadActionMenuItems({ ...baseState, phase: "build" }).find(
+      (item) => item.id === "phase",
+    );
+    expect(phase?.children?.filter((child) => child.checked).map((child) => child.id)).toEqual([
+      "phase:build",
+    ]);
+  });
+
+  it("offers project contexts only once some exist", () => {
+    const work = { id: "work", name: "Work", color: "sky" } as const;
+    expect(allIds({ ...baseState, context: { current: null, options: [] } })).not.toContain(
+      "context",
+    );
+    const context = buildThreadActionMenuItems({
+      ...baseState,
+      context: { current: work, options: [work] },
+    }).find((item) => item.id === "context");
+    expect(context?.children?.map((child) => [child.id, child.checked])).toEqual([
+      ["context:work", true],
+      ["context:none", false],
+    ]);
   });
 
   it("groups project settings with utility actions before archive", () => {

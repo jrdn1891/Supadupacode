@@ -917,15 +917,21 @@ it.effect.each([
 it.effect("does not wake a snoozed or settled thread, but continues once a snooze elapsed", () =>
   Effect.gen(function* () {
     const live = makeProjection();
+    const snoozedAt = DateTime.subtract(now, { hours: 1 });
     for (const held of [
-      { snoozedUntil: DateTime.add(now, { days: 1 }) },
+      { snoozedUntil: DateTime.add(now, { days: 1 }), snoozedAt },
+      { snoozedUntil: null, snoozedAt },
       { settledOverride: "settled" as const },
     ]) {
       const thread = { ...live.thread, ...held };
       assert.isUndefined(restartContinuationRun({ ...live, thread }, now));
       assert.deepEqual(yield* continuationTexts({ ...cutMidTurn(), thread }), []);
     }
-    const thread = { ...live.thread, snoozedUntil: DateTime.subtract(now, { minutes: 1 }) };
+    const thread = {
+      ...live.thread,
+      snoozedUntil: DateTime.subtract(now, { minutes: 1 }),
+      snoozedAt,
+    };
     assert.equal(restartContinuationRun({ ...live, thread }, now)?.id, runId);
   }),
 );

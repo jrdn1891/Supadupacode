@@ -43,6 +43,7 @@ const threadShell = vi.hoisted(() => ({
   pinOrderKey: "a0",
   pinnedAt: null as string | null,
   snoozedUntil: null as string | null,
+  snoozedAt: null as string | null,
   projectId: "project",
   environmentId: "undo-env",
   session: null,
@@ -99,6 +100,7 @@ beforeEach(() => {
   router.state.matches[0]!.params = {};
   threadShell.pinnedAt = null;
   threadShell.snoozedUntil = null;
+  threadShell.snoozedAt = null;
 });
 afterEach(() => {
   vi.runAllTimers();
@@ -185,6 +187,7 @@ describe("settle and snooze Undo", () => {
     const snoozedUntil = "2030-01-01T09:00:00.000Z";
     threadShell.pinnedAt = "2026-01-01T00:00:00.000Z";
     threadShell.snoozedUntil = snoozedUntil;
+    threadShell.snoozedAt = "2026-01-01T00:00:00.000Z";
     const actions = useThreadActions();
     await actions.settleThread(target);
     await currentUndo()();
@@ -196,6 +199,17 @@ describe("settle and snooze Undo", () => {
     expect(commands.snooze).toHaveBeenCalledExactlyOnceWith({
       environmentId: target.environmentId,
       input: { threadId: target.threadId, snoozedUntil },
+    });
+  });
+
+  it("parks a thread again when settling it is undone", async () => {
+    threadShell.snoozedAt = "2026-01-01T00:00:00.000Z";
+    const actions = useThreadActions();
+    await actions.settleThread(target);
+    await currentUndo()();
+    expect(commands.snooze).toHaveBeenCalledExactlyOnceWith({
+      environmentId: target.environmentId,
+      input: { threadId: target.threadId, snoozedUntil: null },
     });
   });
 

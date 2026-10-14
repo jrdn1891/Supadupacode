@@ -81,9 +81,9 @@ returns it to the usual settlement rules, and settling a pinned thread removes i
 On web and desktop, drag a thread between sections to change its state. Drag a thread up into
 the pinned section to pin it at the spot you drop it; drag a pinned thread down into the active
 list to unpin it. Dragging a thread onto the **Settled** header settles it, and dragging a settled
-thread into the active list un-settles it. A snoozed thread can be dragged out of the snoozed
-shelf, which wakes it, but threads cannot be dragged into the shelf because snoozing needs a wake
-time. Dragging a pinned thread out of the pinned section does not ask for unpin confirmation.
+thread into the active list un-settles it. A thread can be dragged out of the **Parked** shelf,
+which wakes it, but not into it: use **Park thread** or **Snooze** from the thread's menu
+instead. Dragging a pinned thread out of the pinned section does not ask for unpin confirmation.
 Pinned and active boundary labels appear only while dragging, without moving the rows. The
 other rows slide aside to show where the thread will land. When you cross into another section,
 the dragged thread shows the action the drop performs, with its icon: **Pin**, **Unpin**,
@@ -98,7 +98,7 @@ Drag within the pinned section to change its order. Other rows slide aside to sh
 the thread will land. On mobile, open a thread's menu and choose **Arrange threads**. Drag a
 handle within **Pinned** to reorder, or between **Pinned** and **Active** to pin or unpin. Drop
 onto the **Settled** divider to settle a thread. The dragged card shows the action before you
-release it. Expand **Snoozed** or **Settled** to drag a parked thread back into either live
+release it. Expand **Parked** or **Settled** to drag a thread back into either live
 section. Each drop saves; **Done** returns to the thread list. The server saves the pinned order,
 so it survives a refresh and appears on your other connected devices.
 
@@ -233,9 +233,27 @@ Expand a tool call in the conversation to see its full command and output.
 Summaries shorten shell wrappers and can still describe the latest call after it
 finishes; the call's own result shows its status.
 
-## Snooze until later
+## Park or snooze for later
 
-Choose **Snooze → Custom…** from a thread's menu to pick a date and time in your
-local time zone, or a duration in minutes, hours, or days. Durations start when
-you confirm; one day means 24 hours. On web and desktop, you can also snooze
-several selected threads together. Choose **Wake thread** to bring a thread back early.
+Choose **Park thread** from a thread's menu, or press `mod+alt+p` on web and desktop, to put
+a thread away until you pick it back up. It moves to the **Parked** shelf and never settles on
+its own. A thread that is still running finishes quietly and stays parked; an approval, a
+question, or an error brings it back. Choose **Unpark thread**, or send it a message, to return
+it to your active work.
+
+To have a thread come back at a set time, choose **Snooze** and a time instead, or
+**Snooze → Custom…** to pick a date and time in your local time zone, or a duration in
+minutes, hours, or days. Durations start when you confirm; one day means 24 hours. Snoozed
+threads wait in the **Parked** shelf with the time they return. Choose **Wake thread** to bring
+one back early. On web and desktop, you can also park or snooze several selected threads together.
+
+## Phase and project context
+
+Choose **Phase** from a thread's menu to mark where the work stands: **Explore**, **Build**, or
+**Ready**. Rows show the phase as three small bars, filled up to the current one. Agents can set
+a thread's phase too.
+
+To tell work apart at a glance, add contexts such as Work and Side under **Contexts** in
+**Settings → General** on web and desktop. Then choose **Project context** from a thread's
+menu, or set **Project context** in settings for one project or as an environment's default.
+Every thread in that project shows the context's color in the sidebar.

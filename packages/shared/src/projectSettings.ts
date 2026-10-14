@@ -1,5 +1,6 @@
 import {
   type ModelSelection,
+  type ProjectContext,
   PROJECT_FILE_BACKED_SETTINGS,
   PROJECT_SCOPED_SERVER_SETTING_KEYS,
   type ProjectFileBackedSettingKey,
@@ -9,6 +10,7 @@ import {
   resolveProjectProviderInstanceEnabled,
   type ResolvedServerSettings,
   type ServerSettings,
+  type ServerSettingsPatch,
   type SupacodeProjectFile,
   type ThreadEnvMode,
   type WorktreeCleanupRules,
@@ -99,6 +101,35 @@ export function resolveProjectSettings(
 ): ResolvedProjectSettings {
   const resolved = resolveProjectOverrides(settings, projectId, project);
   return projectFile === undefined ? resolved : applyProjectFile(resolved, projectFile);
+}
+
+export function resolveProjectContext(
+  settings: Pick<
+    ServerSettings,
+    "projectContexts" | "projectContext" | "projectSettingsOverrides"
+  > | null,
+  projectId: ProjectId | null,
+): ProjectContext | null {
+  if (settings === null) return null;
+  const override =
+    projectId === null ? undefined : settings.projectSettingsOverrides[projectId]?.projectContext;
+  const contextId = override === undefined ? settings.projectContext : override;
+  return settings.projectContexts.find((context) => context.id === contextId) ?? null;
+}
+
+export function projectContextPatch(
+  settings: Pick<ServerSettings, "projectContext" | "projectSettingsOverrides">,
+  projectId: ProjectId,
+  contextId: string | null,
+): Pick<ServerSettingsPatch, "projectSettingsOverrides"> {
+  return {
+    projectSettingsOverrides: {
+      [projectId]:
+        contextId === settings.projectContext
+          ? clearProjectSettingsOverrides(settings, projectId, ["projectContext"])
+          : { ...projectSettingsOverridesForWrite(settings, projectId), projectContext: contextId },
+    },
+  };
 }
 
 function applyProjectFile(

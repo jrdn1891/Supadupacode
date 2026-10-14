@@ -80,6 +80,7 @@ const THREAD_KEYBINDING_COMMANDS = [
   "thread.fork",
   "thread.settle",
   "thread.pin",
+  "thread.park",
   "thread.undo",
   ...THREAD_JUMP_KEYBINDING_COMMANDS,
 ] as const;

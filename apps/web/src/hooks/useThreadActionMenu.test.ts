@@ -107,6 +107,10 @@ vi.mock("../components/Sidebar.snooze", () => ({
   ],
   snoozeWakeDescription: () => "later",
 }));
+vi.mock("./useProjectContext", () => ({
+  readProjectContextMenuState: () => null,
+  useSetProjectContext: () => async () => recordEffect("context"),
+}));
 vi.mock("./useCopyToClipboard", () => ({
   useCopyToClipboard: () => ({ copyToClipboard: () => recordEffect("copy") }),
 }));

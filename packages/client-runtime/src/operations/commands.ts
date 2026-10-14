@@ -106,7 +106,7 @@ export interface ReorderActiveThreadInput extends ThreadCommandInput {
 }
 
 export interface SnoozeThreadInput extends ThreadCommandInput {
-  readonly snoozedUntil: string;
+  readonly snoozedUntil: string | null;
 }
 
 export interface UnsnoozeThreadInput extends ThreadCommandInput {
@@ -130,6 +130,7 @@ export interface UpdateThreadMetadataInput extends ThreadCommandInput {
   readonly regenerateTitle?: boolean;
   /** Link (object) or unlink (null) a pull request (#8160). */
   readonly linkedPullRequest?: ThreadLinkedPullRequest | null;
+  readonly phase?: import("@supacode/contracts").OrchestrationV2ThreadPhase | null;
 }
 
 export interface SetThreadRuntimeModeInput extends ThreadCommandInput {
@@ -565,7 +566,8 @@ export const updateThreadMetadata = Effect.fn("EnvironmentCommands.updateThreadM
       input.worktreePath !== undefined ||
       input.regenerateTitle !== undefined ||
       input.linkedPullRequest !== undefined ||
-      input.limitRecovery !== undefined
+      input.limitRecovery !== undefined ||
+      input.phase !== undefined
     ) {
       result = yield* dispatch({
         type: "thread.metadata.update",
@@ -579,6 +581,7 @@ export const updateThreadMetadata = Effect.fn("EnvironmentCommands.updateThreadM
         ...(input.linkedPullRequest === undefined
           ? {}
           : { linkedPullRequest: input.linkedPullRequest }),
+        ...(input.phase === undefined ? {} : { phase: input.phase }),
       });
     }
     if (input.modelSelection !== undefined) {

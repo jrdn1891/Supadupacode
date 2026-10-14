@@ -61,9 +61,11 @@ import {
 import {
   AuthOrchestrationOperateScope,
   type EnvironmentMachineKind,
+  type ProjectContext,
   type ScopedThreadRef,
   type ThreadId,
 } from "@supacode/contracts";
+import { resolveProjectContext } from "@supacode/shared/projectSettings";
 
 import {
   AlarmClockIcon,
@@ -84,6 +86,7 @@ import {
   PlusIcon,
   SettingsIcon,
   ShieldQuestionIcon,
+  SquareParkingOffIcon,
   SquarePenIcon,
   TerminalIcon,
   Undo2Icon,
@@ -144,6 +147,8 @@ import {
   getThreadKeysToDeselectAfterDelete,
   useThreadSelectionStore,
 } from "../threadSelectionStore";
+import { readProjectContextMenuState, useSetProjectContext } from "../hooks/useProjectContext";
+import { ThreadContextMarker, ThreadPhasePips } from "./sidebar/ThreadLabels";
 import { useAcknowledgeThreadWoke, useThreadActions } from "../hooks/useThreadActions";
 import { useThreadUndoNotice } from "../hooks/showThreadUndoNotice";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
@@ -192,6 +197,7 @@ import { ProjectEnvironmentBadge } from "./ProjectEnvironmentBadge";
 import {
   buildDraftActionMenuItems,
   buildThreadActionMenuItems,
+  phaseFromMenuAction,
   threadActionRequiresOperate,
 } from "./threadActionMenu.logic";
 import {
@@ -256,7 +262,7 @@ import {
   type TerminalStatusIndicator,
   useLinkedThreadPullRequest,
 } from "./ThreadStatusIndicators";
-import { resolveSnoozePresets, snoozeWakeLabel, type SnoozePreset } from "./Sidebar.snooze";
+import { resolveSnoozePresets, snoozeWakeLabel, type SnoozeChoice } from "./Sidebar.snooze";
 import { ProjectFavicon, type ProjectFaviconProject } from "./ProjectFavicon";
 import { makeWorkspaceFileDropHandlers } from "./chat/workspaceFileDrop";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
@@ -1188,6 +1194,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   sweepAction: SidebarSweepAction | null;
   // Compact wake countdown ("2h") for rows in the snoozed shelf.
   snoozeWakeLabelText: string | null;
+  context: ProjectContext | null;
   // When a snooze ended (timer or early wake); drives the Woke pill until
   // the user visits the thread.
   wokeAt: string | null;
@@ -1220,7 +1227,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     event: PointerEvent,
   ) => void;
   onUnsettle: (threadRef: ScopedThreadRef) => void;
-  onSnooze: (threadRef: ScopedThreadRef, preset: Pick<SnoozePreset, "snoozedUntil">) => void;
+  onSnooze: (threadRef: ScopedThreadRef, preset: SnoozeChoice) => void;
   onUnsnooze: (threadRef: ScopedThreadRef) => void;
   onPin: (threadRef: ScopedThreadRef) => void;
   onUnpin: (threadRef: ScopedThreadRef) => void;
@@ -1620,7 +1627,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   const handleUnpin = useCallback(() => onUnpin(threadRef), [onUnpin, threadRef]);
   const handlePin = useCallback(() => onPin(threadRef), [onPin, threadRef]);
   const handleSnoozePreset = useCallback(
-    (preset: Pick<SnoozePreset, "snoozedUntil">) => onSnooze(threadRef, preset),
+    (preset: SnoozeChoice) => onSnooze(threadRef, preset),
     [onSnooze, threadRef],
   );
   const showSnoozeButton =
@@ -1877,6 +1884,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
             }
           >
             {accessibleTitle}
+            {props.context ? <ThreadContextMarker context={props.context} /> : null}
             {/* Settled history recedes: dimmed favicon at rest, restored on
               hover so the tail stays scannable when you're hunting. */}
             <span
@@ -1890,6 +1898,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
             </span>
             {draftIndicator}
             {title}
+            {thread.phase ? <ThreadPhasePips phase={thread.phase} /> : null}
             {pinIndicator}
             <span className={cn("contents", jumpHintIndicatorsClassName)}>
               {terminalStatusIcon}
@@ -1960,16 +1969,24 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                       render={
                         <button
                           type="button"
-                          aria-label="Wake thread now"
+                          aria-label={
+                            thread.snoozedUntil === null ? "Unpark thread" : "Wake thread now"
+                          }
                           onClick={handleUnsnoozeClick}
                           onPointerDown={handleActionPointerDown}
                           className={PARKED_ACTION_BUTTON_CLASS_NAME}
                         />
                       }
                     >
-                      <AlarmClockOffIcon className="mb-px size-3" />
+                      {thread.snoozedUntil === null ? (
+                        <SquareParkingOffIcon className="mb-px size-3" />
+                      ) : (
+                        <AlarmClockOffIcon className="mb-px size-3" />
+                      )}
                     </TooltipTrigger>
-                    <TooltipPopup side="top">Wake thread now</TooltipPopup>
+                    <TooltipPopup side="top">
+                      {thread.snoozedUntil === null ? "Unpark thread" : "Wake thread now"}
+                    </TooltipPopup>
                   </Tooltip>
                 ) : (
                   <Tooltip>
@@ -2053,6 +2070,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
           }
         >
           {accessibleTitle}
+          {props.context ? <ThreadContextMarker context={props.context} /> : null}
           <div className="relative z-10 h-12 px-2.5 pt-1.5">
             <div className="flex h-5 min-w-0 items-center gap-1.5">
               <span className="inline-flex size-4 shrink-0">
@@ -2184,6 +2202,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                   {draftIndicator}
                 </SidebarDraftDiscardButton>
               ) : null}
+              {thread.phase ? <ThreadPhasePips phase={thread.phase} /> : null}
               <span className={cn("contents", jumpHintIndicatorsClassName)}>
                 {terminalStatusIcon}
                 {prBadge}
@@ -2247,6 +2266,7 @@ export default function Sidebar() {
   const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
   });
+  const setProjectContext = useSetProjectContext();
   const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
     onCopy: ({ path }) => {
       toastManager.add({
@@ -3439,11 +3459,11 @@ export default function Sidebar() {
       return (
         canonicalSection === optimisticDrop.section &&
         thread.pinnedAt == null &&
-        (!optimisticDrop.clearsSnooze || thread.snoozedUntil == null)
+        (!optimisticDrop.clearsSnooze || thread.snoozedAt == null)
       );
     }
     if (canonicalSection !== optimisticDrop.section) return false;
-    if (optimisticDrop.clearsSnooze && thread.snoozedUntil != null) return false;
+    if (optimisticDrop.clearsSnooze && thread.snoozedAt != null) return false;
     const canonicalDestination = pinnedKeys.flatMap((key) => {
       const canonical = canonicalByKey.get(key);
       return canonical === undefined ? [] : [canonical];
@@ -3946,7 +3966,7 @@ export default function Sidebar() {
   const performSnooze = useCallback(
     async (
       threadRef: ScopedThreadRef,
-      preset: Pick<SnoozePreset, "snoozedUntil">,
+      preset: SnoozeChoice,
       opts: { coSnoozingKeys?: ReadonlySet<string> } = {},
     ) => {
       const threadKey = scopedThreadKey(threadRef);
@@ -3988,7 +4008,7 @@ export default function Sidebar() {
   const attemptSnooze = useCallback(
     (
       threadRef: ScopedThreadRef,
-      preset: Pick<SnoozePreset, "snoozedUntil">,
+      preset: SnoozeChoice,
       opts: { coSnoozingKeys?: ReadonlySet<string> } = {},
     ) => {
       void (async () => {
@@ -3997,7 +4017,8 @@ export default function Sidebar() {
           toastManager.add(
             stackedThreadToast({
               type: "error",
-              title: "Failed to snooze thread",
+              title:
+                preset.snoozedUntil === null ? "Failed to park thread" : "Failed to snooze thread",
               description:
                 outcome.error instanceof Error ? outcome.error.message : "An error occurred.",
             }),
@@ -4080,6 +4101,11 @@ export default function Sidebar() {
             ...(canSnoozeSelection
               ? [
                   {
+                    id: "park",
+                    label: `Park (${count})`,
+                    disabled: !canOperateThreads(selectedThreads),
+                  },
+                  {
                     id: "snooze",
                     label: `Snooze (${count})`,
                     disabled: !canOperateThreads(selectedThreads),
@@ -4136,11 +4162,13 @@ export default function Sidebar() {
               : selectedThreads;
       if (clicked.value === "settle" && actionTargets.length === 0) return;
       if (clicked.value !== "mark-unread" && !checkThreadOperations(actionTargets)) return;
-      if (clicked.value?.startsWith("snooze:")) {
+      if (clicked.value === "park" || clicked.value?.startsWith("snooze:")) {
         const preset =
-          clicked.value === "snooze:custom"
-            ? await requestCustomSnooze()
-            : snoozePresets.find((candidate) => `snooze:${candidate.id}` === clicked.value);
+          clicked.value === "park"
+            ? { snoozedUntil: null }
+            : clicked.value === "snooze:custom"
+              ? await requestCustomSnooze()
+              : snoozePresets.find((candidate) => `snooze:${candidate.id}` === clicked.value);
         if (preset) {
           // Post-snooze navigation must skip threads snoozing in this same
           // batch — they are all leaving the card block together.
@@ -4167,8 +4195,8 @@ export default function Sidebar() {
                 type: "error",
                 title:
                   snoozedThreadRefs.length > 0
-                    ? `Failed to snooze ${failures.length} thread${failures.length === 1 ? "" : "s"}`
-                    : "Failed to snooze threads",
+                    ? `Failed to ${preset.snoozedUntil === null ? "park" : "snooze"} ${failures.length} thread${failures.length === 1 ? "" : "s"}`
+                    : `Failed to ${preset.snoozedUntil === null ? "park" : "snooze"} threads`,
                 description:
                   firstError instanceof Error ? firstError.message : "An error occurred.",
               }),
@@ -4406,7 +4434,10 @@ export default function Sidebar() {
               isSettled,
               autoSettleEnabled: thread.autoSettleDisabledAt == null,
               isSnoozed,
+              isParked: isSnoozed && thread.snoozedUntil === null,
               canSnoozeNow: canSnooze(thread, { now: new Date().toISOString() }),
+              phase: thread.phase,
+              context: readProjectContextMenuState(thread),
               isRegeneratingTitle,
               isRunning: !threadRuntimeCanArchive(thread.runtime),
               supports: {
@@ -4423,6 +4454,28 @@ export default function Sidebar() {
         );
         if (clicked._tag === "Failure" || clicked.value === null) return;
         if (threadActionRequiresOperate(clicked.value) && !checkThreadOperations([thread])) return;
+        if (clicked.value.startsWith("phase:")) {
+          const result = await updateThreadMetadata({
+            environmentId: threadRef.environmentId,
+            input: { threadId: threadRef.threadId, phase: phaseFromMenuAction(clicked.value) },
+          });
+          if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+            const error = squashAtomCommandFailure(result);
+            toastManager.add(
+              stackedThreadToast({
+                type: "error",
+                title: "Failed to set phase",
+                description: error instanceof Error ? error.message : "An error occurred.",
+              }),
+            );
+          }
+          return;
+        }
+        if (clicked.value.startsWith("context:")) {
+          const contextId = clicked.value.slice("context:".length);
+          await setProjectContext(thread, contextId === "none" ? null : contextId);
+          return;
+        }
         if (clicked.value?.startsWith("snooze:")) {
           const preset =
             clicked.value === "snooze:custom"
@@ -4481,6 +4534,9 @@ export default function Sidebar() {
             return;
           case "unsnooze":
             attemptUnsnooze(threadRef);
+            return;
+          case "park":
+            attemptSnooze(threadRef, { snoozedUntil: null });
             return;
           case "pin":
             attemptPin(threadRef);
@@ -4631,6 +4687,7 @@ export default function Sidebar() {
       projectScopeKey,
       projectByKey,
       serverConfigs,
+      setProjectContext,
       setProjectScopeKey,
       setThreadAutoSettle,
       startThreadRename,
@@ -4975,6 +5032,10 @@ export default function Sidebar() {
                                 })
                               : null
                           }
+                          context={resolveProjectContext(
+                            serverConfigs.get(thread.environmentId)?.settings ?? null,
+                            thread.projectId,
+                          )}
                           // All sections: a woken thread can classify straight
                           // into the settled tail (PR merged while snoozed), and
                           // the wake signal must survive the trip. Still-snoozed
@@ -5168,8 +5229,8 @@ export default function Sidebar() {
                               className={cn(workingThreads.length === 0 && "mt-auto")}
                               label={
                                 snoozedShelfExpanded
-                                  ? "Snoozed"
-                                  : `Snoozed (${snoozedThreads.length})`
+                                  ? "Parked"
+                                  : `Parked (${snoozedThreads.length})`
                               }
                               toggle={{
                                 expanded: snoozedShelfExpanded,

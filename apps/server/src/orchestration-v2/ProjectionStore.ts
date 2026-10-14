@@ -56,6 +56,7 @@ import {
   OrchestrationV2SubagentJson as OrchestrationV2SubagentJsonSchema,
   OrchestrationV2TurnItemJson as OrchestrationV2TurnItemJsonSchema,
   orchestrationV2RunWorkStartedAt,
+  orchestrationV2SnoozeHolds,
   RunId,
   MessageId,
   CheckpointScopeId,
@@ -167,6 +168,7 @@ export type ProjectionLimitRecoveryCandidate = Pick<
   | "updatedAt"
   | "limitRecovery"
   | "snoozedUntil"
+  | "snoozedAt"
 >;
 
 /** The thread fields pull request sync reads, for a thread with at least one link. */
@@ -1443,6 +1445,7 @@ export function threadShellFromProjection(
     ...(projection.thread.activeOrderKey === undefined
       ? {}
       : { activeOrderKey: projection.thread.activeOrderKey }),
+    ...(projection.thread.phase === undefined ? {} : { phase: projection.thread.phase }),
     lineage: projection.thread.lineage,
     forkedFrom: projection.thread.forkedFrom,
     activeProviderThreadId: projection.thread.activeProviderThreadId,
@@ -1711,6 +1714,7 @@ function shellFromState(input: {
     ...(input.state.thread.activeOrderKey === undefined
       ? {}
       : { activeOrderKey: input.state.thread.activeOrderKey }),
+    ...(input.state.thread.phase === undefined ? {} : { phase: input.state.thread.phase }),
     lineage: input.state.thread.lineage,
     forkedFrom: input.state.thread.forkedFrom,
     activeProviderThreadId: input.state.thread.activeProviderThreadId,
@@ -3485,7 +3489,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 AND json_extract(t.payload_json, '$.limitRecovery.autoResume') = 1
                 AND julianday(json_extract(item.payload_json, '$.failure.resetAt')) <= julianday(${DateTime.formatIso(options.now)})
                 AND (
-                  json_extract(t.payload_json, '$.snoozedUntil') IS NULL
+                  json_extract(t.payload_json, '$.snoozedAt') IS NULL
                   OR julianday(json_extract(t.payload_json, '$.snoozedUntil')) <= julianday(${DateTime.formatIso(options.now)})
                 )
               )
@@ -3529,6 +3533,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             pendingRuntimeRequest: null,
             limitRecovery: thread.limitRecovery ?? null,
             snoozedUntil: thread.snoozedUntil ?? null,
+            snoozedAt: thread.snoozedAt ?? null,
           });
         }
         return candidates;
@@ -6142,8 +6147,7 @@ export const layerMemory: Layer.Layer<ProjectionStoreV2> = Layer.effect(
                 return (
                   thread.limitRecovery.autoResume &&
                   resetMs <= nowMs &&
-                  (thread.snoozedUntil == null ||
-                    DateTime.toEpochMillis(thread.snoozedUntil) <= nowMs)
+                  !orchestrationV2SnoozeHolds(thread, nowMs)
                 );
               })
               .toSorted((left, right) => left.id.localeCompare(right.id)),

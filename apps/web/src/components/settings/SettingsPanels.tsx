@@ -76,6 +76,7 @@ import {
 } from "./useScopedSettings";
 import { useScopedModelDisabledReason } from "./useScopedModelAvailability";
 import { useSettingsScope } from "./SettingsScopeContext";
+import { ProjectContextSettingsRows } from "./ProjectContextSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { useThreadActions } from "../../hooks/useThreadActions";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
@@ -2432,6 +2433,7 @@ export function GeneralSettingsPanel() {
             />
           }
         />
+        <ProjectContextSettingsRows />
       </SettingsSection>
 
       <SettingsSection id="confirmations" title="Confirmations">
