@@ -9,6 +9,7 @@ import {
 const baseState: ThreadActionMenuState = {
   canOperate: true,
   branch: null,
+  openOnStage: false,
   projectFilter: null,
   isPinned: false,
   isSettled: false,
@@ -152,6 +153,18 @@ describe("buildThreadActionMenuItems", () => {
       icon: "settings",
     });
     expect(items[copyIndex + 2]?.id).toBe("archive");
+  });
+
+  it("offers the stage only where the thread is not already showing, even to read-only clients", () => {
+    expect(ids(baseState)).not.toContain("open-beside");
+    const items = buildThreadActionMenuItems({
+      ...baseState,
+      canOperate: false,
+      openOnStage: true,
+    });
+    const stageItems = items.slice(0, 2);
+    expect(stageItems.map((item) => item.id)).toEqual(["open-beside", "open-below"]);
+    expect(stageItems.some((item) => item.disabled)).toBe(false);
   });
 
   it("offers project filtering only for surfaces with a scoped thread list", () => {

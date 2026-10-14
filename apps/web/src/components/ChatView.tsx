@@ -553,6 +553,7 @@ import {
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
+import { useScenePane } from "../scene/ScenePaneContext";
 import {
   awaitAttachmentUploads,
   getUploadedAttachments,
@@ -1910,6 +1911,7 @@ export default function ChatView(props: ChatViewProps) {
   const composerFilesRef = useRef<ComposerFileAttachment[]>([]);
   const composerTerminalContextsRef = useRef<TerminalContextDraft[]>([]);
   const composerRef = useChatComposerRef();
+  const { focused: paneFocused, compact: paneCompact } = useScenePane();
   const branchToolbarRef = useRef<BranchToolbarHandle>(null);
   const pasteAsTextShortcutUntilRef = useRef(0);
   const [restingComposerControlsHost, setRestingComposerControlsHost] =
@@ -2009,7 +2011,8 @@ export default function ChatView(props: ChatViewProps) {
   >({});
   const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
     useState<Record<string, number>>({});
-  const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
+  const shouldUsePlanSidebarSheet =
+    useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY) || paneCompact;
   const isMobileViewport = useMediaQuery("max-sm");
   const threadPanelPopoverAnchorRef = useRef<HTMLElement | null>(null);
   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
@@ -4250,7 +4253,7 @@ export default function ChatView(props: ChatViewProps) {
     remoteOpenMode: remoteOpenState.mode,
   });
   useOpenFavoriteEditorShortcut({
-    enabled: showOpenInPicker,
+    enabled: showOpenInPicker && paneFocused,
     environmentId: activeThread?.environmentId ?? environmentId,
     keybindings,
     availableEditors,
@@ -6376,13 +6379,12 @@ export default function ChatView(props: ChatViewProps) {
       },
     );
   }, []);
-  useEffect(
-    () =>
-      subscribePreviewAction((action) => {
-        if (action === "toggle-panel") togglePreviewPanel();
-      }),
-    [togglePreviewPanel],
-  );
+  useEffect(() => {
+    if (!paneFocused) return;
+    return subscribePreviewAction((action) => {
+      if (action === "toggle-panel") togglePreviewPanel();
+    });
+  }, [paneFocused, togglePreviewPanel]);
   const persistThreadSettingsForNextTurn = useCallback(
     async (input: {
       threadId: ThreadId;
@@ -6984,7 +6986,8 @@ export default function ChatView(props: ChatViewProps) {
   // terminal is a surface and is recognized by the predicate instead. Mobile is left alone so
   // returning to the app does not raise the keyboard.
   useEffect(() => {
-    if (!activeThread?.id || terminalUiState.terminalOpen || isMobileViewport) return;
+    if (!paneFocused || !activeThread?.id || terminalUiState.terminalOpen || isMobileViewport)
+      return;
     let frame: number | null = null;
     const onWindowFocus = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
@@ -7005,7 +7008,13 @@ export default function ChatView(props: ChatViewProps) {
       window.removeEventListener("focus", onWindowFocus);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
-  }, [activeThread?.id, focusComposer, isMobileViewport, terminalUiState.terminalOpen]);
+  }, [
+    activeThread?.id,
+    focusComposer,
+    isMobileViewport,
+    paneFocused,
+    terminalUiState.terminalOpen,
+  ]);
 
   useEffect(() => {
     if (!activeThread?.id) return;
@@ -8175,6 +8184,7 @@ export default function ChatView(props: ChatViewProps) {
   const closeThreadFind = useCallback(() => threadFindControlsRef.current?.close(), []);
 
   useEffect(() => {
+    if (!paneFocused) return;
     const handler = (event: globalThis.KeyboardEvent) => {
       if (preventRepeatedTerminalCloseShortcut(event, keybindings)) {
         event.stopPropagation();
@@ -8523,6 +8533,7 @@ export default function ChatView(props: ChatViewProps) {
       window.removeEventListener("keydown", dismissFind);
     };
   }, [
+    paneFocused,
     activeProject,
     activeRightPanelSurface,
     activeProjectScripts,
@@ -8584,16 +8595,18 @@ export default function ChatView(props: ChatViewProps) {
   ]);
 
   useEffect(() => {
+    if (!paneFocused) return;
     return window.desktopBridge?.onMenuAction((action) => {
       if (action === "rightPanel.toggle") toggleRightPanel();
       else if (action === "rightPanel.toggleMaximized") toggleRightPanelMaximized();
     });
-  }, [toggleRightPanel, toggleRightPanelMaximized]);
+  }, [paneFocused, toggleRightPanel, toggleRightPanelMaximized]);
 
   // Paste-to-focus: the resting composer blurs on a click into the timeline,
   // so a paste that follows has no editable target and would be dropped.
   // Route it to the composer like a typed key, which also expands it.
   useEffect(() => {
+    if (!paneFocused) return;
     const keyHandler = (event: KeyboardEvent) => {
       if (
         shouldRedirectInputToComposer(event) &&
@@ -8626,7 +8639,7 @@ export default function ChatView(props: ChatViewProps) {
       window.removeEventListener("keydown", keyHandler, true);
       window.removeEventListener("paste", handler, true);
     };
-  }, [activeThreadId, composerRef]);
+  }, [activeThreadId, composerRef, paneFocused]);
 
   const [pendingRevert, setPendingRevert] = useState<{
     turnCount: number;

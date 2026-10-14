@@ -148,6 +148,7 @@ import {
   useThreadSelectionStore,
 } from "../threadSelectionStore";
 import { readProjectContextMenuState, useSetProjectContext } from "../hooks/useProjectContext";
+import { useSceneActions } from "../scene/useSceneActions";
 import { ThreadContextMarker, ThreadPhasePips } from "./sidebar/ThreadLabels";
 import { useAcknowledgeThreadWoke, useThreadActions } from "../hooks/useThreadActions";
 import { useThreadUndoNotice } from "../hooks/showThreadUndoNotice";
@@ -2267,6 +2268,7 @@ export default function Sidebar() {
     reportFailure: false,
   });
   const setProjectContext = useSetProjectContext();
+  const sceneActions = useSceneActions();
   const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
     onCopy: ({ path }) => {
       toastManager.add({
@@ -3099,6 +3101,11 @@ export default function Sidebar() {
         void navigateToThread(threadRef);
         return;
       }
+      if (event.altKey) {
+        event.preventDefault();
+        sceneActions.open({ kind: "server", threadRef }, event.shiftKey ? "below" : "right");
+        return;
+      }
       const isMac = isMacPlatform(navigator.platform);
       const isModClick = isMac ? event.metaKey : event.ctrlKey;
       const threadKey = scopedThreadKey(threadRef);
@@ -3120,7 +3127,7 @@ export default function Sidebar() {
       }
       navigateToThread(threadRef);
     },
-    [navigateToThread, rangeSelectTo, serverThreadKeys, toggleThreadSelection],
+    [navigateToThread, rangeSelectTo, sceneActions, serverThreadKeys, toggleThreadSelection],
   );
 
   // A settle per thread at a time: double clicks and repeated menu picks
@@ -4424,6 +4431,7 @@ export default function Sidebar() {
                 AuthOrchestrationOperateScope,
               ),
               branch: thread.branch ?? null,
+              openOnStage: true,
               projectFilter: threadProjectGroup
                 ? {
                     label: threadProjectGroup.displayName,
@@ -4454,6 +4462,13 @@ export default function Sidebar() {
         );
         if (clicked._tag === "Failure" || clicked.value === null) return;
         if (threadActionRequiresOperate(clicked.value) && !checkThreadOperations([thread])) return;
+        if (clicked.value === "open-beside" || clicked.value === "open-below") {
+          sceneActions.open(
+            { kind: "server", threadRef },
+            clicked.value === "open-beside" ? "right" : "below",
+          );
+          return;
+        }
         if (clicked.value.startsWith("phase:")) {
           const result = await updateThreadMetadata({
             environmentId: threadRef.environmentId,
@@ -4686,6 +4701,7 @@ export default function Sidebar() {
       openProjectSettings,
       projectScopeKey,
       projectByKey,
+      sceneActions,
       serverConfigs,
       setProjectContext,
       setProjectScopeKey,

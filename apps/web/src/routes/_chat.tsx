@@ -4,8 +4,8 @@ import { useAtomValue } from "@effect/atom-react";
 import { useEffect } from "react";
 
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
-import { ThreadRouteView } from "../components/ThreadRouteView";
 import { ThreadLinkPrompt } from "../components/promptLinks/ThreadLinkPrompt";
+import { SceneStage } from "../scene/SceneStage";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { isPreviewAvailableFor } from "../browser/previewRuntime";
 import { usePrimaryEnvironmentId } from "../state/environments";
@@ -217,7 +217,7 @@ function ChatRouteLayout() {
       {threadTarget?.kind === "server" ? (
         <ThreadLinkPrompt threadRef={threadTarget.threadRef} />
       ) : null}
-      {threadTarget ? <ThreadRouteView target={threadTarget} /> : <Outlet />}
+      {threadTarget ? <SceneStage target={threadTarget} /> : <Outlet />}
     </>
   );
 }

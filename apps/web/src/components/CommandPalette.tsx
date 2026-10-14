@@ -62,6 +62,7 @@ import {
 import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
   CalendarClockIcon,
   ChartNoAxesColumnIcon,
   CheckIcon,
@@ -84,6 +85,9 @@ import {
   SquarePenIcon,
   SunIcon,
   TextSearchIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+  XIcon,
 } from "lucide-react";
 import { requestThreadFindOpen } from "./chat/threadFindActionBus";
 import {
@@ -254,6 +258,9 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { ComposerHandleContext, useComposerHandleContext } from "../composerHandleContext";
 import type { ChatComposerHandle } from "./chat/ChatComposer";
 import { getProjectOrderKey, selectProjectGroupingSettings } from "../logicalProject";
+import { scenePanes } from "../scene/scene.logic";
+import { useSceneStore } from "../scene/sceneStore";
+import { useSceneActions } from "../scene/useSceneActions";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import {
   buildSidebarProjectPickerEntries,
@@ -686,6 +693,9 @@ function OpenCommandPaletteDialog(props: {
       activeThreadRef !== null && store.rewindingThreadKeys.has(scopedThreadKey(activeThreadRef)),
   );
   const { onForkFromRun, disabled: forkDisabled } = useForkThread(activeThread, isRewinding);
+  const sceneActions = useSceneActions();
+  const sceneSplit = useSceneStore((state) => scenePanes(state.scene).length > 1);
+  const sceneSpotlit = useSceneStore((state) => state.scene.spotlightPaneId !== null);
   const forkSource =
     activeThreadProjection === null
       ? null
@@ -2072,6 +2082,51 @@ function OpenCommandPaletteDialog(props: {
           run: () => onForkFromRun(forkSource),
         };
   if (forkThreadItem !== null) actionItems.push(forkThreadItem);
+
+  if (activeThreadId && sceneSplit) {
+    actionItems.push(
+      {
+        kind: "action",
+        value: "action:scene-spotlight",
+        searchTerms: ["spotlight", "focus mode", "full screen", "stage", "pane"],
+        title: sceneSpotlit ? "Return to the stage" : "Spotlight thread",
+        icon: sceneSpotlit ? (
+          <Minimize2Icon className={ITEM_ICON_CLASS} />
+        ) : (
+          <Maximize2Icon className={ITEM_ICON_CLASS} />
+        ),
+        shortcutCommand: "stage.toggleSpotlight",
+        run: async () => sceneActions.toggleFocusedSpotlight(),
+      },
+      {
+        kind: "action",
+        value: "action:scene-close-pane",
+        searchTerms: ["close", "pane", "stage", "split"],
+        title: "Close pane",
+        icon: <XIcon className={ITEM_ICON_CLASS} />,
+        shortcutCommand: "stage.closePane",
+        run: async () => sceneActions.closeFocused(),
+      },
+      {
+        kind: "action",
+        value: "action:scene-focus-next",
+        searchTerms: ["next", "pane", "stage", "focus"],
+        title: "Focus next pane",
+        icon: <ArrowRightIcon className={ITEM_ICON_CLASS} />,
+        shortcutCommand: "stage.focusNext",
+        run: async () => sceneActions.focusAdjacent(1),
+      },
+      {
+        kind: "action",
+        value: "action:scene-focus-previous",
+        searchTerms: ["previous", "pane", "stage", "focus"],
+        title: "Focus previous pane",
+        icon: <ArrowLeftIcon className={ITEM_ICON_CLASS} />,
+        shortcutCommand: "stage.focusPrevious",
+        run: async () => sceneActions.focusAdjacent(-1),
+      },
+    );
+  }
 
   if (
     activeThread !== null &&

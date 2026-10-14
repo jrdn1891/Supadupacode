@@ -233,6 +233,20 @@ Expand a tool call in the conversation to see its full command and output.
 Summaries shorten shell wrappers and can still describe the latest call after it
 finishes; the call's own result shows its status.
 
+## Work side by side
+
+On web and desktop, put as many threads on the stage as you like. Choose **Open beside** or
+**Open below** from a thread's menu in the sidebar, or Option-click a thread (Option-Shift-click
+for below). The focused pane is the one the address bar, shortcuts, and pasted text follow;
+click a pane to focus it, or press `mod+alt+arrowright` and `mod+alt+arrowleft` to move between
+panes. Clicking a thread in the sidebar shows it in the focused pane, or focuses the pane that
+already shows it.
+
+To give one thread the whole stage, choose **Spotlight** in its header or press `mod+alt+s`.
+While in Spotlight, moving to another pane spotlights that one instead; press `mod+alt+s` again
+to bring every pane back. Close a pane with its **×** or `mod+alt+w`. The stage is remembered
+when you reload.
+
 ## Park or snooze for later
 
 Choose **Park thread** from a thread's menu, or press `mod+alt+p` on web and desktop, to put

@@ -64,15 +64,25 @@ function ResizablePanel({ style, ...props }: PanelProps) {
 }
 
 /**
- * A zero-width divider. The library hit-tests its own widened target; the
- * `before` strip gives double-click a real element to land on. The library's
- * double-click resets to a percentage, so it is off and callers pass their own.
+ * A zero-width divider, vertical between columns or horizontal between rows.
+ * The library hit-tests its own widened target; the `before` strip gives
+ * double-click a real element to land on. The library's double-click resets
+ * to a percentage, so it is off and callers pass their own.
  */
-function ResizableHandle({ className, ...props }: Omit<SeparatorProps, "disableDoubleClick">) {
+function ResizableHandle({
+  className,
+  orientation = "vertical",
+  ...props
+}: Omit<SeparatorProps, "disableDoubleClick"> & {
+  readonly orientation?: "vertical" | "horizontal";
+}) {
   return (
     <Separator
       className={cn(
-        "relative z-20 w-0 outline-none before:absolute before:inset-y-0 before:-left-1 before:w-2 after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors after:duration-150 data-[separator=active]:after:bg-primary/60 data-[separator=disabled]:hidden data-[separator=focus]:after:bg-ring data-[separator=hover]:after:bg-border",
+        "relative z-20 outline-none before:absolute after:pointer-events-none after:absolute after:transition-colors after:duration-150 data-[separator=active]:after:bg-primary/60 data-[separator=disabled]:hidden data-[separator=focus]:after:bg-ring data-[separator=hover]:after:bg-border",
+        orientation === "vertical"
+          ? "w-0 before:inset-y-0 before:-left-1 before:w-2 after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2"
+          : "h-0 before:inset-x-0 before:-top-1 before:h-2 after:inset-x-0 after:top-1/2 after:h-px after:-translate-y-1/2",
         className,
       )}
       data-slot="resizable-handle"

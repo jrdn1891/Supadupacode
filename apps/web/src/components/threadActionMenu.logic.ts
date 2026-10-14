@@ -17,6 +17,8 @@ export function phaseFromMenuAction(action: ThreadActionMenuId): OrchestrationV2
  */
 export type ThreadActionMenuId =
   | "new-thread-on-branch"
+  | "open-beside"
+  | "open-below"
   | "filter-by-project"
   | "project-settings"
   | "pin"
@@ -86,6 +88,7 @@ export function buildDraftActionMenuItems(options: {
 export interface ThreadActionMenuState {
   readonly canOperate: boolean;
   readonly branch: string | null;
+  readonly openOnStage: boolean;
   /**
    * Project scoping for the thread list. Null on surfaces with no scoped
    * list behind the menu (the chat header), where the item must not show.
@@ -126,6 +129,8 @@ export interface ThreadActionMenuState {
 export function threadActionRequiresOperate(action: ThreadActionMenuId): boolean {
   return ![
     "new-thread-on-branch",
+    "open-beside",
+    "open-below",
     "project-settings",
     "mark-unread",
     "copy",
@@ -151,6 +156,12 @@ export function buildThreadActionMenuItems(
             label: `New thread on ${state.branch}`,
             icon: "message-square-plus",
           },
+        ]
+      : []),
+    ...(state.openOnStage
+      ? [
+          { id: "open-beside" as const, label: "Open beside", icon: "columns-2" },
+          { id: "open-below" as const, label: "Open below", icon: "rows-2" },
         ]
       : []),
     ...(state.supports.pinning

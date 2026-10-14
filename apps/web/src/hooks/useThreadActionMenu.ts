@@ -154,6 +154,7 @@ export function useThreadActionMenu(input: {
         const items = buildThreadActionMenuItems({
           canOperate: readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
           branch: thread.branch ?? null,
+          openOnStage: false,
           projectFilter: null,
           isPinned: thread.pinnedAt != null,
           isSettled: supports.settlement && thread.settledOverride === "settled",

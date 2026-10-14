@@ -194,6 +194,10 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+shift+s", command: "thread.settle", when: "!terminalFocus" },
   { key: "mod+shift+p", command: "thread.pin", when: "!terminalFocus" },
   { key: "mod+alt+p", command: "thread.park", when: "!terminalFocus" },
+  { key: "mod+alt+w", command: "stage.closePane", when: "!terminalFocus" },
+  { key: "mod+alt+s", command: "stage.toggleSpotlight", when: "!terminalFocus" },
+  { key: "mod+alt+arrowright", command: "stage.focusNext", when: "!terminalFocus" },
+  { key: "mod+alt+arrowleft", command: "stage.focusPrevious", when: "!terminalFocus" },
   { key: "mod+z", command: "thread.undo", when: "!terminalFocus && !editableFocus" },
   ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `mod+${index + 1}`,

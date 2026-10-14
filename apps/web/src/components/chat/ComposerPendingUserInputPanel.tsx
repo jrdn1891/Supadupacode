@@ -1,6 +1,7 @@
 import { type RuntimeRequestId } from "@supacode/contracts";
 import { memo, useEffect, useRef, useState } from "react";
 import { type PendingUserInput } from "../../session-logic";
+import { useScenePane } from "../../scene/ScenePaneContext";
 import {
   derivePendingUserInputProgress,
   type PendingUserInputDraftAnswer,
@@ -147,8 +148,9 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
   // outside editable fields. Multi-select prompts toggle options in place; single-
   // select prompts keep the existing auto-advance behavior. Collapsed prompts opt
   // out, since the numbers they refer to are not on screen.
+  const paneFocused = useScenePane().focused;
   useEffect(() => {
-    if (!activeQuestion || responseDisabled || isCollapsed) return;
+    if (!paneFocused || !activeQuestion || responseDisabled || isCollapsed) return;
     const handler = (event: globalThis.KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target;
@@ -172,7 +174,7 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [activeQuestion, handleOptionSelection, isCollapsed, responseDisabled]);
+  }, [activeQuestion, handleOptionSelection, isCollapsed, paneFocused, responseDisabled]);
 
   if (!activeQuestion) {
     return null;
