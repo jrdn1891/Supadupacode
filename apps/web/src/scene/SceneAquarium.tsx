@@ -17,14 +17,26 @@ import {
   createAquarium,
   featuredResident,
   fishSize,
+  landingSpot,
+  leapKeyframes,
   resizeAquarium,
   stepAquarium,
   stockAquarium,
 } from "./aquarium.logic";
-import { type AquariumAppearance, CUE_RISE, paintAquarium, paintScenery } from "./aquarium.paint";
+import {
+  type AquariumAppearance,
+  CUE_RISE,
+  fishBob,
+  paintAquarium,
+  paintFishSprite,
+  paintScenery,
+} from "./aquarium.paint";
+import { takeRelease } from "./aquariumReleases";
 import { useBackstageEntries } from "./useBackstageEntries";
 
 const CEILING_GAP = 12;
+const LEAP_MS = 600;
+const LEAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 interface TankInput {
   readonly size: AquariumSize | null;
@@ -43,14 +55,17 @@ interface HoveredFish {
 const castOf = (residents: ReadonlyArray<AquariumResident>) =>
   residents.map((resident) => `${resident.key}:${resident.cue}`).join("|");
 
+let resting: { readonly aquarium: Aquarium; readonly tick: number } | null = null;
+
 function startTank(canvas: HTMLCanvasElement) {
   const context = canvas.getContext("2d");
   let input: TankInput | null = null;
   let aquarium: Aquarium | null = null;
   let scenery: HTMLCanvasElement | null = null;
   let held: string | null = null;
-  let tick = 0;
+  let tick = resting?.tick ?? 0;
   let timer: number | undefined;
+  const leaps = new Map<string, Animation>();
 
   const paint = () => {
     if (context === null || input === null || aquarium === null || scenery === null) return;
@@ -75,6 +90,48 @@ function startTank(canvas: HTMLCanvasElement) {
     paint();
   };
 
+  const leap = (
+    resident: AquariumResident,
+    from: { readonly x: number; readonly y: number },
+    size: AquariumSize,
+    appearance: AquariumAppearance,
+  ) => {
+    const bounds = canvas.getBoundingClientRect();
+    const spot = landingSpot(size, resident.key, (from.x - bounds.left) / AQUARIUM_PIXEL);
+    const { width, height } = fishSize(resident.key);
+    const sprite = paintFishSprite(spot, resident, tick, appearance);
+    sprite.className = "pointer-events-none fixed top-0 left-0 z-30 [image-rendering:pixelated]";
+    sprite.style.width = `${width * AQUARIUM_PIXEL}px`;
+    sprite.style.height = `${height * AQUARIUM_PIXEL}px`;
+    document.body.append(sprite);
+    const flight = sprite.animate(
+      leapKeyframes(
+        { x: from.x - (width * AQUARIUM_PIXEL) / 2, y: from.y - (height * AQUARIUM_PIXEL) / 2 },
+        { x: bounds.left + spot.x * AQUARIUM_PIXEL, y: bounds.top + spot.y * AQUARIUM_PIXEL },
+        spot.dir,
+      ),
+      { duration: LEAP_MS, easing: LEAP_EASING, fill: "forwards" },
+    );
+    leaps.set(resident.key, flight);
+    void flight.finished.then(
+      () => {
+        leaps.delete(resident.key);
+        if (
+          aquarium !== null &&
+          input?.residents.some((current) => current.key === resident.key) &&
+          !aquarium.fish.some((fish) => fish.key === resident.key)
+        )
+          aquarium = {
+            ...aquarium,
+            fish: [...aquarium.fish, { ...spot, y: spot.y - fishBob(spot.key, tick) }],
+          };
+        paint();
+        sprite.remove();
+      },
+      () => sprite.remove(),
+    );
+  };
+
   return {
     update(next: TankInput) {
       const previous = input;
@@ -84,9 +141,20 @@ function startTank(canvas: HTMLCanvasElement) {
         timer = undefined;
       } else if (timer === undefined) timer = window.setTimeout(step, 1000 / AQUARIUM_FPS);
       if (next.size === null) return;
+      if (!next.reducedMotion)
+        for (const resident of next.residents) {
+          if (leaps.has(resident.key) || aquarium?.fish.some((fish) => fish.key === resident.key))
+            continue;
+          const from = takeRelease(resident.key);
+          if (from !== null) leap(resident, from, next.size, next.appearance);
+        }
+      const residents = next.residents.filter((resident) => !leaps.has(resident.key));
       const resized = previous?.size !== next.size;
       if (aquarium === null)
-        aquarium = createAquarium(next.size, next.residents, next.featuredKey, Math.random);
+        aquarium =
+          resting === null
+            ? createAquarium(next.size, residents, next.featuredKey, Math.random)
+            : stockAquarium(resizeAquarium(resting.aquarium, next.size), residents, Math.random);
       else if (resized) aquarium = resizeAquarium(aquarium, next.size);
       if (resized || previous?.appearance !== next.appearance) {
         canvas.width = next.size.width;
@@ -95,8 +163,8 @@ function startTank(canvas: HTMLCanvasElement) {
       }
       if (previous !== null && castOf(previous.residents) !== castOf(next.residents))
         aquarium = next.reducedMotion
-          ? createAquarium(aquarium, next.residents, next.featuredKey, Math.random)
-          : stockAquarium(aquarium, next.residents, Math.random);
+          ? createAquarium(aquarium, residents, next.featuredKey, Math.random)
+          : stockAquarium(aquarium, residents, Math.random);
       paint();
     },
     hold(key: string | null) {
@@ -118,6 +186,8 @@ function startTank(canvas: HTMLCanvasElement) {
     },
     stop() {
       window.clearTimeout(timer);
+      for (const flight of leaps.values()) flight.cancel();
+      if (aquarium !== null) resting = { aquarium, tick };
     },
   };
 }

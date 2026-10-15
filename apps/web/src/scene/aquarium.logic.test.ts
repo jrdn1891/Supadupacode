@@ -6,6 +6,8 @@ import {
   type AquariumResident,
   createAquarium,
   fishSize,
+  landingSpot,
+  leapKeyframes,
   parkingSpot,
   stepAquarium,
   stockAquarium,
@@ -86,5 +88,32 @@ describe("stepAquarium", () => {
     const parked = tank.fish.find((fish) => fish.key === "b")!;
     expect({ x: parked.x, y: parked.y }).toEqual(parkingSpot(tank, "b"));
     expect(run(tank, 30, "b").fish.find((fish) => fish.key === "b")).toEqual(parked);
+  });
+});
+
+describe("landingSpot", () => {
+  it("lands a released fish under the caption, leaping toward the middle of the tank", () => {
+    const { width } = fishSize("a");
+    const right = landingSpot(SIZE, "a", 170);
+    expect(right).toMatchObject({ y: SIZE.top, dir: -1 });
+    expect(right.x).toBeLessThan(170 - width / 2);
+    expect(landingSpot(SIZE, "a", 30)).toMatchObject({ dir: 1 });
+    for (const from of [-50, 0, SIZE.width, SIZE.width + 50]) {
+      const { x } = landingSpot(SIZE, "a", from);
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x + width).toBeLessThanOrEqual(SIZE.width);
+    }
+  });
+});
+
+describe("leapKeyframes", () => {
+  it("leaves the send button unseen and lands level and full size where the tank takes over", () => {
+    const frames = leapKeyframes({ x: 300, y: 600 }, { x: 250, y: 100 }, -1);
+    expect(frames[0]).toMatchObject({ opacity: 0 });
+    expect(frames[0]!.transform).toMatch(/^translate\(300px, 600px\) rotate\(60deg\)/);
+    expect(frames.at(-1)).toEqual({
+      transform: "translate(250px, 100px) rotate(0deg) scale(1)",
+      opacity: 1,
+    });
   });
 });
