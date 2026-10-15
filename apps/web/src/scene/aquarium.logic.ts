@@ -453,6 +453,8 @@ export interface AquariumPet {
   readonly y: number;
   readonly dir: 1 | -1;
   readonly goal: AquariumPoint;
+  readonly prey: string | null;
+  readonly sated: boolean;
 }
 
 export interface AquariumBubble {
@@ -731,6 +733,11 @@ function centerOf(fish: AquariumFish): AquariumPoint {
   return { x: fish.x + width / 2, y: fish.y + height / 2 };
 }
 
+function inside(size: AquariumSize, fish: AquariumFish) {
+  const { x } = centerOf(fish);
+  return x >= 0 && x < size.width;
+}
+
 function touches(body: AquariumPoint, sprite: Sprite, at: AquariumPoint) {
   return (
     at.x >= body.x - TOUCH_REACH &&
@@ -868,18 +875,20 @@ export function stepAquarium(
   const bottom = seabed(aquarium);
   const pet =
     aquarium.pet &&
-    glide(
-      aquarium.pet,
-      petSpot(aquarium, aquarium.pet.kind, aquarium.pet.goal),
-      PETS[aquarium.pet.kind].speed,
-    );
+    (aquarium.pet.prey === null
+      ? glide(
+          aquarium.pet,
+          petSpot(aquarium, aquarium.pet.kind, aquarium.pet.goal),
+          PETS[aquarium.pet.kind].speed,
+        )
+      : aquarium.pet);
   const mouth = pet && mouthOf(pet);
   let pellets = aquarium.pellets;
   const fed = aquarium.fish
     .map((fish) =>
       fish.key === input.featuredKey
         ? park(aquarium, fish)
-        : fish.key === input.heldKey
+        : fish.key === input.heldKey || fish.key === pet?.prey
           ? fish
           : swim(aquarium, pet === null ? fish : flee(fish, pet), random),
     )
@@ -892,14 +901,24 @@ export function stepAquarium(
       pellets = pellets.filter((pellet) => pellet !== meal);
       return { ...fish, full: FULL_TICKS };
     });
-  const caught =
+  const touching =
     mouth === null
       ? []
-      : fed.filter((fish) => free(fish, input) && touches(fish, fishSize(fish.key), mouth));
+      : fed.filter(
+          (fish) =>
+            free(fish, input) && inside(aquarium, fish) && touches(fish, fishSize(fish.key), mouth),
+        );
+  const hunting = pet !== null && pet.prey === null && !pet.sated;
+  const prey = hunting && pet.kind === "shark" ? touching[0] : undefined;
+  const caught = hunting && pet.kind !== "shark" ? touching : [];
   return {
     ...aquarium,
     fish: fed.map((fish) => (caught.includes(fish) ? enter(aquarium, fish.key, random) : fish)),
-    pet,
+    pet: pet && {
+      ...pet,
+      prey: prey?.key ?? (fed.some((fish) => fish.key === pet.prey) ? pet.prey : null),
+      sated: pet.sated && touching.length > 0,
+    },
     pellets: pellets.flatMap((pellet) =>
       pellet.y < bottom
         ? [
@@ -976,6 +995,12 @@ export function stirAquarium(
         : { ...fish, drift: push(stir.reach) };
     }),
   };
+}
+
+export function releasePrey(aquarium: Aquarium): Aquarium {
+  return aquarium.pet === null || aquarium.pet.prey === null
+    ? aquarium
+    : { ...aquarium, pet: { ...aquarium.pet, prey: null, sated: true } };
 }
 
 export function finishedResidents(
@@ -1058,6 +1083,8 @@ export function tapAquarium(
           ...petSpot(aquarium, kind, at),
           dir: at.x < aquarium.width / 2 ? 1 : -1,
           goal: at,
+          prey: null,
+          sated: false,
         } satisfies AquariumPet,
       },
       stash,
