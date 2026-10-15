@@ -79,6 +79,7 @@ interface HoveredFish {
 
 interface Press extends AquariumPoint {
   readonly dragging: boolean;
+  readonly since: number;
 }
 
 const castOf = (residents: ReadonlyArray<AquariumResident>) =>
@@ -204,20 +205,23 @@ function startTank(canvas: HTMLCanvasElement) {
     hold(key: string | null) {
       held = key;
     },
-    tap(at: AquariumPoint) {
+    tap(at: AquariumPoint, heldMs: number) {
       if (input === null || input.reducedMotion || aquarium === null) return;
-      ({ aquarium, stash } = tapAquarium(aquarium, stash, at));
+      ({ aquarium, stash } = tapAquarium(aquarium, stash, at, heldMs));
       paint();
     },
-    stir(from: AquariumPoint, to: AquariumPoint) {
+    drag(from: AquariumPoint, to: AquariumPoint) {
       if (input === null || input.reducedMotion || aquarium === null) return;
-      aquarium = stirAquarium(aquarium, {
-        from,
-        to,
-        residents: input.residents,
-        featuredKey: input.featuredKey,
-        heldKey: held,
-      });
+      aquarium =
+        aquarium.pet === null
+          ? stirAquarium(aquarium, {
+              from,
+              to,
+              residents: input.residents,
+              featuredKey: input.featuredKey,
+              heldKey: held,
+            })
+          : { ...aquarium, pet: { ...aquarium.pet, goal: to } };
     },
     fishAt(x: number, y: number) {
       return (
@@ -352,7 +356,7 @@ export function SceneAquarium() {
         if (!event.isPrimary || event.button !== 0) return;
         event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
-        pressRef.current = { ...tankPoint(event), dragging: false };
+        pressRef.current = { ...tankPoint(event), dragging: false, since: event.timeStamp };
       }}
       onPointerMove={(event) => {
         if (!event.isPrimary) return;
@@ -367,8 +371,8 @@ export function SceneAquarium() {
           tankRef.current?.hold(null);
           setHovered(null);
         }
-        pressRef.current = { ...at, dragging: true };
-        tankRef.current?.stir(press, at);
+        pressRef.current = { ...press, ...at, dragging: true };
+        tankRef.current?.drag(press, at);
       }}
       onPointerUp={(event) => {
         if (!event.isPrimary) return;
@@ -379,7 +383,7 @@ export function SceneAquarium() {
         const fish = tankRef.current?.fishAt(at.x, at.y);
         const entry = entries.find((candidate) => candidate.key === fish?.key);
         if (entry === undefined) {
-          tankRef.current?.tap(at);
+          tankRef.current?.tap(at, event.timeStamp - press.since);
           return;
         }
         const { environmentId, id } = entry.thread;
