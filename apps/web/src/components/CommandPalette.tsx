@@ -2110,7 +2110,7 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:scene-close-pane",
-      searchTerms: ["close", "pane", "stage", "split", "backstage"],
+      searchTerms: ["close", "pane", "stage", "split"],
       title: "Close pane",
       icon: <XIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "stage.closePane",

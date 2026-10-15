@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react";
-import { awaitsYou } from "@supacode/client-runtime/state/backstage";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -17,7 +16,6 @@ import { useThreadShell } from "../state/entities";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import type { ThreadRouteTarget } from "../threadRoutes";
 import { findScenePane, type ScenePane, sceneTargetKey, scenePanes } from "./scene.logic";
-import { SceneBackstage } from "./SceneBackstage";
 import { useSceneDragView } from "./sceneDrag";
 import { ScenePaneProvider } from "./ScenePaneContext";
 import { useSceneStore } from "./sceneStore";
@@ -84,7 +82,6 @@ export function SceneStage({ target }: { readonly target: ThreadRouteTarget }) {
           </Fragment>
         ))}
       </ResizablePanelGroup>
-      <SceneBackstage />
     </SidebarInset>
   );
 }
@@ -104,7 +101,11 @@ function ScenePaneFrame({
 }) {
   const actions = useSceneActions();
   const thread = useThreadShell(pane.target.kind === "server" ? pane.target.threadRef : null);
-  const awaitingYou = split && !focused && thread !== null && awaitsYou(thread);
+  const awaitingYou =
+    split &&
+    !focused &&
+    thread !== null &&
+    (thread.hasPendingApprovals || thread.hasPendingUserInput);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {

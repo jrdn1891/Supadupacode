@@ -1,4 +1,4 @@
-import type { BackstageCue } from "@supacode/contracts";
+import type { AgentCue } from "./aquariumAgents";
 
 export const AQUARIUM_PIXEL = 3;
 export const AQUARIUM_FPS = 6;
@@ -43,7 +43,7 @@ export type FishKind = keyof typeof FISH_SPRITES;
 export interface AquariumResident {
   readonly key: string;
   readonly projectKey: string;
-  readonly cue: BackstageCue;
+  readonly cue: AgentCue;
 }
 
 export interface AquariumFish {
@@ -104,7 +104,7 @@ export function aquariumWeeds(width: number) {
   ];
 }
 
-export function featuredResident<T extends { readonly cue: BackstageCue }>(
+export function featuredResident<T extends { readonly cue: AgentCue }>(
   residents: ReadonlyArray<T>,
 ): T | null {
   return residents.find((resident) => resident.cue !== "working") ?? null;

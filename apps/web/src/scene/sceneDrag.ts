@@ -14,14 +14,11 @@ interface Rect {
   readonly height: number;
 }
 
-export type SceneDropTarget =
-  | {
-      readonly kind: "pane";
-      readonly paneId: string;
-      readonly zone: SceneDropZone;
-      readonly preview: Rect;
-    }
-  | { readonly kind: "backstage"; readonly preview: Rect };
+export interface SceneDropTarget {
+  readonly paneId: string;
+  readonly zone: SceneDropZone;
+  readonly preview: Rect;
+}
 
 export interface SceneDragView {
   readonly preview: Rect | null;
@@ -75,30 +72,19 @@ export function sceneDropTargetAt(
 ): SceneDropTarget | null {
   const element = document.elementFromPoint(point.x, point.y);
   if (element === null) return null;
-  const backstage = element.closest<HTMLElement>("[data-scene-backstage]");
-  if (backstage !== null) return { kind: "backstage", preview: boundsOf(backstage) };
   if (options.yieldToComposer && element.closest("[data-thread-context-drop]") !== null)
     return null;
   const pane = element.closest<HTMLElement>("[data-scene-pane]");
   const paneId = pane?.dataset.scenePane;
   if (pane == null || paneId === undefined || paneId === options.exceptPaneId) return null;
   const rect = boundsOf(pane);
-  const zone =
-    element.closest("[data-scene-takeover]") === null ? sceneDropZone(rect, point) : "center";
+  const zone = sceneDropZone(rect, point);
   const column = boundsOf(pane.closest("[data-scene-column]") ?? pane);
-  return { kind: "pane", paneId, zone, preview: zoneRect(rect, column, zone) };
-}
-
-function targetKey(target: SceneDropTarget | null): string | null {
-  return target === null
-    ? null
-    : target.kind === "pane"
-      ? `${target.paneId}:${target.zone}`
-      : "backstage";
+  return { paneId, zone, preview: zoneRect(rect, column, zone) };
 }
 
 export function showSceneDrag(target: SceneDropTarget | null, ghost: SceneDragView["ghost"]) {
-  const key = targetKey(target);
+  const key = target === null ? null : `${target.paneId}:${target.zone}`;
   if (key !== snappedTo && key !== null) void window.desktopBridge?.performHaptic?.("alignment");
   snappedTo = key;
   setView({ preview: target?.preview ?? null, ghost });

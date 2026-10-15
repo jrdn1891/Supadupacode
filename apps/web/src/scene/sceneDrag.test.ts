@@ -24,7 +24,6 @@ describe("sceneDropTargetAt", () => {
   it("previews a side drop as the new column beside the pane's column", () => {
     stackedColumn();
     expect(sceneDropTargetAt({ x: 990, y: 150 })).toEqual({
-      kind: "pane",
       paneId: "upper",
       zone: "right",
       preview: { left: 600, top: 0, width: 400, height: 600 },
@@ -37,22 +36,6 @@ describe("sceneDropTargetAt", () => {
     ["center", { x: 600, y: 150 }, { left: 200, top: 0, width: 800, height: 300 }],
   ] as const)("previews a %s drop inside the pane", (zone, point, preview) => {
     stackedColumn();
-    expect(sceneDropTargetAt(point)).toEqual({ kind: "pane", paneId: "upper", zone, preview });
-  });
-
-  it("lets a drop anywhere on a new thread's aquarium take the pane over", () => {
-    document.body.innerHTML = `
-      <div data-scene-column>
-        <div data-scene-pane="draft"><div data-scene-takeover></div></div>
-      </div>`;
-    const pane = document.querySelector("[data-scene-pane]")!;
-    pane.getBoundingClientRect = () => new DOMRect(256, 0, 1024, 760);
-    document.elementFromPoint = () => document.querySelector("[data-scene-takeover]");
-    expect(sceneDropTargetAt({ x: 700, y: 20 })).toEqual({
-      kind: "pane",
-      paneId: "draft",
-      zone: "center",
-      preview: { left: 256, top: 0, width: 1024, height: 760 },
-    });
+    expect(sceneDropTargetAt(point)).toEqual({ paneId: "upper", zone, preview });
   });
 });

@@ -1,4 +1,3 @@
-import { BackstageCard } from "../threads/backstage-card";
 import { useThreadListV2Layout } from "../threads/use-thread-list-v2-layout";
 import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
@@ -1003,19 +1002,7 @@ export function HomeScreen(props: HomeScreenProps) {
 
   const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
 
-  const v2ListHeader = (
-    <>
-      {listHeader}
-      {hasSearchQuery ? null : (
-        <BackstageCard
-          threads={props.threads}
-          openThreadKey={selectedThreadKey}
-          nowMinute={nowMinute}
-          onSelectThread={props.onSelectThread}
-        />
-      )}
-    </>
-  );
+  const v2ListHeader = <>{listHeader}</>;
 
   // Use the v2 project scope for its empty state. Snoozed threads need no
   // special empty state: their shelf header is a list row even while collapsed.
