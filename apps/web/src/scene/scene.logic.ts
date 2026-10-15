@@ -240,7 +240,8 @@ export function splitSceneTargetKeys(scene: Scene): ReadonlySet<string> {
 export function closeScenePane(scene: Scene, paneId: string): Scene {
   const panes = scenePanes(scene);
   const index = panes.findIndex((pane) => pane.id === paneId);
-  if (index === -1 || panes.length === 1) return scene;
+  if (index === -1) return scene;
+  if (panes.length === 1) return EMPTY_SCENE;
   const columns = withoutPane(scene.columns, paneId);
   const remaining = columns.flatMap((column) => column.panes);
   const focusedPaneId =

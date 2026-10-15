@@ -132,6 +132,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   ...PROJECT_PICKER_JUMP_KEYBINDING_COMMANDS,
   "usage.open",
   "automations.open",
+  "home.open",
   "theme.select",
   "appearance.cycle",
   "themeEditor.toggle",

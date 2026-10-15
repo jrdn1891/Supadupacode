@@ -153,9 +153,8 @@ describe("closeScenePane", () => {
     expect(scene.focusedPaneId).toBe("pane-1");
   });
 
-  it("keeps the last pane", () => {
-    const single = stageOf("a");
-    expect(closeScenePane(single, "pane-0")).toBe(single);
+  it("clears the stage when the last pane closes", () => {
+    expect(closeScenePane(stageOf("a"), "pane-0")).toEqual(EMPTY_SCENE);
   });
 
   it("leaves Spotlight when its pane closes", () => {

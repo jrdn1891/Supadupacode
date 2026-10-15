@@ -74,6 +74,7 @@ import {
   FolderIcon,
   FolderPlusIcon,
   GitForkIcon,
+  HouseIcon,
   MessageSquareDashedIcon,
   LinkIcon,
   MessageSquareIcon,
@@ -388,6 +389,7 @@ function overlayModeForCommand(command: string | null): SearchOverlayMode | null
 const PAGE_BY_COMMAND = {
   "usage.open": "/usage",
   "automations.open": "/automations",
+  "home.open": "/home",
 } as const;
 
 function pageForCommand(command: string | null) {
@@ -2106,6 +2108,18 @@ function OpenCommandPaletteDialog(props: {
         };
   if (forkThreadItem !== null) actionItems.push(forkThreadItem);
 
+  if (activeThreadId) {
+    actionItems.push({
+      kind: "action",
+      value: "action:scene-close-pane",
+      searchTerms: ["close", "pane", "stage", "split", "backstage"],
+      title: "Close pane",
+      icon: <XIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "stage.closePane",
+      run: async () => sceneActions.closeFocused(),
+    });
+  }
+
   if (activeThreadId && sceneSplit) {
     actionItems.push(
       {
@@ -2120,15 +2134,6 @@ function OpenCommandPaletteDialog(props: {
         ),
         shortcutCommand: "stage.toggleSpotlight",
         run: async () => sceneActions.toggleFocusedSpotlight(),
-      },
-      {
-        kind: "action",
-        value: "action:scene-close-pane",
-        searchTerms: ["close", "pane", "stage", "split"],
-        title: "Close pane",
-        icon: <XIcon className={ITEM_ICON_CLASS} />,
-        shortcutCommand: "stage.closePane",
-        run: async () => sceneActions.closeFocused(),
       },
       {
         kind: "action",
@@ -2422,6 +2427,18 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
+
+  actionItems.push({
+    kind: "action",
+    value: "action:home",
+    searchTerms: ["home", "aquarium", "calm", "quiet", "backstage", "away", "rest"],
+    title: "Go home",
+    icon: <HouseIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "home.open",
+    run: async () => {
+      await navigate({ to: "/home" });
+    },
+  });
 
   actionItems.push({
     kind: "action",
