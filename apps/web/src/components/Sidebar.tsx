@@ -296,6 +296,7 @@ import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarT
 import { SidebarPrimaryNavigation } from "./sidebar/SidebarPrimaryNavigation";
 import { SidebarPinButton } from "./sidebar/SidebarPinButton";
 import { SidebarSnoozeButton } from "./sidebar/SidebarSnoozeButton";
+import { SidebarBubbles } from "./sidebar/SidebarBubbles";
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { MiddleTruncate } from "./ui/middle-truncate";
 import {
@@ -2797,6 +2798,16 @@ export default function Sidebar() {
     snoozeWakeTickAt,
     threads,
   ]);
+  const latestReturnFromWorkAt = useMemo(() => {
+    let latest = 0;
+    for (const thread of [...pinnedThreads, ...activeThreads]) {
+      if (scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === routeThreadKey) {
+        continue;
+      }
+      latest = Math.max(latest, inboxReturns.returnedAt(thread) ?? 0);
+    }
+    return latest;
+  }, [activeThreads, pinnedThreads, routeThreadKey]);
 
   useEffect(() => {
     const nextWake = snoozedThreads.at(-1)?.snoozedUntil;
@@ -5011,6 +5022,9 @@ export default function Sidebar() {
         }
       >
         <SidebarGroup className="flex-1" role="presentation">
+          {latestReturnFromWorkAt > 0 ? (
+            <SidebarBubbles key={latestReturnFromWorkAt} since={latestReturnFromWorkAt} />
+          ) : null}
           <TooltipProvider
             key="sidebar-thread-tooltips-150"
             delay={150}
