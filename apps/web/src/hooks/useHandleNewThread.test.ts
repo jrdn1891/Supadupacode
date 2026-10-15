@@ -35,6 +35,16 @@ const testState = vi.hoisted(() => {
     setLogicalProjectDraftThreadId: vi.fn(),
     setModelSelection: vi.fn(),
   };
+  const stage = {
+    scene: { columns: [] as Array<{ id: string; panes: Array<{ id: string }> }> },
+    open: vi.fn(),
+  };
+  const showPanes = (count: number) => {
+    stage.scene.columns = Array.from({ length: count }, (_, index) => ({
+      id: `column-${index}`,
+      panes: [{ id: `pane-${index}` }],
+    }));
+  };
 
   return {
     completeProjectFileRead: (value: null) => completeProjectFileRead(value),
@@ -66,8 +76,12 @@ const testState = vi.hoisted(() => {
       projectFileRead = new Promise<null>((resolve) => {
         completeProjectFileRead = resolve;
       });
+      showPanes(0);
+      stage.open.mockClear();
     },
     router,
+    showPanes,
+    stage,
   };
 });
 
@@ -158,6 +172,9 @@ vi.mock("../logicalProject", () => ({
   deriveLogicalProjectKeyFromSettings: () => "remote-project",
   getProjectOrderKey: () => "remote-project",
   selectProjectGroupingSettings: () => ({}),
+}));
+vi.mock("../scene/sceneStore", () => ({
+  useSceneStore: { getState: () => testState.stage },
 }));
 vi.mock("../state/entities", () => ({
   readProjects: () => [
@@ -291,4 +308,33 @@ describe.each([
       );
     },
   );
+});
+
+describe("useNewThreadHandler on the stage", () => {
+  const projectRef = { environmentId: "environment-ssh", projectId: "project-remote" } as never;
+
+  it("opens the new thread in its own pane when the stage is split", async () => {
+    testState.reset(null);
+    testState.showPanes(2);
+    const pendingOpen = useNewThreadHandler()(projectRef);
+    testState.completeProjectFileRead(null);
+    const opened = await pendingOpen;
+
+    expect(testState.stage.open).toHaveBeenCalledWith(
+      { kind: "draft", draftId: opened!.draftId },
+      "right",
+    );
+    expect(testState.router.state.location.href).toBe(`/draft/${opened!.draftId}`);
+  });
+
+  it("shows the new thread in place of a lone pane", async () => {
+    testState.reset(null);
+    testState.showPanes(1);
+    const pendingOpen = useNewThreadHandler()(projectRef);
+    testState.completeProjectFileRead(null);
+    const opened = await pendingOpen;
+
+    expect(testState.stage.open).not.toHaveBeenCalled();
+    expect(testState.router.state.location.href).toBe(`/draft/${opened!.draftId}`);
+  });
 });
