@@ -1110,11 +1110,21 @@ export const DesktopPreviewRecordingSaveInputSchema = Schema.Struct({
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+export const BackstageCueSchema = Schema.Literals([
+  "approval",
+  "input",
+  "failed",
+  "limited",
+  "ready",
+  "working",
+]);
+export type BackstageCue = typeof BackstageCueSchema.Type;
+
 export const DesktopBackstageItemSchema = Schema.Struct({
   environmentId: Schema.String,
   threadId: Schema.String,
   title: Schema.String.check(Schema.isMaxLength(200)),
-  cue: Schema.Literals(["needs-you", "ready", "standby", "working"]),
+  cue: BackstageCueSchema,
   detail: Schema.NullOr(Schema.String.check(Schema.isMaxLength(80))),
 });
 export type DesktopBackstageItem = typeof DesktopBackstageItemSchema.Type;

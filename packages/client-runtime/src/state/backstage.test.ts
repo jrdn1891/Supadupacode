@@ -84,7 +84,7 @@ const cues = (threads: EnvironmentThreadShell[], stage: string[] = []) =>
   }).map((entry) => [entry.thread.title, entry.cue]);
 
 describe("backstageEntries", () => {
-  it("lists running work off stage, with the last step as standby", () => {
+  it("lists running work off stage as working, whatever step it is on", () => {
     expect(
       cues(
         [
@@ -95,8 +95,8 @@ describe("backstageEntries", () => {
         [],
       ),
     ).toEqual([
-      ["last-step", "standby"],
       ["plain", "working"],
+      ["last-step", "working"],
     ]);
   });
 
@@ -118,8 +118,29 @@ describe("backstageEntries", () => {
         ["watched"],
       ),
     ).toEqual([
-      ["asking", "needs-you"],
+      ["asking", "input"],
       ["working", "working"],
+    ]);
+  });
+
+  it("keeps why a thread needs the user, so it can match the sidebar's color", () => {
+    expect(
+      cues([
+        shell("approving", {
+          ...running(),
+          pendingRuntimeRequest: { id: "request" as never, kind: "command", createdAt: now },
+        }),
+        shell("broken", {
+          latestRunId: RunId.make("run"),
+          status: "failed",
+          latestRunRequestedAt: now,
+          latestRunStartedAt: now,
+          latestRunCompletedAt: now,
+        }),
+      ]),
+    ).toEqual([
+      ["approving", "approval"],
+      ["broken", "failed"],
     ]);
   });
 

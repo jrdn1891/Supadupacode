@@ -1,3 +1,5 @@
+import type { BackstageCue } from "@supacode/contracts";
+
 import { scopedThreadKey, scopeThreadRef } from "../environment/scoped.ts";
 import type { EnvironmentThreadShell } from "./models.ts";
 import { effectiveSnoozed } from "./threadSettled.ts";
@@ -12,8 +14,6 @@ export type BackstageThreadStatus =
   | "limited"
   | "ready";
 
-export type BackstageCue = "needs-you" | "ready" | "standby" | "working";
-
 export interface BackstageEntry {
   readonly key: string;
   readonly thread: EnvironmentThreadShell;
@@ -21,33 +21,24 @@ export interface BackstageEntry {
 }
 
 const CUE_ORDER: Readonly<Record<BackstageCue, number>> = {
-  "needs-you": 0,
+  approval: 0,
+  input: 0,
+  failed: 0,
+  limited: 0,
   ready: 1,
-  standby: 2,
-  working: 3,
+  working: 2,
 };
 
 export function backstageCue(input: {
   readonly status: BackstageThreadStatus;
-  readonly thread: Pick<EnvironmentThreadShell, "latestRun" | "progress">;
+  readonly thread: Pick<EnvironmentThreadShell, "latestRun">;
   readonly unseen: boolean;
 }): BackstageCue | null {
-  const { status, thread } = input;
-  if (
-    status === "approval" ||
-    status === "input" ||
-    status === "failed" ||
-    status === "limited" ||
-    (status === "ready" && thread.latestRun?.status === "failed")
-  ) {
-    return "needs-you";
-  }
-  if (status === "working" || status === "waiting") {
-    const progress = thread.progress;
-    return progress !== null && progress.total > 1 && progress.total - progress.done === 1
-      ? "standby"
-      : "working";
-  }
+  const { status } = input;
+  if (status === "approval" || status === "input" || status === "failed" || status === "limited")
+    return status;
+  if (status === "ready" && input.thread.latestRun?.status === "failed") return "failed";
+  if (status === "working" || status === "waiting") return "working";
   return input.unseen ? "ready" : null;
 }
 
@@ -89,17 +80,16 @@ export function backstageDetail(
   nowMs: number,
 ): string | null {
   switch (cue) {
-    case "needs-you":
-      return thread.hasPendingApprovals
-        ? "Needs approval"
-        : thread.hasPendingUserInput
-          ? "Has a question"
-          : thread.runtime?.lastErrorClass === "usage_limit"
-            ? "Usage limit"
-            : "Failed";
+    case "approval":
+      return "Needs approval";
+    case "input":
+      return "Has a question";
+    case "limited":
+      return "Usage limit";
+    case "failed":
+      return "Failed";
     case "ready":
-      return "Ready";
-    case "standby":
+      return "Done";
     case "working": {
       const progress = thread.progress;
       if (progress !== null) return `${progress.done}/${progress.total}`;

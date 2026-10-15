@@ -1,10 +1,10 @@
 import {
-  type BackstageCue,
   type BackstageEntry,
   backstageDetail,
   backstageEntries,
 } from "@supacode/client-runtime/state/backstage";
 import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/shell";
+import type { BackstageCue } from "@supacode/contracts";
 import * as Haptics from "expo-haptics";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -15,9 +15,11 @@ import { DisclosureChevron } from "../../components/DisclosureChevron";
 import { resolveThreadListV2Status, threadHasUnseenCompletion } from "./threadListV2";
 
 const CUE_SYMBOL: Readonly<Record<BackstageCue, { icon: AppSymbolName; tint: string }>> = {
-  "needs-you": { icon: "exclamationmark.circle", tint: "accent-danger-foreground" },
-  ready: { icon: "checkmark.circle.fill", tint: "accent-adaptive-emerald-700-300" },
-  standby: { icon: "circle.inset.filled", tint: "accent-warning-foreground" },
+  approval: { icon: "exclamationmark.shield", tint: "accent-warning-foreground" },
+  input: { icon: "questionmark.bubble", tint: "accent-adaptive-indigo-600-300" },
+  failed: { icon: "exclamationmark.circle", tint: "accent-danger-foreground" },
+  limited: { icon: "exclamationmark.circle", tint: "accent-warning-foreground" },
+  ready: { icon: "checkmark.circle", tint: "accent-adaptive-emerald-700-300" },
   working: { icon: "circle.dashed", tint: "accent-adaptive-sky-600-400" },
 };
 
@@ -26,9 +28,9 @@ const SUMMARY_GROUPS: ReadonlyArray<{
   readonly one: string;
   readonly many: string;
 }> = [
-  { cues: ["needs-you"], one: "needs you", many: "need you" },
+  { cues: ["approval", "input", "failed", "limited"], one: "needs you", many: "need you" },
   { cues: ["ready"], one: "ready", many: "ready" },
-  { cues: ["standby", "working"], one: "working", many: "working" },
+  { cues: ["working"], one: "working", many: "working" },
 ];
 
 function backstageSummary(entries: ReadonlyArray<BackstageEntry>): string {
@@ -46,14 +48,13 @@ function useArrivalHaptic(entries: ReadonlyArray<BackstageEntry>) {
     previous.current = next;
     if (prior === null) return;
     const arrived = entries.find(
-      (entry) =>
-        (entry.cue === "needs-you" || entry.cue === "ready") && prior.get(entry.key) !== entry.cue,
+      (entry) => entry.cue !== "working" && prior.get(entry.key) !== entry.cue,
     );
     if (arrived === undefined) return;
     void Haptics.notificationAsync(
-      arrived.cue === "needs-you"
-        ? Haptics.NotificationFeedbackType.Warning
-        : Haptics.NotificationFeedbackType.Success,
+      arrived.cue === "ready"
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Warning,
     );
   }, [entries]);
 }
