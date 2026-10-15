@@ -93,6 +93,10 @@ const SHIMMER_WIDTH = 72;
 const SHIMMER_SWEEP_MS = 1_350;
 const SHIMMER_PAUSE_MS = 1_450;
 const SHIMMER_ICON_AND_GAP_WIDTH = 30;
+const FISH_HEIGHT = 10;
+const FISH_WIDTH = FISH_HEIGHT * (81.5 / 46.5);
+const FISH_LANE_WIDTH = 42;
+const FISH_LAP_MS = 1_500;
 type WorkContentIcon =
   | AppSymbolName
   | "browser"
@@ -164,6 +168,7 @@ function ShimmerWorkContent(props: {
   readonly showIcon: boolean;
   readonly themeAppearance?: "light" | "dark";
   readonly toolIcon?: ToolActivityIcon;
+  readonly trailing?: ReactNode;
 }) {
   return (
     <View className="flex-row items-center gap-1.5">
@@ -198,6 +203,52 @@ function ShimmerWorkContent(props: {
       >
         {props.label}
       </Text>
+      {props.trailing}
+    </View>
+  );
+}
+
+function SwimmingFish(props: { readonly color: ColorValue }) {
+  const motionEnabled = useForegroundMotion();
+  const lap = useSharedValue(0);
+
+  useEffect(() => {
+    cancelAnimation(lap);
+    lap.set(0);
+    if (!motionEnabled) return;
+
+    lap.set(
+      withRepeat(
+        withTiming(2, {
+          duration: FISH_LAP_MS * 2,
+          easing: Easing.linear,
+          reduceMotion: ReduceMotion.Never,
+        }),
+        -1,
+        false,
+        undefined,
+        ReduceMotion.Never,
+      ),
+    );
+    return () => cancelAnimation(lap);
+  }, [lap, motionEnabled]);
+
+  const swimStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: (1 - Math.abs(1 - lap.value)) * (FISH_LANE_WIDTH - FISH_WIDTH) },
+      { scaleX: lap.value < 1 ? 1 : -1 },
+    ],
+  }));
+
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ width: FISH_LANE_WIDTH }}
+    >
+      <Animated.View style={[{ width: FISH_WIDTH }, swimStyle]}>
+        <SupacodeMark height={FISH_HEIGHT} color={props.color} />
+      </Animated.View>
     </View>
   );
 }
@@ -212,6 +263,7 @@ export function ShimmeringWorkContent(props: {
   readonly iconSubtleColor: ColorValue;
   readonly label: string;
   readonly showIcon: boolean;
+  readonly swimming?: boolean;
   readonly themeAppearance?: "light" | "dark";
   readonly toolIcon?: ToolActivityIcon;
 }) {
@@ -220,9 +272,10 @@ export function ShimmeringWorkContent(props: {
   const motionEnabled = useForegroundMotion();
   const progress = useSharedValue(0);
   const gradientId = `work-shimmer-${useId().replaceAll(":", "")}`;
+  const showIcon = props.showIcon && !props.swimming;
   const contentWidth = Math.min(
     availableWidth,
-    (props.showIcon ? SHIMMER_ICON_AND_GAP_WIDTH : 0) + Math.ceil(textWidth),
+    (showIcon ? SHIMMER_ICON_AND_GAP_WIDTH : 0) + Math.ceil(textWidth),
   );
 
   useEffect(() => {
@@ -272,9 +325,10 @@ export function ShimmeringWorkContent(props: {
         icon={props.icon}
         iconSubtleColor={props.iconSubtleColor}
         label={props.label}
-        showIcon={props.showIcon}
+        showIcon={showIcon}
         themeAppearance={props.themeAppearance}
         toolIcon={props.toolIcon}
+        trailing={props.swimming ? <SwimmingFish color={props.iconSubtleColor} /> : null}
         onTextLayout={(event) => setTextWidth(event.nativeEvent.lines[0]?.width ?? 0)}
       />
       {motionEnabled && contentWidth > 0 ? (
@@ -314,7 +368,7 @@ export function ShimmeringWorkContent(props: {
                 icon={props.icon}
                 iconSubtleColor={props.iconSubtleColor}
                 label={props.label}
-                showIcon={props.showIcon}
+                showIcon={showIcon}
                 themeAppearance={props.themeAppearance}
                 toolIcon={props.toolIcon}
               />
@@ -952,6 +1006,7 @@ const ThreadWorkLogRow = memo(function ThreadWorkLogRow(
             iconSubtleColor={props.iconSubtleColor}
             label={displayText}
             showIcon
+            swimming={reasoning !== null}
             themeAppearance={props.themeAppearance}
             toolIcon={toolIcon}
           />
@@ -1121,6 +1176,7 @@ export function ThreadWorkGroupToggle(props: {
             iconSubtleColor={props.iconSubtleColor}
             label={props.summary}
             showIcon
+            swimming={props.summaryKind === "reasoning"}
             themeAppearance={props.themeAppearance}
             toolIcon={props.toolIcon}
           />
@@ -1295,6 +1351,7 @@ export function ThreadThinkingRow(props: {
         iconSubtleColor={props.iconSubtleColor}
         label="Thinking"
         showIcon
+        swimming
       />
     </View>
   );
