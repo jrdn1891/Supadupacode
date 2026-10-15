@@ -13,7 +13,11 @@ import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useEnvironmentIdentificationMode } from "~/hooks/useSettings";
 import { formatContextWindowTokens } from "~/lib/contextWindow";
 import { cn } from "~/lib/utils";
-import { composerSendShortcutLabels, type ComposerSendAction } from "../../composer-logic";
+import {
+  composerDefaultSubmissionIntent,
+  composerSendShortcutLabels,
+  type ComposerSendAction,
+} from "../../composer-logic";
 import { shortcutLabelForCommand } from "../../keybindings";
 import { useShortcutModifierState } from "../../shortcutModifierState";
 import { StageBackdropButtonArt, useSidebarStageBackdropVariant } from "../SidebarStageBackdrop";
@@ -103,9 +107,9 @@ const FOLLOW_UP_ACTION_LABELS: Record<ActiveTurnComposerAction, string> = {
 
 // The click action leads; the others only appear while a key runs them.
 const SEND_ACTION_ORDER: ReadonlyArray<ComposerSendAction> = [
-  "foreground",
   "newLine",
   "alternate",
+  "foreground",
   "background",
 ];
 
@@ -125,8 +129,13 @@ function SendActionsTooltip(props: {
     platform: navigator.platform,
     isMobileViewport,
   });
+  const clickAction = composerDefaultSubmissionIntent(isDraftThread);
   const labels: Record<ComposerSendAction, string> = {
-    foreground: isRunning ? FOLLOW_UP_ACTION_LABELS[followUpBehavior] : "Send message",
+    foreground: isDraftThread
+      ? "Send and open"
+      : isRunning
+        ? FOLLOW_UP_ACTION_LABELS[followUpBehavior]
+        : "Send message",
     newLine: "New line",
     alternate: FOLLOW_UP_ACTION_LABELS[alternateComposerDispatchAction(followUpBehavior)],
     background: isDraftThread ? "Send in background" : "Send and start new thread",
@@ -134,18 +143,19 @@ function SendActionsTooltip(props: {
 
   return (
     <div className="grid gap-1.5 py-0.5">
-      {SEND_ACTION_ORDER.flatMap((action) =>
-        action === "foreground" || shortcuts[action] !== undefined
-          ? [
-              <TooltipShortcutLabel key={action} shortcut={shortcuts[action] ?? null}>
-                {action === "foreground" ? (
-                  <span className="font-medium">{labels[action]}</span>
-                ) : (
-                  labels[action]
-                )}
-              </TooltipShortcutLabel>,
-            ]
-          : [],
+      {[clickAction, ...SEND_ACTION_ORDER.filter((action) => action !== clickAction)].flatMap(
+        (action) =>
+          action === clickAction || shortcuts[action] !== undefined
+            ? [
+                <TooltipShortcutLabel key={action} shortcut={shortcuts[action] ?? null}>
+                  {action === clickAction ? (
+                    <span className="font-medium">{labels[action]}</span>
+                  ) : (
+                    labels[action]
+                  )}
+                </TooltipShortcutLabel>,
+              ]
+            : [],
       )}
     </div>
   );

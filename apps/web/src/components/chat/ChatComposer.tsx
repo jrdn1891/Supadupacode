@@ -84,6 +84,7 @@ import {
   clampCollapsedComposerCursor,
   type ComposerSubmissionIntent,
   collapseExpandedComposerCursor,
+  composerDefaultSubmissionIntent,
   composerSubmissionIntentForKey,
   composerStateAtPromptEnd,
   expandCollapsedComposerCursor,
@@ -4249,7 +4250,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 alternateModifier: false,
                 activeTurnDefault: settings.followUpBehavior,
               }),
-            submissionIntent,
+            submissionIntent ?? composerDefaultSubmissionIntent(routeKind === "draft"),
           );
           return !providerInputRejectedRef.current;
         },
@@ -4274,6 +4275,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       settings.followUpBehavior,
       phase,
       promptRef,
+      routeKind,
       shouldBlurMobileComposerOnSubmit,
     ],
   );
@@ -4461,7 +4463,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       composerMenuOpenRef.current = false;
       return true;
     }
-    if (menuIsActive && (submissionIntent === null || submissionIntent === "foreground")) {
+    if (
+      menuIsActive &&
+      (submissionIntent === null ||
+        submissionIntent === composerDefaultSubmissionIntent(routeKind === "draft"))
+    ) {
       const currentItems = composerMenuItemsRef.current;
       const selectedItem =
         activeComposerMenuItemRef.current ?? (key === "Tab" ? currentItems[0] : null);

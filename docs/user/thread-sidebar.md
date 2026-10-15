@@ -46,10 +46,12 @@ instead.
 
 ### Start in the background
 
-In a desktop browser or the desktop app, press `Cmd+Enter` on macOS or `Ctrl+Enter`
-on Windows and Linux to start a new thread and immediately open another draft. The
-next draft keeps the workspace mode and base branch you selected. With **New
-worktree**, each background submission creates its own worktree.
+Sending a new thread starts it in the background: it joins **Working** in the sidebar
+and another draft opens, so you can start the next conversation right away. Open the
+thread from the sidebar when it needs you. To send and open it instead, press
+`Cmd+Enter` on macOS or `Ctrl+Enter` on Windows and Linux in a desktop browser or the
+desktop app. The next draft keeps the workspace mode and base branch you selected.
+With **New worktree**, each background submission creates its own worktree.
 
 To send the same prompt to several models on web or desktop, **Shift-click** models
 in a new thread's model picker to add or remove them. A regular click returns to a
