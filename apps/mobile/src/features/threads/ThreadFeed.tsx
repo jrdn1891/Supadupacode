@@ -1205,7 +1205,7 @@ function renderFeedEntry(
             </Text>
           ) : presentation.attribution === "supacode" ? (
             <Text className="mb-1 pr-1 font-supacode-medium text-2xs text-foreground-muted opacity-60">
-              Sent by Supacode
+              Sent by Supadupacode
             </Text>
           ) : presentation.attribution === "agent" ? (
             <AgentMessageAttribution

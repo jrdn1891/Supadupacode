@@ -68,25 +68,25 @@ describe("SubscriptionUsage Android layout", () => {
       ...snapshot,
       providers: [{ ...provider, expiresAt: now - 1 }],
     });
-    expect(tree).toContain("Open Supacode to refresh");
+    expect(tree).toContain("Open Supadupacode to refresh");
     expect(tree).not.toContain("LinearProgressIndicator");
-    expect(tree).not.toContain("more in Supacode");
+    expect(tree).not.toContain("more in Supadupacode");
   });
 
   it("counts the quotas that did not fit", () => {
     const tree = render({ ...snapshot, providers: [{ ...provider, totalWindows: 5 }] });
-    expect(tree).toContain("3 more in Supacode");
+    expect(tree).toContain("3 more in Supadupacode");
   });
 
   it("keeps quotas without an expiry deadline visible", () => {
     const tree = render({ ...snapshot, providers: [{ ...provider, expiresAt: 0 }] });
     expect(tree).toContain("5 hours · 60% left");
-    expect(tree).not.toContain("Open Supacode to refresh");
+    expect(tree).not.toContain("Open Supadupacode to refresh");
   });
 
   it("invites connecting when nothing has been checked", () => {
     const tree = render({ checkedAt: 0, providers: [] }, "light");
-    expect(tree).toContain("Tap to connect in Supacode");
+    expect(tree).toContain("Tap to connect in Supadupacode");
     expect(tree).not.toContain("As of ");
     expect(tree).toContain('"containerColor":"light-surface"');
   });

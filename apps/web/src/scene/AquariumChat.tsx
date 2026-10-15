@@ -25,7 +25,11 @@ import { useEnvironmentScope } from "../state/session";
 import { queueThreadMessage, useThreadOutbox } from "../state/threadOutbox";
 import { environmentThreadDetails, threadEnvironment } from "../state/threads";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
-import { type AquariumAgent, agentCueDetail, chatTail } from "./aquariumAgents";
+import {
+  type AquariumAgent,
+  agentCueDetail,
+  chatTail,
+} from "@supacode/client-runtime/aquarium/agents";
 
 const TAIL = 3;
 
