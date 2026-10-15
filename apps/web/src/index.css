@@ -2205,6 +2205,44 @@ code {
   }
 }
 
+.sidebar-bubble {
+  position: absolute;
+  bottom: 0;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklab, var(--info) 70%, transparent);
+  background: color-mix(in oklab, var(--info) 18%, transparent);
+  animation-name: sidebar-bubble;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+
+  @media (prefers-reduced-motion: reduce) {
+    display: none;
+  }
+}
+
+@keyframes sidebar-bubble {
+  0% {
+    opacity: 0;
+    transform: translate(0, 100%) scale(0.6);
+  }
+  8% {
+    opacity: 1;
+  }
+  33% {
+    transform: translate(var(--sidebar-bubble-drift), -33cqh) scale(0.8);
+  }
+  66% {
+    transform: translate(calc(var(--sidebar-bubble-drift) * -1), -66cqh) scale(0.95);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--sidebar-bubble-drift), -100cqh) scale(1);
+  }
+}
+
 /* Rich text composer (Tiptap). The stored prompt stays markdown; only the
    surface renders styled text. Markers (** * ` ~~) appear as non-editable
    widgets while the caret is on styled text. */
