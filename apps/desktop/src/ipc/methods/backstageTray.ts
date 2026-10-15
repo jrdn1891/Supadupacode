@@ -10,9 +10,11 @@ import * as DesktopIpc from "../DesktopIpc.ts";
 import { BACKSTAGE_OPEN_CHANNEL, SET_BACKSTAGE_SUMMARY_CHANNEL } from "../channels.ts";
 
 const CUE_GLYPH: Readonly<Record<DesktopBackstageItem["cue"], string>> = {
-  "needs-you": "⚠︎",
+  approval: "⚠︎",
+  input: "?",
+  failed: "✕",
+  limited: "⚠︎",
   ready: "✓",
-  standby: "◕",
   working: "◐",
 };
 

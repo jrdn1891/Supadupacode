@@ -256,11 +256,12 @@ when you reload.
 ## Backstage
 
 A thread that is running but not on the stage is backstage. On web and desktop, a bar under the
-stage lists each one with a cue light: gray while it works, amber on its last step, green when it
-has finished, and red when it needs you for an approval, a question, or an error. If the agent
-keeps a todo list, the chip shows how many steps are done; otherwise it shows how long the agent
-has been working. Click a chip to bring the thread on stage, or drag it onto a pane to place it.
-Move the pointer over a finished chip and choose **×** to dismiss it.
+stage lists each one with the same status colors as the sidebar. Threads that need you for an
+approval, a question, or an error come first and are highlighted. If the agent keeps a todo list,
+the chip shows how many steps are done; otherwise it shows how long the agent has been working.
+When the bar runs out of room, the rest fold into a **+** count; choose it to list them. Click a
+chip to bring the thread on stage, or drag it onto a pane to place it. Move the pointer over a
+finished chip, or focus it, and choose **×** to dismiss it.
 
 On macOS, the desktop app also lists backstage threads in the menu bar, with the count and the
 most urgent cue as the item's title. Choose a thread there to bring it on stage. On a Force Touch
