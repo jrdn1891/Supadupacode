@@ -1,11 +1,13 @@
 import { scopeThreadRef } from "@supacode/client-runtime/environment";
-import { type BackstageEntry, backstageDetail } from "@supacode/client-runtime/state/backstage";
-import { type ReactNode, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { backstageDetail } from "@supacode/client-runtime/state/backstage";
+import { useNavigate } from "@tanstack/react-router";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useTheme } from "../hooks/useTheme";
 import { observeResize } from "../lib/observeResize";
 import { cn } from "../lib/utils";
+import { buildThreadRouteParams } from "../threadRoutes";
 import {
   AQUARIUM_FPS,
   AQUARIUM_PIXEL,
@@ -20,7 +22,7 @@ import {
   stockAquarium,
 } from "./aquarium.logic";
 import { type AquariumAppearance, CUE_RISE, paintAquarium, paintScenery } from "./aquarium.paint";
-import { useSceneActions } from "./useSceneActions";
+import { useBackstageEntries } from "./useBackstageEntries";
 
 const CEILING_GAP = 12;
 
@@ -120,16 +122,9 @@ function startTank(canvas: HTMLCanvasElement) {
   };
 }
 
-export function SceneAquarium({
-  entries,
-  nowMs,
-  children,
-}: {
-  readonly entries: ReadonlyArray<BackstageEntry>;
-  readonly nowMs: number;
-  readonly children: ReactNode;
-}) {
-  const actions = useSceneActions();
+export function SceneAquarium() {
+  const { entries, nowMs } = useBackstageEntries(true);
+  const navigate = useNavigate();
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const appearance = useTheme().resolvedTheme;
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
@@ -156,7 +151,8 @@ export function SceneAquarium({
       })),
     [entries],
   );
-  const featuredKey = featuredResident(entries)?.key ?? null;
+  const featured = featuredResident(entries);
+  const featuredKey = featured?.key ?? null;
 
   useLayoutEffect(() => {
     if (root === null || ceiling === null) return;
@@ -180,14 +176,19 @@ export function SceneAquarium({
     tankRef.current?.update({ size, residents, featuredKey, appearance, reducedMotion });
   }, [appearance, featuredKey, reducedMotion, residents, size]);
 
-  const hover = (clientX: number, clientY: number) => {
-    if (root === null) return;
+  const fishUnder = (clientX: number, clientY: number) => {
+    if (root === null) return null;
     const bounds = root.getBoundingClientRect();
-    const fish =
+    return (
       tankRef.current?.fishAt(
         (clientX - bounds.left) / AQUARIUM_PIXEL,
         (clientY - bounds.top) / AQUARIUM_PIXEL,
-      ) ?? null;
+      ) ?? null
+    );
+  };
+
+  const hover = (clientX: number, clientY: number) => {
+    const fish = fishUnder(clientX, clientY);
     tankRef.current?.hold(fish?.key ?? null);
     setHovered((current) => {
       if (fish === null) return null;
@@ -207,16 +208,22 @@ export function SceneAquarium({
   return (
     <div
       ref={setRoot}
-      className={cn("relative min-h-0 flex-1 overflow-hidden", hoveredEntry && "cursor-pointer")}
+      data-scene-takeover
+      className={cn("absolute inset-0 overflow-hidden", hoveredEntry && "cursor-pointer")}
       onPointerMove={(event) => hover(event.clientX, event.clientY)}
       onPointerLeave={() => {
         tankRef.current?.hold(null);
         setHovered(null);
       }}
-      onClick={() => {
-        if (hoveredEntry === null) return;
-        const { environmentId, id } = hoveredEntry.thread;
-        actions.open({ kind: "server", threadRef: scopeThreadRef(environmentId, id) }, "right");
+      onClick={(event) => {
+        const fish = fishUnder(event.clientX, event.clientY);
+        const entry = entries.find((candidate) => candidate.key === fish?.key);
+        if (entry === undefined) return;
+        const { environmentId, id } = entry.thread;
+        void navigate({
+          to: "/$environmentId/$threadId",
+          params: buildThreadRouteParams(scopeThreadRef(environmentId, id)),
+        });
       }}
     >
       <canvas
@@ -230,7 +237,13 @@ export function SceneAquarium({
         }
       />
       <div ref={setCeiling} className="absolute inset-x-0 top-0 flex justify-center px-6 pt-10">
-        {children}
+        {entries.length > 0 ? (
+          <p className="max-w-md truncate text-xs text-muted-foreground">
+            {featured === null
+              ? `${entries.length} ${entries.length === 1 ? "agent" : "agents"} working backstage · nothing needs you`
+              : `${featured.thread.title} · ${backstageDetail(featured.thread, featured.cue, nowMs)}`}
+          </p>
+        ) : null}
       </div>
       {hovered && hoveredEntry ? (
         <div

@@ -39,4 +39,20 @@ describe("sceneDropTargetAt", () => {
     stackedColumn();
     expect(sceneDropTargetAt(point)).toEqual({ kind: "pane", paneId: "upper", zone, preview });
   });
+
+  it("lets a drop anywhere on a new thread's aquarium take the pane over", () => {
+    document.body.innerHTML = `
+      <div data-scene-column>
+        <div data-scene-pane="draft"><div data-scene-takeover></div></div>
+      </div>`;
+    const pane = document.querySelector("[data-scene-pane]")!;
+    pane.getBoundingClientRect = () => new DOMRect(256, 0, 1024, 760);
+    document.elementFromPoint = () => document.querySelector("[data-scene-takeover]");
+    expect(sceneDropTargetAt({ x: 700, y: 20 })).toEqual({
+      kind: "pane",
+      paneId: "draft",
+      zone: "center",
+      preview: { left: 256, top: 0, width: 1024, height: 760 },
+    });
+  });
 });

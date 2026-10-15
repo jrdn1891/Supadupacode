@@ -553,6 +553,7 @@ import {
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
+import { SceneAquarium } from "../scene/SceneAquarium";
 import { useScenePane } from "../scene/ScenePaneContext";
 import { useSceneActions } from "../scene/useSceneActions";
 import {
@@ -10913,6 +10914,7 @@ export default function ChatView(props: ChatViewProps) {
                       ? {}
                       : { historyControls: threadHistoryControls })}
                   />
+                  {isDraftHeroState && !paneSplit ? <SceneAquarium /> : null}
 
                   <ScrollToEndPill
                     key={routeThreadKey}

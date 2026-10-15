@@ -1,9 +1,9 @@
 /**
- * The sidebar's top rows: go home, start a thread, search through the command
- * palette, and open Automations.
+ * The sidebar's top rows: start a thread, search through the command palette,
+ * and open Automations.
  */
 import { Link, useLocation, useParams } from "@tanstack/react-router";
-import { CalendarClockIcon, HouseIcon, SearchIcon, SquarePenIcon } from "lucide-react";
+import { CalendarClockIcon, SearchIcon, SquarePenIcon } from "lucide-react";
 
 import { openCommandPalette } from "../../commandPaletteBus";
 import { useStartNewThreadInCurrentProject } from "../../hooks/useHandleNewThread";
@@ -16,7 +16,6 @@ export function SidebarPrimaryNavigation({ projectGroupCount }: { projectGroupCo
   const newThreadShortcut = useShortcutLabel("chat.newLocal");
   const searchShortcut = useShortcutLabel("commandPalette.toggle");
   const automationsShortcut = useShortcutLabel("automations.open");
-  const homeShortcut = useShortcutLabel("home.open");
   const startNewThreadInCurrentProject = useStartNewThreadInCurrentProject();
   const newThreadActive = useParams({
     strict: false,
@@ -25,7 +24,6 @@ export function SidebarPrimaryNavigation({ projectGroupCount }: { projectGroupCo
   const automationsActive = useLocation({
     select: (location) => location.pathname === "/automations",
   });
-  const homeActive = useLocation({ select: (location) => location.pathname === "/home" });
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false);
   };
@@ -36,17 +34,6 @@ export function SidebarPrimaryNavigation({ projectGroupCount }: { projectGroupCo
 
   return (
     <SidebarMenu size={size}>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          size={size}
-          isActive={homeActive}
-          render={<Link to="/home" onClick={closeMobileSidebar} />}
-          shortcut={homeShortcut}
-        >
-          <HouseIcon />
-          <span>Home</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
       <SidebarMenuItem>
         <SidebarMenuButton
           size={size}

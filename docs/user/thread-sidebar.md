@@ -276,12 +276,13 @@ To send a thread backstage, choose the arrow in its pane header, flick the pane'
 drag the pane onto the bar. In a pane on a split stage, `mod+alt+enter` sends your message and
 sends the pane backstage in one step; with a single thread it still starts a new thread.
 
-Choose **Home** at the top of the sidebar to step away from the stage. Home is a quiet aquarium
-where each backstage agent swims as a fish, colored by its project. Point at a fish to see which
-agent it is, and click it to bring that thread on stage. When an agent needs you or finishes, its
-fish swims to the middle under a colored bubble and **Bring on stage** opens it. Sending the last
-pane on the stage backstage also takes you Home. With reduced motion turned on, the fish hold
-still. To give Home a shortcut, bind `home.open` in **Settings → Keybindings**.
+When a new thread is alone on the stage, a quiet aquarium fills the space behind its composer.
+Each backstage agent swims there as a fish, colored by its project. Point at a fish to see which
+agent it is, and click it to open that thread in place of the new one; dropping a thread from the
+sidebar or the backstage bar onto the aquarium does the same. When an agent needs you or
+finishes, its fish swims to the middle under a colored bubble. Sending the last pane on the stage
+backstage starts a new thread, so you land in the aquarium. With reduced motion turned on, the
+fish hold still.
 
 Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
 General → Threads** to get a toast with **Bring on stage** when a backstage thread finishes or

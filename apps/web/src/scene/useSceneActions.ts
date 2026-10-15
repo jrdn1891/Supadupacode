@@ -44,7 +44,7 @@ export function useSceneActions() {
     const close = (paneId: string) => {
       useSceneStore.getState().close(paneId);
       if (useSceneStore.getState().scene.columns.length === 0)
-        void navigate({ to: "/home", replace: true });
+        void navigate({ to: "/", replace: true });
     };
     const toggleSpotlight = (paneId: string) => {
       const store = useSceneStore.getState();
