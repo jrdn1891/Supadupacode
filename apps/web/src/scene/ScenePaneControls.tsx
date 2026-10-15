@@ -14,10 +14,10 @@ export function ScenePaneControls({ title }: { readonly title: string }) {
   const actions = useSceneActions();
   const spotlightShortcut = useShortcutLabel("stage.toggleSpotlight");
   const closeShortcut = useShortcutLabel("stage.closePane");
-  if (paneId === null || !split) return null;
+  if (paneId === null) return null;
   return (
     <div className="flex shrink-0 items-center gap-0.5 [-webkit-app-region:no-drag]">
-      {spotlit ? null : (
+      {split && !spotlit ? (
         <Tooltip>
           <TooltipTrigger
             render={
@@ -45,25 +45,27 @@ export function ScenePaneControls({ title }: { readonly title: string }) {
           </TooltipTrigger>
           <TooltipPopup side="bottom">Drag to move, flick down to close</TooltipPopup>
         </Tooltip>
-      )}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Toggle
-              pressed={spotlit}
-              onPressedChange={() => actions.toggleSpotlight(paneId)}
-              aria-label={spotlit ? "Return to the stage" : "Spotlight this thread"}
-              variant="ghost"
-              size="sm"
-            />
-          }
-        >
-          {spotlit ? <Minimize2Icon className="size-4" /> : <Maximize2Icon className="size-4" />}
-        </TooltipTrigger>
-        <TooltipPopup side="bottom" shortcut={spotlightShortcut}>
-          {spotlit ? "Return to the stage" : "Spotlight"}
-        </TooltipPopup>
-      </Tooltip>
+      ) : null}
+      {split ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Toggle
+                pressed={spotlit}
+                onPressedChange={() => actions.toggleSpotlight(paneId)}
+                aria-label={spotlit ? "Return to the stage" : "Spotlight this thread"}
+                variant="ghost"
+                size="sm"
+              />
+            }
+          >
+            {spotlit ? <Minimize2Icon className="size-4" /> : <Maximize2Icon className="size-4" />}
+          </TooltipTrigger>
+          <TooltipPopup side="bottom" shortcut={spotlightShortcut}>
+            {spotlit ? "Return to the stage" : "Spotlight"}
+          </TooltipPopup>
+        </Tooltip>
+      ) : null}
       {spotlit ? null : (
         <Tooltip>
           <TooltipTrigger
