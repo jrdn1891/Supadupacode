@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { awaitsYou } from "@supacode/client-runtime/state/backstage";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -12,6 +13,7 @@ import { isEditableFocused } from "../lib/editableFocus";
 import { observeResize } from "../lib/observeResize";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { cn } from "../lib/utils";
+import { useThreadShell } from "../state/entities";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import type { ThreadRouteTarget } from "../threadRoutes";
 import { findScenePane, type ScenePane, sceneTargetKey, scenePanes } from "./scene.logic";
@@ -101,6 +103,8 @@ function ScenePaneFrame({
   readonly edges: { readonly left: boolean; readonly top: boolean };
 }) {
   const actions = useSceneActions();
+  const thread = useThreadShell(pane.target.kind === "server" ? pane.target.threadRef : null);
+  const awaitingYou = split && !focused && thread !== null && awaitsYou(thread);
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {
@@ -127,6 +131,9 @@ function ScenePaneFrame({
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 z-50 h-0.5 bg-primary"
         />
+      ) : null}
+      {awaitingYou ? (
+        <div aria-hidden className="attention-glow pointer-events-none absolute inset-0 z-50" />
       ) : null}
       <ScenePaneProvider
         paneId={pane.id}
