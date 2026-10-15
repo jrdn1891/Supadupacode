@@ -1,6 +1,5 @@
+import { aquariumHash } from "@supacode/client-runtime/aquarium/creatures";
 import type { Contribution, ContributionListInput } from "@supacode/contracts";
-
-import { aquariumHash } from "./aquarium.logic";
 
 export const CORALS = [
   [

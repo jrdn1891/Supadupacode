@@ -113,7 +113,7 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
       return;
     Alert.alert(
       `Update ${environment?.environmentLabel ?? "environment"}?`,
-      `Install Supacode ${targetVersion}. ${capabilities.serverSelfUpdate === "desktop-managed" ? "The desktop app will close and relaunch." : "The server will restart and reconnect."} Running threads may be interrupted.`,
+      `Install Supadupacode ${targetVersion}. ${capabilities.serverSelfUpdate === "desktop-managed" ? "The desktop app will close and relaunch." : "The server will restart and reconnect."} Running threads may be interrupted.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -253,7 +253,7 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
                       <Text className="text-sm text-foreground-muted">
                         {capabilities?.serverSelfUpdate === "desktop-managed"
                           ? "Update the desktop app on this machine."
-                          : "Update and restart Supacode on this machine."}
+                          : "Update and restart Supadupacode on this machine."}
                       </Text>
                     ) : null}
                   </View>

@@ -28,7 +28,7 @@ export function BrandMark(props: { readonly compact?: boolean; readonly stageLab
       <View className="gap-1">
         <View className="flex-row items-center gap-2">
           <Text className="text-lg font-supacode-bold tracking-[-0.4px] text-foreground">
-            Supacode
+            Supadupacode
           </Text>
           {stageLabel ? (
             <View className="rounded-full bg-subtle px-2 py-1">

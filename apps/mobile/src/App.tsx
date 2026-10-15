@@ -25,6 +25,8 @@ import { disarmInlineConfirmsOnTouch } from "./lib/useInlineConfirm";
 import { useMobileNavigationTheme } from "./lib/useMobileNavigationTheme";
 import { useUiRuntimeMemoryWarningGc } from "./lib/useUiRuntimeMemoryWarningGc";
 import { SubscriptionUsageCoordinator } from "./widgets/SubscriptionUsageCoordinator";
+import { AquariumCoordinator } from "./features/aquarium/AquariumCoordinator";
+import { navigationRef } from "./lib/navigationRef";
 import { VoiceInputProvider } from "./features/voice-input/VoiceInputProvider";
 import { GlobalVoiceInputControl } from "./features/voice-input/GlobalVoiceInputControl";
 import { NativeLayoutMetricsProvider } from "./native/native-layout-metrics";
@@ -78,6 +80,7 @@ function AppContent() {
     <>
       <SplashScreenCoordinator />
       <SubscriptionUsageCoordinator />
+      <AquariumCoordinator />
       <PermissionUpdateNotice />
       <GestureHandlerRootView className="flex-1" onTouchStart={disarmInlineConfirmsOnTouch}>
         <KeyboardProvider statusBarTranslucent>
@@ -96,7 +99,7 @@ function AppContent() {
               <GlobalVoiceInputControl>
                 <NativeLayoutMetricsProvider>
                   <IncomingShareProvider>
-                    <Navigation linking={appLinking} theme={navigationTheme} />
+                    <Navigation ref={navigationRef} linking={appLinking} theme={navigationTheme} />
                   </IncomingShareProvider>
                   <ConfirmDialogHost />
                   <ThreadArrangementHost />

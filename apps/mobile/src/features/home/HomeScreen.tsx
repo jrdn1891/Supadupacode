@@ -1,4 +1,5 @@
 import { useThreadListV2Layout } from "../threads/use-thread-list-v2-layout";
+import { ThreadListBubbles } from "../threads/ThreadListBubbles";
 import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import { type LegendListRef } from "@legendapp/list/react-native";
@@ -1121,6 +1122,12 @@ export function HomeScreen(props: HomeScreenProps) {
             />
           </GestureDetector>
         </SwipeableScrollGateProvider>
+        {threadListV2Layout.latestReturnAt > 0 ? (
+          <ThreadListBubbles
+            key={threadListV2Layout.latestReturnAt}
+            since={threadListV2Layout.latestReturnAt}
+          />
+        ) : null}
       </View>
     </View>
   );

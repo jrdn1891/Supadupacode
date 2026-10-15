@@ -53,6 +53,10 @@ thread from the sidebar when it needs you. To send and open it instead, press
 desktop app. The next draft keeps the workspace mode and base branch you selected.
 With **New worktree**, each background submission creates its own worktree.
 
+On iOS and Android, sending a new thread opens it. Long-press **Send** and choose **Start in
+background** to stay on a fresh draft instead; on an iPad with a keyboard, `Cmd+Return` does the
+same.
+
 To send the same prompt to several models on web or desktop, **Shift-click** models
 in a new thread's model picker to add or remove them. A regular click returns to a
 single model. Choose a base branch and send. Each selection starts a separate thread
@@ -291,6 +295,12 @@ seaweed, and each pull request you open grows a coral in its project's color. Co
 your Git `user.email`, on any local or remote branch. The seabed starts bare at midnight; use the
 arrows on the sand to look back at earlier days. Supacode keeps each day's record, so a seabed
 stays as it grew even after its branches are merged or deleted.
+
+On iOS and Android, the phone taps when an agent finishes or needs you while the app is open,
+except for the thread you are reading. Add the **Aquarium** widget from your widget gallery to see
+your agents as the same creatures on your home screen, with the thread that needs you named
+underneath. Tap it to open that thread. The widget shows what the app saw when you last left it.
+On Android, a tap opens the thread while the app is running in the background.
 
 Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
 General → Threads** to get a toast with **Bring on stage** when a thread off the stage finishes or

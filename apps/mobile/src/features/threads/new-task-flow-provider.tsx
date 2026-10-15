@@ -206,6 +206,7 @@ type NewTaskFlowContextValue = {
    * to a fresh one.
    */
   readonly openDraft: (draftKey: string) => boolean;
+  readonly startNextDraft: () => void;
   readonly selectEnvironment: (environmentId: EnvironmentId) => void;
   /**
    * Moves the draft to another machine. A draft without a project resolves to
@@ -837,6 +838,8 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
     [cancelEnvironmentSwitch, carryDraftContentTo],
   );
 
+  const startNextDraft = useCallback(() => setActiveDraftKey(null), []);
+
   const openDraft = useCallback(
     (draftKey: string): boolean => {
       const draft = appAtomRegistry.get(composerDraftsAtom)[draftKey];
@@ -1376,6 +1379,7 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
       reset,
       setProject,
       openDraft,
+      startNextDraft,
       selectEnvironment,
       switchEnvironment,
       switchingToEnvironmentId,
@@ -1442,6 +1446,7 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
       selectedWorktreePath,
       setProject,
       openDraft,
+      startNextDraft,
       selectBranch,
       selectEnvironment,
       switchEnvironment,

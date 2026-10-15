@@ -1,4 +1,5 @@
-import type { AgentCue } from "./aquariumAgents";
+import type { AgentCue } from "@supacode/client-runtime/aquarium/agents";
+import { cueMark, fishColors, SPECIES } from "@supacode/client-runtime/aquarium/creatures";
 
 import {
   AQUARIUM_SAND,
@@ -6,12 +7,10 @@ import {
   type AquariumFish,
   type AquariumResident,
   type AquariumStash,
-  aquariumHash,
   FULL_TICKS,
   fishSize,
   fishTraits,
   PETS,
-  SPECIES,
 } from "./aquarium.logic";
 import { type AquariumPlant, GROW_TICKS } from "./aquariumSeabed";
 
@@ -48,37 +47,12 @@ const SCENERY = {
   },
 } as const;
 
-const FISH_COLORS = [
-  { x: "#d9965a", o: "#ecc08f", f: "#b4733c" },
-  { x: "#5e9fc7", o: "#9ccbe4", f: "#3f7aa3" },
-  { x: "#c97d93", o: "#e6adbd", f: "#a35d72" },
-  { x: "#7cc4a0", o: "#b9e3cc", f: "#57a07d" },
-  { x: "#a99ad8", o: "#cfc5ee", f: "#8676b8" },
-  { x: "#d6b85a", o: "#ecd895", f: "#b0953c" },
-] as const;
-
 const PET_COLORS = {
   clownfish: { x: "#f07a2c", w: "#fbf3e8", f: "#c4531c" },
   shark: { x: "#6f8399", o: "#b9c6d2", f: "#53667b" },
 } as const;
 
-const EXCLAIM = ["...#...", "...#...", "...#...", ".......", "...#..."];
-const QUESTION = ["..###..", "....#..", "...#...", ".......", "...#..."];
-const CHECK = ["......#", ".....#.", "#...#..", ".#.#...", "..#...."];
 const HEART = ["#.#", "###", ".#."];
-
-const CUE_BUBBLES: Readonly<
-  Record<
-    Exclude<AgentCue, "working">,
-    { readonly color: string; readonly glyph: ReadonlyArray<string> }
-  >
-> = {
-  approval: { color: "#f5a524", glyph: EXCLAIM },
-  limited: { color: "#f5a524", glyph: EXCLAIM },
-  failed: { color: "#ef5350", glyph: EXCLAIM },
-  input: { color: "#8b93f8", glyph: QUESTION },
-  ready: { color: "#3fcf86", glyph: CHECK },
-};
 
 const RAYS = [
   { at: 0.14, width: 9 },
@@ -152,10 +126,6 @@ export function paintScenery(width: number, height: number, appearance: Aquarium
   return canvas;
 }
 
-function colorsOf(projectKey: string) {
-  return FISH_COLORS[aquariumHash(projectKey) % FISH_COLORS.length]!;
-}
-
 function paintGlyph(
   context: CanvasRenderingContext2D,
   glyph: ReadonlyArray<string>,
@@ -169,7 +139,7 @@ function paintGlyph(
 }
 
 function paintPearl(context: CanvasRenderingContext2D, projectKey: string, x: number, y: number) {
-  const colors = colorsOf(projectKey);
+  const colors = fishColors(projectKey);
   context.fillStyle = colors.x;
   context.fillRect(x, y, 2, 2);
   context.fillStyle = colors.o;
@@ -197,14 +167,8 @@ function paintSprite(
 
 function paintCue(context: CanvasRenderingContext2D, cue: AgentCue, left: number, top: number) {
   if (cue === "working") return;
-  const { color, glyph } = CUE_BUBBLES[cue];
-  context.fillStyle = color;
-  context.fillRect(left + 1, top, 9, 9);
-  context.fillRect(left, top + 1, 11, 7);
-  context.fillRect(left + 4, top + 9, 3, 1);
-  context.fillRect(left + 5, top + 10, 1, 1);
-  context.fillStyle = "#1a1206";
-  paintGlyph(context, glyph, left + 2, top + 2);
+  const { rows, palette } = cueMark(cue);
+  paintSprite(context, rows, palette, left, top, 1);
 }
 
 export function fishBob(key: string, tick: number) {
@@ -223,7 +187,7 @@ function paintFish(
   const traits = fishTraits(fish.key);
   const look = SPECIES[traits.species];
   const { frames, stroke } = look;
-  const colors = colorsOf(resident?.projectKey ?? fish.key);
+  const colors = fishColors(resident?.projectKey ?? fish.key);
   const palette: Readonly<Record<string, string>> = {
     x: colors.x,
     o: colors.o,
@@ -306,7 +270,7 @@ export function paintAquarium(
       paintSprite(
         context,
         plant.form.slice(hidden),
-        colorsOf(plant.projectKey),
+        fishColors(plant.projectKey),
         left,
         floor + 1 - plant.form.length + hidden,
         1,
