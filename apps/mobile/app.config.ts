@@ -68,22 +68,22 @@ const VARIANT_CONFIG = {
   development: {
     appName: "Supadupacode Dev",
     scheme: "supacode-dev",
-    iosBundleIdentifier: "com.supaterm.supacode.dev",
-    androidPackage: "com.supaterm.supacode.dev",
+    iosBundleIdentifier: "com.jrdn1891.supadupacode.dev",
+    androidPackage: "com.jrdn1891.supadupacode.dev",
     assets: DEVELOPMENT_ASSETS,
   },
   preview: {
     appName: "Supadupacode Preview",
     scheme: "supacode-preview",
-    iosBundleIdentifier: "com.supaterm.supacode.preview",
-    androidPackage: "com.supaterm.supacode.preview",
+    iosBundleIdentifier: "com.jrdn1891.supadupacode.preview",
+    androidPackage: "com.jrdn1891.supadupacode.preview",
     assets: PREVIEW_ASSETS,
   },
   production: {
     appName: "Supadupacode",
     scheme: "supacode",
-    iosBundleIdentifier: "com.supaterm.supacode",
-    androidPackage: "com.supaterm.supacode",
+    iosBundleIdentifier: "com.jrdn1891.supadupacode",
+    androidPackage: "com.jrdn1891.supadupacode",
     assets: RELEASE_ASSETS,
   },
 } as const;
@@ -120,7 +120,7 @@ const widgetsPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
       {
         name: "SubscriptionUsage",
         displayName: "Subscription usage",
-        description: "Subscription quotas from your connected Supacode environments.",
+        description: "Subscription quotas from your connected Supadupacode environments.",
         ios: {
           configuration: {
             title: "Subscription usage",
@@ -230,9 +230,9 @@ const config: ExpoConfig = {
     // showcase capture build requires full screen (see infoPlist below).
     requireFullScreen: process.env.SUPACODE_SHOWCASE_CAPTURE_BUILD === "1",
     bundleIdentifier: iosBundleIdentifier,
-    // Pin code signing to SUPABIT COMPANY LIMITED so non-interactive `expo run:ios`
+    // Pin code signing to Gabriel Jourdan so non-interactive `expo run:ios`
     // does not fall back to a personal team (which cannot sign app groups).
-    appleTeamId: "9ZLSJ2GN2B",
+    appleTeamId: "88PCU22989",
     entitlements: {
       "keychain-access-groups": [`$(AppIdentifierPrefix)${variant.iosBundleIdentifier}`],
     },
@@ -248,8 +248,8 @@ const config: ExpoConfig = {
         NSAllowsArbitraryLoads: true,
       },
       NSLocalNetworkUsageDescription:
-        "Allow Supacode to connect to Supacode servers on your local network or tailnet.",
-      NSPhotoLibraryAddUsageDescription: "Allow Supacode to save images to your photo library.",
+        "Allow Supadupacode to connect to Supadupacode servers on your local network or tailnet.",
+      NSPhotoLibraryAddUsageDescription: "Allow Supadupacode to save images to your photo library.",
       // "Audio, AirPlay, and Picture in Picture": the browser screen's system
       // picture in picture needs it to start and to stay up outside the app.
       UIBackgroundModes: ["audio"],
@@ -345,7 +345,7 @@ const config: ExpoConfig = {
     [
       "expo-audio",
       {
-        microphonePermission: "Allow Supacode to use your microphone for voice input.",
+        microphonePermission: "Allow Supadupacode to use your microphone for voice input.",
         recordAudioAndroid: false,
         enableBackgroundPlayback: false,
         enableBackgroundRecording: false,
@@ -354,7 +354,8 @@ const config: ExpoConfig = {
     [
       "expo-camera",
       {
-        cameraPermission: "Allow Supacode to access your camera so you can scan pairing QR codes.",
+        cameraPermission:
+          "Allow Supadupacode to access your camera so you can scan pairing QR codes.",
         microphonePermission: false,
         barcodeScannerEnabled: true,
         recordAudioAndroid: false,
