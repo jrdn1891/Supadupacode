@@ -260,8 +260,9 @@ sending from a new thread's pane swaps that pane for a fresh new thread. With a 
 both start a new thread. The stage is remembered when you reload.
 
 When a new thread is alone on the stage, a quiet aquarium fills the space behind its composer.
-The composer rests there as a bare text field; point at it, or press a composer shortcut such as
-the model picker's, to bring back its project, branch, model, and access controls.
+The composer rests there as a text field under its project, branch, and worktree pickers; point at
+it, or press a composer shortcut such as the model picker's, to bring back its model and access
+controls.
 Each agent that is working, needs you, or has finished since you last looked swims there as a sea
 creature, such as a fish, jellyfish, turtle, seahorse, or starfish, colored by its project. Point
 at one to see which agent it is, and click it to open that thread in place of the new one. When an
