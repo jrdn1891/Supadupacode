@@ -39,7 +39,7 @@ import { directThreadEnvironment } from "./threadCommands";
 import { readPreparedConnection } from "./session";
 import { OutboxTurn, OutboxAttachment } from "./threadOutboxSchema";
 import { browserThreadOutboxStorage } from "./threadOutboxStorage";
-import { randomUUID, newThreadId } from "../lib/utils";
+import { newMessageId, randomUUID, newThreadId } from "../lib/utils";
 import { assetEnvironment } from "./assets";
 import { fetchVcsRefs } from "./vcs";
 
@@ -374,6 +374,26 @@ function prepareThreadOutboxTurn(target: {
 
 export function enqueueThreadOutboxTurn(target: Parameters<typeof prepareThreadOutboxTurn>[0]) {
   return webThreadOutbox.enqueue(prepareThreadOutboxTurn(target));
+}
+
+/** Queues plain text behind the thread's current run, which starts it at once on an idle thread. */
+export function queueThreadMessage(
+  environmentId: EnvironmentId,
+  input: Pick<StartThreadTurnInput, "threadId" | "runtimeMode" | "interactionMode"> & {
+    readonly text: string;
+  },
+) {
+  return enqueueThreadOutboxTurn({
+    environmentId,
+    input: {
+      threadId: input.threadId,
+      message: { messageId: newMessageId(), role: "user", text: input.text, attachments: [] },
+      runtimeMode: input.runtimeMode,
+      interactionMode: input.interactionMode,
+      dispatchMode: "queue",
+      createdAt: new Date().toISOString(),
+    },
+  });
 }
 
 export function enqueueThreadOutboxTurns(

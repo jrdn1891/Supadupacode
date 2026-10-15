@@ -154,7 +154,7 @@ import { endSceneDrag, sceneDropTargetAt, showSceneDrag } from "../scene/sceneDr
 import { useSceneStore } from "../scene/sceneStore";
 import { useSceneActions } from "../scene/useSceneActions";
 import { ThreadContextMarker, ThreadPhasePips } from "./sidebar/ThreadLabels";
-import { useAcknowledgeThreadWoke, useThreadActions } from "../hooks/useThreadActions";
+import { useVisitThread, useThreadActions } from "../hooks/useThreadActions";
 import { useThreadUndoNotice } from "../hooks/showThreadUndoNotice";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useTerminalFocus } from "../hooks/useTerminalFocus";
@@ -2351,7 +2351,7 @@ export default function Sidebar() {
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
   const rangeSelectTo = useThreadSelectionStore((s) => s.rangeSelectTo);
-  const acknowledgeWoke = useAcknowledgeThreadWoke();
+  const acknowledgeWoke = useVisitThread();
   const routeTarget = useParams({
     strict: false,
     select: (params) => resolveThreadRouteTarget(params),

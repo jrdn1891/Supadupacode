@@ -68,6 +68,19 @@ export function aquariumAgents(input: {
   );
 }
 
+/** The last messages the user and agent exchanged, oldest first, for a creature's chat. */
+export function chatTail<Message extends { readonly role: string; readonly text: string }>(
+  messages: ReadonlyArray<Message>,
+  limit: number,
+): ReadonlyArray<Message> {
+  const tail: Message[] = [];
+  for (let index = messages.length - 1; index >= 0 && tail.length < limit; index--) {
+    const message = messages[index]!;
+    if (message.role !== "system" && message.text.trim() !== "") tail.unshift(message);
+  }
+  return tail;
+}
+
 export function agentCueDetail(
   thread: EnvironmentThreadShell,
   cue: AgentCue,

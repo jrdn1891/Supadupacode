@@ -100,7 +100,7 @@ import { type EnvironmentConnectionPresentation } from "@supacode/client-runtime
 import { readPastedComposerContext } from "./composerInlineTokenPaste";
 import { isPasteAsTextShortcut } from "@supacode/client-runtime/text-paste";
 import { effectiveSnoozed, threadWokeAt } from "@supacode/client-runtime/state/thread-settled";
-import { useAcknowledgeThreadWoke, useThreadActions } from "../hooks/useThreadActions";
+import { useVisitThread, useThreadActions } from "../hooks/useThreadActions";
 import {
   deriveProviderSubagentStatus,
   deriveReportedModelSelection,
@@ -571,6 +571,7 @@ import { clampFileAttachmentUploadBytes } from "@supacode/client-runtime/state/a
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import {
   enqueueThreadOutboxTurns,
+  queueThreadMessage,
   usePendingThreadCreation,
   type PendingThreadTurn,
 } from "../state/threadOutbox";
@@ -4778,19 +4779,12 @@ export default function ChatView(props: ChatViewProps) {
       if (!isServerThread || activeThreadId === null) {
         throw new Error("Messages from apps need a started thread.");
       }
-      await enqueueThreadOutboxTurns([
-        {
-          environmentId,
-          input: {
-            threadId: activeThreadId,
-            message: { messageId: newMessageId(), role: "user", text, attachments: [] },
-            runtimeMode,
-            interactionMode,
-            dispatchMode: "queue",
-            createdAt: new Date().toISOString(),
-          },
-        },
-      ]);
+      await queueThreadMessage(environmentId, {
+        threadId: activeThreadId,
+        text,
+        runtimeMode,
+        interactionMode,
+      });
     },
     [activeThreadId, environmentId, isServerThread, runtimeMode],
   );
@@ -7355,7 +7349,7 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadShell !== null && supportsSnooze
       ? threadWokeAt(activeThreadShell, { now: new Date().toISOString() })
       : null;
-  const acknowledgeThreadWoke = useAcknowledgeThreadWoke();
+  const acknowledgeThreadWoke = useVisitThread();
   const acknowledgeActiveThreadWoke = useCallback(() => {
     if (activeThreadRef === null || activeThreadWokeAt === null) return;
     acknowledgeThreadWoke(activeThreadRef, activeThreadWokeAt);
