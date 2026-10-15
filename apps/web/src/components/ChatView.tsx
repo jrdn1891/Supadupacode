@@ -174,6 +174,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { assistantCitationFromLocation } from "../lib/assistantCitationNavigation";
 import { isMacPlatform } from "../lib/utils";
@@ -2023,6 +2024,7 @@ export default function ChatView(props: ChatViewProps) {
   const shouldUsePlanSidebarSheet =
     useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY) || paneCompact;
   const isMobileViewport = useMediaQuery("max-sm");
+  const canHover = useMediaQuery("(any-hover: hover)");
   const threadPanelPopoverAnchorRef = useRef<HTMLElement | null>(null);
   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
   // When set, the thread-change reset effect will open the sidebar instead of closing it.
@@ -4194,6 +4196,10 @@ export default function ChatView(props: ChatViewProps) {
     backgroundSubmissionPending,
     hasWorktreeSetupCard: worktreeSetup !== null,
   });
+  const showsAquarium = isDraftHeroState && !paneSplit;
+  const composerRestsUntilReached = showsAquarium && canHover;
+  const [composerReached, setComposerReached] = useState(false);
+  if (composerReached && !composerRestsUntilReached) setComposerReached(false);
   const {
     transitionGroupRef: draftHeroTransitionGroupRef,
     composerAnchorRef: draftHeroComposerAnchorRef,
@@ -8194,6 +8200,9 @@ export default function ChatView(props: ChatViewProps) {
 
   useEffect(() => {
     if (!paneFocused) return;
+    const reachForComposer = () => {
+      if (composerRestsUntilReached) flushSync(() => setComposerReached(true));
+    };
     const handler = (event: globalThis.KeyboardEvent) => {
       if (preventRepeatedTerminalCloseShortcut(event, keybindings)) {
         event.stopPropagation();
@@ -8437,7 +8446,10 @@ export default function ChatView(props: ChatViewProps) {
       if (command === "modelPicker.toggle") {
         event.preventDefault();
         event.stopPropagation();
-        if (!event.repeat) composerRef.current?.toggleModelPicker();
+        if (!event.repeat) {
+          reachForComposer();
+          composerRef.current?.toggleModelPicker();
+        }
         return;
       }
 
@@ -8449,7 +8461,10 @@ export default function ChatView(props: ChatViewProps) {
       ) {
         event.preventDefault();
         event.stopPropagation();
-        if (!event.repeat) composerRef.current?.openControl(command);
+        if (!event.repeat) {
+          reachForComposer();
+          composerRef.current?.openControl(command);
+        }
         return;
       }
 
@@ -8543,6 +8558,7 @@ export default function ChatView(props: ChatViewProps) {
     };
   }, [
     paneFocused,
+    composerRestsUntilReached,
     activeProject,
     activeRightPanelSurface,
     activeProjectScripts,
@@ -10927,7 +10943,7 @@ export default function ChatView(props: ChatViewProps) {
                       ? {}
                       : { historyControls: threadHistoryControls })}
                   />
-                  {isDraftHeroState && !paneSplit ? <SceneAquarium /> : null}
+                  {showsAquarium ? <SceneAquarium /> : null}
 
                   <ScrollToEndPill
                     key={routeThreadKey}
@@ -10944,7 +10960,7 @@ export default function ChatView(props: ChatViewProps) {
                 <div
                   ref={setComposerOverlayElement}
                   inert={isRevertingCheckpoint}
-                  data-chat-composer-overlay="true"
+                  data-chat-composer-overlay={isDraftHeroState ? "centered" : "docked"}
                   className={
                     isDraftHeroState
                       ? "pointer-events-none absolute inset-0 z-20 flex items-center"
@@ -10955,6 +10971,12 @@ export default function ChatView(props: ChatViewProps) {
                     <div
                       data-chat-composer-stack="true"
                       className="pointer-events-auto relative z-10 mx-auto w-full max-w-(--chat-content-max-width)"
+                      onPointerEnter={
+                        composerRestsUntilReached ? () => setComposerReached(true) : undefined
+                      }
+                      onPointerLeave={
+                        composerRestsUntilReached ? () => setComposerReached(false) : undefined
+                      }
                     >
                       <div
                         ref={draftHeroComposerAnchorRef}
@@ -11143,6 +11165,7 @@ export default function ChatView(props: ChatViewProps) {
                                   getTimelineScrollableNode={getTimelineScrollableNode}
                                   isTimelineAtLogicalEnd={isTimelineAtLogicalEnd}
                                   timelineOverflows={timelineOverflows}
+                                  restRequested={composerRestsUntilReached && !composerReached}
                                   onComposerOverlayHeightChange={publishComposerOverlayHeight}
                                   onRestingChange={onComposerRestingChange}
                                   promptRef={promptRef}
@@ -11218,7 +11241,7 @@ export default function ChatView(props: ChatViewProps) {
                             </div>
                           </div>
                         </ComposerSurface.Shell>
-                        {composerUsageMeterSlot === "row" ? (
+                        {composerUsageMeterSlot === "row" && !composerResting ? (
                           <div className="px-3 pt-1">{composerUsageMeter}</div>
                         ) : null}
                         <div
