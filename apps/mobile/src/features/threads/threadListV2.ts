@@ -1,4 +1,5 @@
 import { threadPullRequestSearchTerms } from "@supacode/shared/threadPullRequests";
+import { agentCue } from "@supacode/client-runtime/aquarium/agents";
 import {
   canSnooze,
   effectiveSnoozed,
@@ -288,6 +289,7 @@ export interface ThreadListV2Layout {
       a timeout at this boundary so the list re-partitions the moment a
       snooze expires instead of on the next minute tick. */
   readonly nextSnoozeWakeAt: string | null;
+  readonly latestReturnAt: number;
 }
 
 export interface ThreadListV2ThreadListItem {
@@ -870,5 +872,21 @@ export function buildThreadListV2Items(input: {
     settledCount: orderedSettled.length,
     settledShelfHeaderIndex,
     nextSnoozeWakeAt,
+    latestReturnAt: [...pinned, ...active].reduce(
+      (latest, thread) =>
+        `${thread.environmentId}:${thread.id}` === selectedThreadKey || !threadNeedsUser(thread)
+          ? latest
+          : Math.max(latest, input.inboxReturnAt?.(thread) ?? 0),
+      0,
+    ),
   };
+}
+
+function threadNeedsUser(thread: EnvironmentThreadShell): boolean {
+  const cue = agentCue({
+    status: resolveThreadListV2Status(thread),
+    thread,
+    unseen: threadHasUnseenCompletion(thread),
+  });
+  return cue !== null && cue !== "working";
 }

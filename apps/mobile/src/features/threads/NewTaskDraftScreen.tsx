@@ -25,9 +25,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
   type ComponentRef,
 } from "react";
 import * as Haptics from "expo-haptics";
+import { ControlPillMenu } from "../../components/ControlPill";
+import { FishLeap } from "../aquarium/FishLeap";
 import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import {
   KeyboardController,
@@ -447,6 +450,11 @@ export function NewTaskDraftScreen(props: {
   const [isCancellingShareImport, setIsCancellingShareImport] = useState(false);
   const [cancelledIncomingShareId, setCancelledIncomingShareId] = useState<string | null>(null);
   const [isReturningToProjectPicker, setIsReturningToProjectPicker] = useState(false);
+  const [leapingFish, setLeapingFish] = useState<{
+    readonly key: string;
+    readonly projectKey: string;
+  } | null>(null);
+  const endLeap = useCallback(() => setLeapingFish(null), []);
   const [submitNavigationAction, setSubmitNavigationAction] = useState<NavigationAction | null>(
     null,
   );
@@ -1298,7 +1306,7 @@ export function NewTaskDraftScreen(props: {
     [composerMenu, flow, selectedEnvironmentServerConfig],
   );
 
-  async function handleStart(): Promise<void> {
+  async function handleStart(intent: "open" | "background" = "open"): Promise<void> {
     if (
       isComposerInteractionLocked ||
       voiceInput.blocksSubmission ||
@@ -1419,6 +1427,20 @@ export function NewTaskDraftScreen(props: {
       flow.setSubmitting(false);
     }
     const draftSnapshot = getComposerDraftSnapshot(draftKey);
+    if (intent === "background" && !editingPendingTask) {
+      clearComposerDraftContent(draftKey, {
+        clearModelSelection: true,
+        clearWorkspaceSelection: true,
+        deferAttachmentCleanup: true,
+      });
+      flow.startNextDraft();
+      setLeapingFish({
+        key: `${message.environmentId}:${message.threadId}`,
+        projectKey: selectedProject.id,
+      });
+      scheduleUnusedComposerAttachmentCleanup(draftSnapshot.attachments);
+      return;
+    }
     if (editingPendingTask) {
       flow.finishEditingPendingTask();
     } else {
@@ -1522,9 +1544,11 @@ export function NewTaskDraftScreen(props: {
         skills={composerMenu.skills}
         selection={composerMenu.selection}
         onChangeText={flow.setPrompt}
-        onSubmit={() => {
-          if (canStart) void handleStart();
+        onSubmit={(alternate) => {
+          if (canStart) void handleStart(alternate ? "background" : "open");
         }}
+        submitTitle="Start task"
+        alternateSubmitTitle="Start in background"
         onSelectionChange={composerMenu.onSelectionChange}
         onFocus={() => setIsComposerFocused(true)}
         onBlur={() => setIsComposerFocused(false)}
@@ -1852,52 +1876,59 @@ export function NewTaskDraftScreen(props: {
                   />
                 </>
               )}
-              {voicePresentation.showsSend && (hasContent || !voiceInput.isAvailable) ? (
-                <ComposerActionButton
-                  accessibilityLabel={
-                    taskPermissionReason ??
-                    attachmentBlockReason ??
-                    (cloneBlocksStart
-                      ? projectClone === null || projectClone.phase === "running"
-                        ? "Cloning repository"
-                        : "Repository not cloned"
-                      : pendingPastedTextAttachmentCount > 0
-                        ? "Attaching pasted text"
-                        : flow.submitting
-                          ? "Starting task"
-                          : attachmentsUploading
-                            ? "Queue task, sends when uploads finish"
-                            : environmentConnected
-                              ? "Start task"
-                              : "Queue task")
-                  }
-                  disabled={!canStart}
-                  icon={queuesInsteadOfStarting ? "tray.and.arrow.up" : "arrow.up"}
-                  onPress={() => {
-                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    void handleStart();
-                  }}
-                  variant="primary"
-                />
-              ) : (
-                <ComposerDictationPrimaryAction
-                  state={voiceInput.state}
-                  presentation={voicePresentation}
-                  isAvailable={voiceInput.isAvailable}
-                  disabled={
-                    voiceInput.isBusy
-                      ? !canSubmitDraft
-                      : isIncomingShareTransferPending || isImportingShare || flow.submitting
-                  }
-                  onStart={() => {
-                    promptInputRef.current?.blur();
-                    voiceInput.start();
-                  }}
-                  onConfirm={voiceInput.stopAndSubmit}
-                  submitsMessage
-                  onCancel={voiceInput.cancel}
-                />
-              )}
+              <View>
+                {leapingFish === null ? null : (
+                  <FishLeap
+                    key={leapingFish.key}
+                    fishKey={leapingFish.key}
+                    projectKey={leapingFish.projectKey}
+                    onLanded={endLeap}
+                  />
+                )}
+                {voicePresentation.showsSend && (hasContent || !voiceInput.isAvailable) ? (
+                  <StartTaskButton
+                    accessibilityLabel={
+                      taskPermissionReason ??
+                      attachmentBlockReason ??
+                      (cloneBlocksStart
+                        ? projectClone === null || projectClone.phase === "running"
+                          ? "Cloning repository"
+                          : "Repository not cloned"
+                        : pendingPastedTextAttachmentCount > 0
+                          ? "Attaching pasted text"
+                          : flow.submitting
+                            ? "Starting task"
+                            : attachmentsUploading
+                              ? "Queue task, sends when uploads finish"
+                              : environmentConnected
+                                ? "Start task"
+                                : "Queue task")
+                    }
+                    disabled={!canStart}
+                    icon={queuesInsteadOfStarting ? "tray.and.arrow.up" : "arrow.up"}
+                    offersBackground={flow.editingPendingTask === null}
+                    onStart={(intent) => void handleStart(intent)}
+                  />
+                ) : (
+                  <ComposerDictationPrimaryAction
+                    state={voiceInput.state}
+                    presentation={voicePresentation}
+                    isAvailable={voiceInput.isAvailable}
+                    disabled={
+                      voiceInput.isBusy
+                        ? !canSubmitDraft
+                        : isIncomingShareTransferPending || isImportingShare || flow.submitting
+                    }
+                    onStart={() => {
+                      promptInputRef.current?.blur();
+                      voiceInput.start();
+                    }}
+                    onConfirm={voiceInput.stopAndSubmit}
+                    submitsMessage
+                    onCancel={voiceInput.cancel}
+                  />
+                )}
+              </View>
             </ComposerToolbarRow>
           </ComposerDictationToolbar>
         </Animated.View>
@@ -1967,5 +1998,54 @@ export function NewTaskDraftScreen(props: {
         </Animated.View>
       </KeyboardStickyView>
     </View>
+  );
+}
+
+function StartTaskButton(props: {
+  readonly accessibilityLabel: string;
+  readonly disabled: boolean;
+  readonly icon: ComponentProps<typeof ComposerActionButton>["icon"];
+  readonly offersBackground: boolean;
+  readonly onStart: (intent: "open" | "background") => void;
+}) {
+  const button = (
+    <ComposerActionButton
+      accessibilityLabel={props.accessibilityLabel}
+      icon={props.icon}
+      variant="primary"
+      disabled={props.disabled}
+      onPress={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        props.onStart("open");
+      }}
+    />
+  );
+  if (!props.offersBackground || props.disabled) return button;
+  return (
+    <ControlPillMenu
+      accessibilityLabel="Choose how to start this task"
+      shouldOpenOnLongPress
+      preservesKeyboard
+      onOpenMenu={() => {
+        if (Platform.OS === "ios") {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+        }
+      }}
+      actions={[
+        { id: "open", title: "Start and open", state: "on" as const },
+        {
+          id: "background",
+          title: "Start in background",
+          subtitle: "Stay here to start another",
+          state: "off" as const,
+        },
+      ]}
+      onPressAction={({ nativeEvent }) => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        props.onStart(nativeEvent.event === "background" ? "background" : "open");
+      }}
+    >
+      {button}
+    </ControlPillMenu>
   );
 }

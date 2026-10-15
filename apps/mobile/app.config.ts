@@ -168,6 +168,22 @@ const widgetsPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
           initialLayout: "./src/widgets/SubscriptionUsage.android.tsx",
         },
       },
+      {
+        name: "Aquarium",
+        displayName: "Aquarium",
+        description: "Your agents as fish: who is working and who needs you.",
+        ios: {
+          supportedFamilies: ["systemSmall", "systemMedium", "systemLarge", "accessoryRectangular"],
+        },
+        android: {
+          minWidth: 250,
+          minHeight: 180,
+          targetCellWidth: 4,
+          targetCellHeight: 2,
+          resizeMode: "both",
+          initialLayout: "./src/widgets/Aquarium.android.tsx",
+        },
+      },
     ],
   },
 ];

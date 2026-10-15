@@ -50,6 +50,7 @@ import { useHomeListOptions } from "../home/home-list-options";
 import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thread-swipe-actions";
+import { ThreadListBubbles } from "./ThreadListBubbles";
 import { usePendingTaskListActions } from "../home/usePendingTaskListActions";
 import { useThreadListActions } from "../home/useThreadListActions";
 import {
@@ -984,6 +985,12 @@ function ThreadNavigationSidebarPane(
               />
             </GestureDetector>
           </SwipeableScrollGateProvider>
+          {threadListV2Layout.latestReturnAt > 0 ? (
+            <ThreadListBubbles
+              key={threadListV2Layout.latestReturnAt}
+              since={threadListV2Layout.latestReturnAt}
+            />
+          ) : null}
         </View>
       </>
     );
@@ -1056,6 +1063,12 @@ function ThreadNavigationSidebarPane(
             </GestureDetector>
           </SwipeableScrollGateProvider>
         )}
+        {threadListV2Layout.latestReturnAt > 0 ? (
+          <ThreadListBubbles
+            key={threadListV2Layout.latestReturnAt}
+            since={threadListV2Layout.latestReturnAt}
+          />
+        ) : null}
       </View>
 
       {Platform.OS === "android" ? (
