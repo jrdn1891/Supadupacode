@@ -28,6 +28,7 @@ import {
   AQUARIUM_FPS,
   AQUARIUM_PIXEL,
   type Aquarium,
+  type AquariumFish,
   type AquariumPoint,
   type AquariumResident,
   type AquariumSize,
@@ -40,6 +41,7 @@ import {
   FRESH_STASH,
   landingSpot,
   leapKeyframes,
+  releasePrey,
   resizeAquarium,
   stepAquarium,
   stirAquarium,
@@ -54,6 +56,7 @@ import {
   paintFishSprite,
   paintScenery,
 } from "./aquarium.paint";
+import { AquariumEffortMenu } from "./AquariumEffortMenu";
 import { type AquariumAgent, agentCueDetail, aquariumAgents } from "./aquariumAgents";
 import { AquariumChat } from "./AquariumChat";
 import { takeRelease } from "./aquariumReleases";
@@ -96,13 +99,14 @@ const castOf = (residents: ReadonlyArray<AquariumResident>) =>
 
 let resting: { readonly aquarium: Aquarium; readonly tick: number } | null = null;
 
-function startTank(canvas: HTMLCanvasElement) {
+function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null) => void) {
   const context = canvas.getContext("2d");
   let input: TankInput | null = null;
   let aquarium: Aquarium | null = null;
   let scenery: HTMLCanvasElement | null = null;
   let held: string | null = null;
   let pinned: string | null = null;
+  let prey: string | null = null;
   let tick = resting?.tick ?? 0;
   let timer: number | undefined;
   const leaps = new Map<string, Animation>();
@@ -119,6 +123,13 @@ function startTank(canvas: HTMLCanvasElement) {
     });
   };
 
+  const notice = () => {
+    const next = aquarium?.pet?.prey ?? null;
+    if (next === prey) return;
+    prey = next;
+    onPrey(aquarium?.fish.find((fish) => fish.key === next) ?? null);
+  };
+
   const step = () => {
     timer = window.setTimeout(step, 1000 / AQUARIUM_FPS);
     if (document.hidden || input === null || aquarium === null) return;
@@ -129,6 +140,7 @@ function startTank(canvas: HTMLCanvasElement) {
     });
     tick += 1;
     paint();
+    notice();
   };
 
   const leap = (
@@ -218,6 +230,11 @@ function startTank(canvas: HTMLCanvasElement) {
     pin(key: string | null) {
       pinned = key;
     },
+    release() {
+      if (aquarium === null) return;
+      aquarium = releasePrey(aquarium);
+      notice();
+    },
     tap(at: AquariumPoint, heldMs: number) {
       if (input === null || input.reducedMotion || aquarium === null) return;
       ({ aquarium, stash } = tapAquarium(aquarium, stash, at, heldMs));
@@ -256,7 +273,7 @@ function startTank(canvas: HTMLCanvasElement) {
     stop() {
       window.clearTimeout(timer);
       for (const flight of leaps.values()) flight.cancel();
-      if (aquarium !== null) resting = { aquarium, tick };
+      if (aquarium !== null) resting = { aquarium: releasePrey(aquarium), tick };
     },
   };
 }
@@ -289,11 +306,12 @@ export function SceneAquarium() {
   const [size, setSize] = useState<AquariumSize | null>(null);
   const [hovered, setHovered] = useState<HoveredFish | null>(null);
   const [chat, setChat] = useState<Chat | null>(null);
+  const [prey, setPrey] = useState<AquariumFish | null>(null);
   const tankRef = useRef<ReturnType<typeof startTank> | null>(null);
   const pressRef = useRef<Press | null>(null);
   const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     if (canvas === null) return;
-    const tank = startTank(canvas);
+    const tank = startTank(canvas, setPrey);
     tankRef.current = tank;
     return () => {
       tank.stop();
@@ -403,6 +421,8 @@ export function SceneAquarium() {
 
   const hoveredEntry =
     hovered === null ? null : (entries.find((entry) => entry.key === hovered.key) ?? null);
+  const preyEntry =
+    prey === null ? null : (entries.find((entry) => entry.key === prey.key) ?? null);
 
   return (
     <>
@@ -522,6 +542,18 @@ export function SceneAquarium() {
           />
         ) : null}
       </Popover>
+      {prey && preyEntry ? (
+        <AquariumEffortMenu
+          thread={preyEntry.thread}
+          box={{
+            left: prey.x * AQUARIUM_PIXEL,
+            top: prey.y * AQUARIUM_PIXEL,
+            width: fishSize(prey.key).width * AQUARIUM_PIXEL,
+            height: fishSize(prey.key).height * AQUARIUM_PIXEL,
+          }}
+          onClose={() => tankRef.current?.release()}
+        />
+      ) : null}
     </>
   );
 }

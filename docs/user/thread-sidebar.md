@@ -130,7 +130,7 @@ open.
 Threads that are working or monitoring fold into a collapsed **Working** section. A thread
 returns to the bottom of the active list when it finishes, fails, or needs an approval or answer.
 The Working section places the thread you last sent work to at the bottom. Pinned threads stay
-in the pinned section.
+in the pinned section. You can drag a working thread onto the stage, but not into another section.
 
 ## Settle finished work
 
@@ -279,8 +279,10 @@ project's color; tap the pearl on the sand to add it to the strand at the top le
 the water to stir a current that sweeps nearby creatures along. Press and hold empty water to hatch
 a clownfish of your own, and hold again to swap it for a shark, which is faster and scares
 creatures from farther away. While your fish is out, dragging steers it instead of stirring.
-Creatures scatter as it comes near, and one it catches vanishes in a puff of bubbles and swims back
-in later. Tap your fish to send it away. Your pellets and strand last until you reload or restart
+Creatures scatter as it comes near. One your clownfish catches vanishes in a puff of bubbles and
+swims back in later. One your shark catches stays in its jaws while a menu offers that agent's
+effort levels, as its composer would, and swims free once you pick one or close the menu. Tap your
+fish to send it away. Your pellets and strand last until you reload or restart
 the app. With reduced motion turned on, the creatures hold still and the water ignores taps and
 drags.
 

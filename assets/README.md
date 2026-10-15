@@ -6,7 +6,7 @@ The three shared Icon Composer projects are the source of truth for exported app
 - `nightly/app-icon.icon`
 - `prod/app-icon.icon`
 
-Each project uses `text.svg` for the Supacode mark and `background.svg` for the artwork behind it. Additional layers use semantic names that describe their role and placement.
+Each project uses `mark.svg` for the `><>` fish mark and `background.svg` for the artwork behind it. Additional layers use semantic names that describe their role and placement.
 
 Run `vp run icons:export` from the repository root to regenerate the tracked iOS, Linux, Windows, and web assets. The development web exports are also copied to `apps/web/public` for the browser favicon and splash screen. Run `vp run icons:check` to verify that the generated assets and public copies match their sources without changing files.
 
@@ -40,17 +40,17 @@ Do not resize, composite, or otherwise post-process the rendered PNG, and do not
 
 Android masks the central 72dp of a 108dp adaptive canvas, and the Android 12+ splash screen masks
 the central two thirds of a 288dp canvas, so the Icon Composer exports cannot be used directly:
-their rounded-square silhouette gets framed again and the wordmark is cropped. The Android artwork
+their rounded-square silhouette gets framed again and the mark is cropped. The Android artwork
 is instead rendered from the same Icon Composer SVG sources by `vp run icons:export:android`:
 
-- `apps/mobile/assets/android-icon-foreground.png`: the shared transparent wordmark, sized to stay
-  inside the safe zone
+- `apps/mobile/assets/android-icon-foreground.png`: the shared transparent mark, framed like the
+  artwork so the bubbles stay at its nose. It doubles as the monochrome themed icon.
 - `apps/mobile/assets/android-icon-background-*.png`: the variant's artwork layers, placed as in
   its `icon.json` and fitted into the masked central two thirds over a full-bleed copy that fills
-  the parallax margin. Dev's `annotations.svg` follows the wordmark instead, so the wireframe boxes
-  stay around the letters.
+  the parallax margin.
 - `apps/mobile/assets/android-splash-icon-*.png`: the two layers composed into one 288dp image, so
   the splash mask reproduces the launcher icon's framing.
 
-Rerun the export after changing a layer SVG or its position in `icon.json`. `android-icon-mark.png` remains a flat silhouette for
-Android's monochrome themed icon.
+Rerun the export after changing a layer SVG or its position in `icon.json`. The foreground reads
+`mark.svg` without its `icon.json` position and assumes scale 8 with no translation, so keep the
+mark there and move the artwork around it instead.

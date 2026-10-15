@@ -333,6 +333,7 @@ export function planSidebarThreadDrop(input: {
     pinnedKeysById,
     reorderableKeys,
   } = input;
+  if (activeSection === "working") return { kind: "none" };
   if (input.supportsSettlement === false && (target.section === "settled" || activeSettled)) {
     return { kind: "none" };
   }

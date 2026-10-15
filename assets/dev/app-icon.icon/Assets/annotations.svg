@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
   <g stroke="#DDF7FF" stroke-width="0.45" stroke-dasharray="1.6 1.4" opacity="0.75">
-    <rect x="22.5" y="34" width="40" height="59"/>
-    <rect x="66.5" y="34" width="38.5" height="59"/>
+    <rect x="21.5" y="39.25" width="24.25" height="49.5"/>
+    <rect x="46.75" y="39.25" width="59.25" height="49.5"/>
   </g>
   <g stroke="#E8FAFF" stroke-width="0.45" opacity="0.7">
-    <path d="M22.5 30V26M62.5 30V26M66.5 30V26M105 30V26M18 34H14M18 93H14"/>
+    <path d="M21.5 35.25V31.25M45.75 35.25V31.25M46.75 35.25V31.25M106 35.25V31.25M17 39.25H13M17 88.75H13"/>
   </g>
 </svg>

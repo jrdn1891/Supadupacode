@@ -5186,7 +5186,6 @@ export default function Sidebar() {
                           contextDrag={isContextDrag}
                           disabled={
                             renamingThreadKey === threadKey ||
-                            section === "working" ||
                             !draggableThreadKeys.has(threadKey) ||
                             optimisticDrop !== null
                           }
