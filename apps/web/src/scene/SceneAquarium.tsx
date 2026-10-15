@@ -57,7 +57,12 @@ import {
   paintScenery,
 } from "./aquarium.paint";
 import { AquariumEffortMenu } from "./AquariumEffortMenu";
-import { type AquariumAgent, agentCueDetail, aquariumAgents } from "./aquariumAgents";
+import {
+  type AquariumAgent,
+  agentCueDetail,
+  aquariumAgents,
+  aquariumCaption,
+} from "@supacode/client-runtime/aquarium/agents";
 import { AquariumChat } from "./AquariumChat";
 import { takeRelease } from "./aquariumReleases";
 
@@ -330,6 +335,7 @@ export function SceneAquarium() {
     [entries],
   );
   const featured = featuredResident(entries);
+  const caption = aquariumCaption(entries, nowMs);
   const featuredKey = featured?.key ?? null;
 
   useLayoutEffect(() => {
@@ -486,13 +492,9 @@ export function SceneAquarium() {
           }
         />
         <div ref={setCeiling} className="absolute inset-x-0 top-0 flex justify-center px-6 pt-10">
-          {entries.length > 0 ? (
-            <p className="max-w-md truncate text-xs text-muted-foreground">
-              {featured === null
-                ? `${entries.length} ${entries.length === 1 ? "agent" : "agents"} working · nothing needs you`
-                : `${featured.thread.title} · ${agentCueDetail(featured.thread, featured.cue, nowMs)}`}
-            </p>
-          ) : null}
+          {caption === null ? null : (
+            <p className="max-w-md truncate text-xs text-muted-foreground">{caption}</p>
+          )}
         </div>
         {hovered && hoveredEntry && !chat?.open ? (
           <div

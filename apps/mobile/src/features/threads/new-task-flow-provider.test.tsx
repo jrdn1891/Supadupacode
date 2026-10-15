@@ -430,6 +430,16 @@ describe("pending task editor dismissal", () => {
   });
 });
 
+describe("starting the next new task", () => {
+  it("binds a fresh draft in the same project after a background start", async () => {
+    const sent = flow.draftKey!;
+    await act(() => flow.startNextDraft());
+    expect(flow.draftKey).not.toBe(sent);
+    expect(readDraft(flow.draftKey!).project).toEqual(readDraft(sent).project);
+    expect(readDraft(flow.draftKey!).text).toBe("");
+  });
+});
+
 describe("new-task environment switching", () => {
   it("blocks an immediate submission before the pending switch rerenders", async () => {
     let pending!: ReturnType<typeof beginSwitch>;

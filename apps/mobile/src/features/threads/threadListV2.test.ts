@@ -2627,6 +2627,20 @@ describe("Working section", () => {
     expect(ids(layout).slice(1)).toEqual(["asks-approval", "finished-late", "finished-early"]);
   });
 
+  it("dates the latest return of a thread that needs the user, other than the selected one", () => {
+    const returns: Record<string, string> = {
+      "finished-early": "2026-06-01T05:00:00.000Z",
+      "asks-approval": "2026-06-01T04:00:00.000Z",
+      "pinned-working": "2026-06-01T06:00:00.000Z",
+    };
+    const inboxReturnAt = (thread: EnvironmentThreadShell) =>
+      returns[thread.id] === undefined ? undefined : Date.parse(returns[thread.id]!);
+    expect(build({ inboxReturnAt }).latestReturnAt).toBe(Date.parse(returns["asks-approval"]!));
+    expect(
+      build({ inboxReturnAt, selectedThreadKey: `${environmentId}:asks-approval` }).latestReturnAt,
+    ).toBe(0);
+  });
+
   it("places Working below Snoozed and above Active", () => {
     const layout = buildThreadListV2Items({
       threads: [
