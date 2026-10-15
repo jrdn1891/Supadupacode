@@ -130,7 +130,7 @@ open.
 Threads that are working or monitoring fold into a collapsed **Working** section. A thread
 returns to the bottom of the active list when it finishes, fails, or needs an approval or answer.
 The Working section places the thread you last sent work to at the bottom. Pinned threads stay
-in the pinned section.
+in the pinned section. You can drag a working thread onto the stage, but not into another section.
 
 ## Settle finished work
 
