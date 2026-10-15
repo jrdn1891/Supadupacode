@@ -9,13 +9,9 @@ import {
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  type EnvironmentThreadShell,
-  presentThreadShell,
-} from "@supacode/client-runtime/state/models";
+import { type EnvironmentThreadShell, presentThreadShell } from "../state/models.ts";
 
-import type { SidebarThreadStatus } from "../components/Sidebar.logic";
-import { aquariumAgents } from "./aquariumAgents";
+import { type AgentThreadStatus, aquariumAgents, aquariumCaption } from "./agents.ts";
 
 const now = DateTime.makeUnsafe("2026-10-14T12:00:00.000Z");
 const environmentId = "env" as EnvironmentId;
@@ -69,7 +65,7 @@ const running = (progress: OrchestrationV2ThreadShell["progress"] = null) => ({
   progress,
 });
 
-function status(thread: EnvironmentThreadShell): SidebarThreadStatus {
+function status(thread: EnvironmentThreadShell): AgentThreadStatus {
   if (thread.hasPendingApprovals) return "approval";
   if (thread.hasPendingUserInput) return "input";
   if (thread.runtime?.status === "running") return "working";
@@ -175,5 +171,35 @@ describe("aquariumAgents", () => {
         now: "2026-10-14T13:00:00.000Z",
       }),
     ).toEqual([]);
+  });
+});
+
+describe("aquariumCaption", () => {
+  const agents = (threads: EnvironmentThreadShell[]) =>
+    aquariumAgents({
+      threads,
+      status,
+      unseen: () => false,
+      now: "2026-10-14T12:00:00.000Z",
+    });
+  const nowMs = Date.parse("2026-10-14T12:00:00.000Z");
+
+  it("names the thread that needs the user, or counts the working agents", () => {
+    expect(aquariumCaption(agents([]), nowMs)).toBeNull();
+    expect(aquariumCaption(agents([shell("one", running()), shell("two", running())]), nowMs)).toBe(
+      "2 agents working · nothing needs you",
+    );
+    expect(
+      aquariumCaption(
+        agents([
+          shell("working", running()),
+          shell("Ship it", {
+            ...running(),
+            pendingRuntimeRequest: { id: "request" as never, kind: "command", createdAt: now },
+          }),
+        ]),
+        nowMs,
+      ),
+    ).toBe("Ship it · Needs approval");
   });
 });

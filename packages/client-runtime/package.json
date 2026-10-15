@@ -3,6 +3,18 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./aquarium/agents": {
+      "types": "./src/aquarium/agents.ts",
+      "default": "./src/aquarium/agents.ts"
+    },
+    "./aquarium/bubbles": {
+      "types": "./src/aquarium/bubbles.ts",
+      "default": "./src/aquarium/bubbles.ts"
+    },
+    "./aquarium/creatures": {
+      "types": "./src/aquarium/creatures.ts",
+      "default": "./src/aquarium/creatures.ts"
+    },
     "./thread-history-prefetch": {
       "types": "./src/threadHistoryPrefetch.ts",
       "default": "./src/threadHistoryPrefetch.ts"

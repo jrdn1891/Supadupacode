@@ -1,14 +1,14 @@
-import { scopedThreadKey, scopeThreadRef } from "@supacode/client-runtime/environment";
-import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/models";
-import { effectiveSnoozed } from "@supacode/client-runtime/state/thread-settled";
+import { scopedThreadKey, scopeThreadRef } from "../environment/index.ts";
+import type { EnvironmentThreadShell } from "../state/models.ts";
+import { effectiveSnoozed } from "../state/threadSettled.ts";
 import {
   formatWorkingDurationLabel,
   resolveThreadListDurationStartedAt,
-} from "@supacode/client-runtime/state/thread-timing";
-
-import type { SidebarThreadStatus } from "../components/Sidebar.logic";
+} from "../state/threadTiming.ts";
 
 export type AgentCue = "approval" | "input" | "failed" | "limited" | "ready" | "working";
+
+export type AgentThreadStatus = AgentCue | "waiting";
 
 export interface AquariumAgent {
   readonly key: string;
@@ -25,8 +25,8 @@ const CUE_ORDER: Readonly<Record<AgentCue, number>> = {
   working: 2,
 };
 
-function agentCue(input: {
-  readonly status: SidebarThreadStatus;
+export function agentCue(input: {
+  readonly status: AgentThreadStatus;
   readonly thread: Pick<EnvironmentThreadShell, "latestRun">;
   readonly unseen: boolean;
 }): AgentCue | null {
@@ -40,7 +40,7 @@ function agentCue(input: {
 
 export function aquariumAgents(input: {
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
-  readonly status: (thread: EnvironmentThreadShell) => SidebarThreadStatus;
+  readonly status: (thread: EnvironmentThreadShell) => AgentThreadStatus;
   readonly unseen: (thread: EnvironmentThreadShell, key: string) => boolean;
   readonly now: string;
 }): ReadonlyArray<AquariumAgent> {
@@ -93,4 +93,15 @@ export function agentCueDetail(
       return elapsedMs < 60_000 ? "<1m" : formatWorkingDurationLabel(elapsedMs);
     }
   }
+}
+
+export function aquariumCaption(
+  agents: ReadonlyArray<AquariumAgent>,
+  nowMs: number,
+): string | null {
+  if (agents.length === 0) return null;
+  const featured = agents.find((agent) => agent.cue !== "working");
+  return featured === undefined
+    ? `${agents.length} ${agents.length === 1 ? "agent" : "agents"} working · nothing needs you`
+    : `${featured.thread.title} · ${agentCueDetail(featured.thread, featured.cue, nowMs)}`;
 }

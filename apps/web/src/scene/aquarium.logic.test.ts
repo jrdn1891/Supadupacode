@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { type Species, SPECIES } from "@supacode/client-runtime/aquarium/creatures";
+
 import {
   AQUARIUM_FPS,
   AQUARIUM_SAND,
@@ -20,8 +22,6 @@ import {
   type PetKind,
   PETS,
   releasePrey,
-  type Species,
-  SPECIES,
   stepAquarium,
   stirAquarium,
   stockAquarium,
