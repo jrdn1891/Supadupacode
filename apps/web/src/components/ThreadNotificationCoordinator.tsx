@@ -1,3 +1,4 @@
+import { scopedThreadKey, scopeThreadRef } from "@supacode/client-runtime/environment";
 import { presentThreadShell } from "@supacode/client-runtime/state/models";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -9,9 +10,12 @@ import {
   MessageCircleQuestionIcon,
   ShieldQuestionIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { getClientSettings, useClientSettings } from "../hooks/useSettings";
+import { visibleSceneTargetKeys } from "../scene/scene.logic";
+import { useSceneStore } from "../scene/sceneStore";
+import { useSceneActions } from "../scene/useSceneActions";
 import { useEnvironmentIds } from "../state/environments";
 import { environmentShell } from "../state/shell";
 import {
@@ -111,9 +115,25 @@ function EnvironmentNotifications({
     (settings) => settings.inAppNotificationsEnabled,
   );
   const navigate = useNavigate();
-  const { environmentId: activeEnvironmentId, threadId: activeThreadId } = useParams({
-    strict: false,
-  });
+  const sceneActions = useSceneActions();
+  const {
+    environmentId: routeEnvironmentId,
+    threadId: routeThreadId,
+    draftId: routeDraftId,
+  } = useParams({ strict: false });
+  const scene = useSceneStore((state) => state.scene);
+  const onStage = useMemo(() => {
+    if (routeThreadId === undefined && routeDraftId === undefined) return new Set<string>();
+    const keys = new Set(visibleSceneTargetKeys(scene));
+    if (routeEnvironmentId !== undefined && routeThreadId !== undefined) {
+      keys.add(
+        scopedThreadKey(
+          scopeThreadRef(routeEnvironmentId as EnvironmentId, routeThreadId as ThreadId),
+        ),
+      );
+    }
+    return keys;
+  }, [routeDraftId, routeEnvironmentId, routeThreadId, scene]);
   const previous = useRef(new Map<ThreadId, NotificationState>());
 
   useEffect(() => {
@@ -164,17 +184,16 @@ function EnvironmentNotifications({
               : status === "failed"
                 ? "Thread failed"
                 : "Input needed";
+      const windowFocused = document.visibilityState === "visible" && document.hasFocus();
+      const watched =
+        windowFocused && onStage.has(scopedThreadKey(scopeThreadRef(environmentId, thread.id)));
+      if (watched) continue;
       if (hasNotificationSound(mode)) {
         void playNotificationSound(kind, () =>
           hasNotificationSound(getClientSettings().notificationMode),
         );
       }
-      if (
-        inAppNotificationsEnabled &&
-        document.visibilityState === "visible" &&
-        document.hasFocus() &&
-        (activeEnvironmentId !== environmentId || activeThreadId !== thread.id)
-      ) {
+      if (inAppNotificationsEnabled && windowFocused) {
         const toastId = toastManager.add({
           type: kind === "completion" ? "success" : status === "failed" ? "error" : "warning",
           title,
@@ -193,13 +212,13 @@ function EnvironmentNotifications({
               ),
           },
           actionProps: {
-            children: "Open thread",
+            children: "Bring on stage",
             onClick: () => {
               toastManager.close(toastId);
-              void navigate({
-                to: "/$environmentId/$threadId",
-                params: { environmentId, threadId: thread.id },
-              });
+              sceneActions.open(
+                { kind: "server", threadRef: scopeThreadRef(environmentId, thread.id) },
+                "right",
+              );
             },
           },
         });
@@ -219,6 +238,9 @@ function EnvironmentNotifications({
           silent: true,
         });
         onNotification(environmentId, notification);
+        void window.desktopBridge?.requestAttention?.(
+          kind === "completion" ? "informational" : "critical",
+        );
         notification.addEventListener("click", () => {
           notification.close();
           window.focus();
@@ -233,13 +255,13 @@ function EnvironmentNotifications({
     }
     previous.current = next;
   }, [
-    activeEnvironmentId,
-    activeThreadId,
     environmentId,
     inAppNotificationsEnabled,
     mode,
     navigate,
     onNotification,
+    onStage,
+    sceneActions,
     threads,
   ]);
 

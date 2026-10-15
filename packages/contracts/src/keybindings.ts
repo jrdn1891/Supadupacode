@@ -80,6 +80,7 @@ const THREAD_KEYBINDING_COMMANDS = [
   "thread.fork",
   "thread.settle",
   "thread.pin",
+  "thread.park",
   "thread.undo",
   ...THREAD_JUMP_KEYBINDING_COMMANDS,
 ] as const;
@@ -92,6 +93,13 @@ const MODEL_PICKER_KEYBINDING_COMMANDS = [
   ...MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
 ] as const;
 export type ModelPickerKeybindingCommand = (typeof MODEL_PICKER_KEYBINDING_COMMANDS)[number];
+
+const STAGE_KEYBINDING_COMMANDS = [
+  "stage.closePane",
+  "stage.toggleSpotlight",
+  "stage.focusNext",
+  "stage.focusPrevious",
+] as const;
 
 export const STATIC_KEYBINDING_COMMANDS = [
   "sidebar.toggle",
@@ -154,6 +162,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "usage.period.quarter",
   ...MODEL_PICKER_KEYBINDING_COMMANDS,
   ...THREAD_KEYBINDING_COMMANDS,
+  ...STAGE_KEYBINDING_COMMANDS,
 ] as const;
 
 export const SCRIPT_RUN_COMMAND_PATTERN = Schema.TemplateLiteral([

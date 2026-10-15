@@ -59,6 +59,7 @@ import { useRightPanelStore } from "~/rightPanelStore";
 
 import { previewBridge } from "./previewBridge";
 import { subscribePreviewAction } from "./previewActionBus";
+import { useScenePane } from "../../scene/ScenePaneContext";
 import { closePreviewSession } from "./closePreviewSession";
 import { openPreviewSession } from "./openPreviewSession";
 import { showPreviewPopup } from "./showPreviewPopup";
@@ -937,8 +938,9 @@ export function PreviewView({
 
   // Subscribe only while visible; `toggle-panel` is owned by ChatView's
   // URL-aware handler regardless of whether the panel is currently mounted.
+  const paneFocused = useScenePane().focused;
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !paneFocused) return;
     return subscribePreviewAction((action) => {
       switch (action) {
         case "refresh":
@@ -960,7 +962,7 @@ export function PreviewView({
           return;
       }
     });
-  }, [handleRefresh, handleResetZoom, handleZoomIn, handleZoomOut, visible]);
+  }, [handleRefresh, handleResetZoom, handleZoomIn, handleZoomOut, paneFocused, visible]);
 
   return (
     <div

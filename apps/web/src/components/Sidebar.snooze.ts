@@ -9,6 +9,10 @@ import { formatShortTimestamp, parseTimestampDate } from "../timestampFormat";
 
 export { snoozeWakeLabel, type SnoozePreset };
 
+export interface SnoozeChoice {
+  readonly snoozedUntil: string | null;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
 function timeOfDayLabel(date: Date, timestampFormat: TimestampFormat): string {

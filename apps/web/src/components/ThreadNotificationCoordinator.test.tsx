@@ -120,7 +120,18 @@ vi.mock("./ui/toast", () => ({
   toastManager: { add: state.add, close: state.close },
 }));
 
+import { scopeThreadRef } from "@supacode/client-runtime/environment";
+import type { EnvironmentId, ThreadId } from "@supacode/contracts";
+
+import { EMPTY_SCENE } from "../scene/scene.logic";
+import { useSceneStore } from "../scene/sceneStore";
 import { ThreadNotificationCoordinator } from "./ThreadNotificationCoordinator";
+
+const stageTarget = (threadId: string) =>
+  ({
+    kind: "server",
+    threadRef: scopeThreadRef("env-1" as EnvironmentId, threadId as ThreadId),
+  }) as const;
 
 let renderer: ReactTestRenderer | undefined;
 
@@ -138,6 +149,7 @@ async function complete() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useSceneStore.setState({ scene: EMPTY_SCENE });
   Object.assign(state, {
     mode: "off",
     inApp: true,
@@ -188,7 +200,8 @@ describe("thread notifications", () => {
     expect(state.notification).not.toHaveBeenCalled();
   });
 
-  it("alerts once with system alerts off and opens the completed thread", async () => {
+  it("alerts once with system alerts off and brings the completed thread on stage", async () => {
+    useSceneStore.getState().syncRoute(stageTarget("other-thread"));
     await render();
     await complete();
     await render();
@@ -201,8 +214,30 @@ describe("thread notifications", () => {
     expect(state.navigate).toHaveBeenCalledWith({
       to: "/$environmentId/$threadId",
       params: { environmentId: "env-1", threadId: "thread-1" },
+      replace: false,
     });
+    expect(useSceneStore.getState().scene.columns.map((column) => column.panes[0]?.target)).toEqual(
+      [stageTarget("other-thread"), stageTarget("thread-1")],
+    );
     expect(state.notification).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet for a thread on stage, and cues once Spotlight hides it", async () => {
+    state.mode = "sound";
+    useSceneStore.getState().syncRoute(stageTarget("other-thread"));
+    useSceneStore.getState().open(stageTarget("thread-1"), "right");
+    await render();
+    await complete();
+    expect(state.add).not.toHaveBeenCalled();
+    expect(state.sound).not.toHaveBeenCalled();
+
+    const { scene } = useSceneStore.getState();
+    const otherPane = scene.columns[0]!.panes[0]!.id;
+    useSceneStore.getState().toggleSpotlight(otherPane);
+    state.input = true;
+    await render();
+    expect(state.add).toHaveBeenCalledTimes(1);
+    expect(state.sound).toHaveBeenCalledWith("input", expect.any(Function));
   });
 
   it.each(["active", "blurred", "hidden", "archived", "disabled"])(

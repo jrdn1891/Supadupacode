@@ -682,7 +682,7 @@ describe("theme files", () => {
       ["graphite-custom", "Graphite Tweak"],
       ["graphite-custom-2", "My Graphite"],
     ]);
-    expect(getThemeDefinition("graphite")?.label).toBe("Supacode");
+    expect(getThemeDefinition("graphite")?.label).toBe("Supadupacode");
 
     removeCustomTheme("graphite-custom-2");
 

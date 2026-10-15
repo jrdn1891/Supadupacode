@@ -273,6 +273,20 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["notification toast popup completion input approval failure"],
   },
   {
+    id: "project-contexts",
+    title: "Contexts",
+    to: "/settings/general",
+    scope: "environment-defaults",
+    searchTerms: ["labels categories colors work side personal spaces"],
+  },
+  {
+    id: "project-context",
+    title: "Project context",
+    to: "/settings/general",
+    scope: "project-defaults",
+    searchTerms: ["label category color work side personal space"],
+  },
+  {
     id: "response-streaming",
     title: "Response streaming",
     to: "/settings/general",

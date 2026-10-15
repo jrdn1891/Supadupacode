@@ -361,6 +361,9 @@ export const OrchestrationV2LimitRecoveryUpdate = Schema.Struct({
 );
 export type OrchestrationV2LimitRecoveryUpdate = typeof OrchestrationV2LimitRecoveryUpdate.Type;
 
+export const OrchestrationV2ThreadPhase = Schema.Literals(["explore", "build", "ready"]);
+export type OrchestrationV2ThreadPhase = typeof OrchestrationV2ThreadPhase.Type;
+
 export const OrchestrationV2AppThread = Schema.Struct({
   ...OrchestrationV2CreationFields,
   id: ThreadId,
@@ -414,6 +417,7 @@ export const OrchestrationV2AppThread = Schema.Struct({
   pinOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   /** Fractional-index slot in the user-arranged active order. */
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)),
   lastVisitedAt: Schema.NullOr(Schema.DateTimeUtc).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
@@ -440,6 +444,24 @@ export const OrchestrationV2AppThread = Schema.Struct({
   deletedAt: Schema.NullOr(Schema.DateTimeUtc),
 });
 export type OrchestrationV2AppThread = typeof OrchestrationV2AppThread.Type;
+
+export function orchestrationV2SnoozeHolds(
+  thread: Pick<OrchestrationV2AppThread, "snoozedAt" | "snoozedUntil">,
+  nowMs: number,
+): boolean {
+  if (thread.snoozedAt == null) return false;
+  return thread.snoozedUntil == null || thread.snoozedUntil.epochMilliseconds > nowMs;
+}
+
+export function orchestrationV2SnoozeUnchanged(
+  thread: Pick<OrchestrationV2AppThread, "snoozedAt" | "snoozedUntil">,
+  snoozedUntil: OrchestrationV2AppThread["snoozedUntil"],
+): boolean {
+  if (thread.snoozedAt == null) return false;
+  return (
+    (thread.snoozedUntil?.epochMilliseconds ?? null) === (snoozedUntil?.epochMilliseconds ?? null)
+  );
+}
 
 /**
  * A subagent the provider spawned on its own (Claude's Agent tool, Codex or
@@ -1319,6 +1341,27 @@ export const OrchestrationV2PlanArtifact = Schema.Union([
 ]);
 export type OrchestrationV2PlanArtifact = typeof OrchestrationV2PlanArtifact.Type;
 
+export const OrchestrationV2ThreadProgress = Schema.Struct({
+  done: NonNegativeInt,
+  total: PositiveInt,
+  current: Schema.NullOr(Schema.String),
+});
+export type OrchestrationV2ThreadProgress = typeof OrchestrationV2ThreadProgress.Type;
+
+export function orchestrationV2TodoProgress(
+  steps: ReadonlyArray<Pick<OrchestrationV2PlanStep, "text" | "status">>,
+): OrchestrationV2ThreadProgress | null {
+  if (steps.length === 0) return null;
+  const current =
+    steps.find((step) => step.status === "running") ??
+    steps.find((step) => step.status === "pending");
+  return {
+    done: steps.filter((step) => step.status === "completed").length,
+    total: steps.length,
+    current: current?.text ?? null,
+  };
+}
+
 export const OrchestrationV2CheckpointFileSummary = Schema.Struct({
   path: TrimmedNonEmptyString,
   kind: TrimmedNonEmptyString,
@@ -2017,6 +2060,9 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   pinOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   /** Slot in the user-arranged active order; omitted by pre-reorder servers. */
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)),
+  /** The active run's todo list, counted; null when the run keeps none. */
+  progress: Schema.optional(Schema.NullOr(OrchestrationV2ThreadProgress)),
   /**
    * Omitted by servers that predate server-side visited tracking; clients fall
    * back to their local visited state when the field is absent.
@@ -2783,7 +2829,7 @@ export const OrchestrationV2Command = Schema.Union([
     type: Schema.Literal("thread.snooze"),
     commandId: CommandId,
     threadId: ThreadId,
-    snoozedUntil: IsoDateTime,
+    snoozedUntil: Schema.NullOr(IsoDateTime),
   }),
   Schema.Struct({
     type: Schema.Literal("thread.unsnooze"),
@@ -2858,6 +2904,7 @@ export const OrchestrationV2Command = Schema.Union([
     limitRecovery: Schema.optional(Schema.NullOr(OrchestrationV2LimitRecoveryUpdate)),
     /** Link (object) or unlink (null) a pull request (#8160); absent leaves it unchanged. */
     linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
+    phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)),
   }),
   Schema.Struct({
     type: Schema.Literal("thread.pull-request.link"),

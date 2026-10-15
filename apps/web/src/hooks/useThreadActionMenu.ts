@@ -18,6 +18,7 @@ import { useCallback, useMemo } from "react";
 import { resolveSnoozePresets } from "../components/Sidebar.snooze";
 import {
   buildThreadActionMenuItems,
+  phaseFromMenuAction,
   threadActionRequiresOperate,
   type ThreadActionMenuId,
 } from "../components/threadActionMenu.logic";
@@ -45,6 +46,7 @@ import { buildPhysicalToLogicalProjectKeyMap } from "../sidebarProjectGrouping";
 import { threadRuntimeCanArchive } from "@supacode/client-runtime/state/models";
 import { useCopyToClipboard } from "./useCopyToClipboard";
 import { useNewThreadHandler } from "./useHandleNewThread";
+import { readProjectContextMenuState, useSetProjectContext } from "./useProjectContext";
 import { useClientSettings } from "./useSettings";
 import { useThreadActions } from "./useThreadActions";
 
@@ -103,6 +105,7 @@ export function useThreadActionMenu(input: {
   const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
   });
+  const setProjectContext = useSetProjectContext();
   const handleNewThread = useNewThreadHandler();
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
@@ -147,15 +150,20 @@ export function useThreadActionMenu(input: {
         };
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const snoozePresets = resolveSnoozePresets(now, timestampFormat);
+        const isSnoozed = supports.snooze && effectiveSnoozed(thread, { now: now.toISOString() });
         const items = buildThreadActionMenuItems({
           canOperate: readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
           branch: thread.branch ?? null,
+          openOnStage: false,
           projectFilter: null,
           isPinned: thread.pinnedAt != null,
           isSettled: supports.settlement && thread.settledOverride === "settled",
           autoSettleEnabled: thread.autoSettleDisabledAt == null,
-          isSnoozed: supports.snooze && effectiveSnoozed(thread, { now: now.toISOString() }),
+          isSnoozed,
+          isParked: isSnoozed && thread.snoozedUntil === null,
           canSnoozeNow: canSnooze(thread, { now: now.toISOString() }),
+          phase: thread.phase,
+          context: readProjectContextMenuState(thread),
           isRegeneratingTitle,
           isRunning: !threadRuntimeCanArchive(thread.runtime),
           supports,
@@ -172,6 +180,24 @@ export function useThreadActionMenu(input: {
             "Thread action unavailable",
             new Error("This connection cannot change threads."),
           );
+          return;
+        }
+        if (action.startsWith("phase:")) {
+          const result = await updateThreadMetadata({
+            environmentId: threadRef.environmentId,
+            input: {
+              threadId: threadRef.threadId,
+              phase: phaseFromMenuAction(action),
+            },
+          });
+          if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+            failureToast("Failed to set phase", squashAtomCommandFailure(result));
+          }
+          return;
+        }
+        if (action.startsWith("context:")) {
+          const contextId = action.slice("context:".length);
+          await setProjectContext(thread, contextId === "none" ? null : contextId);
           return;
         }
         if (action.startsWith("snooze:")) {
@@ -236,6 +262,9 @@ export function useThreadActionMenu(input: {
             return;
           case "unsnooze":
             await reportFailure("Failed to wake thread", () => unsnoozeThread(threadRef));
+            return;
+          case "park":
+            await reportFailure("Failed to park thread", () => snoozeThread(threadRef, null));
             return;
           case "pin":
             await reportFailure("Failed to pin thread", () => pinThread(threadRef));
@@ -358,6 +387,7 @@ export function useThreadActionMenu(input: {
       projectGroupingSettings,
       projects,
       router,
+      setProjectContext,
       setThreadAutoSettle,
       settleThread,
       snoozeThread,

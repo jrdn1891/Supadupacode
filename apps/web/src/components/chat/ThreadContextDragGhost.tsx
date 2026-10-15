@@ -7,7 +7,16 @@ import { useThreadContextDragGhost } from "./threadContextDrag";
 export function ThreadContextDragGhost() {
   const ghost = useThreadContextDragGhost();
   if (ghost === null) return null;
-  return createPortal(
+  return createPortal(<ThreadDragGhostCard {...ghost} />, document.body);
+}
+
+export function ThreadDragGhostCard(ghost: {
+  readonly x: number;
+  readonly y: number;
+  readonly title: string;
+  readonly count: number;
+}) {
+  return (
     <div
       aria-hidden="true"
       className="pointer-events-none fixed left-0 top-0 z-[100] flex max-w-72 items-center gap-2 rounded-lg border bg-popover px-3 py-2 text-sm shadow-lg"
@@ -20,7 +29,6 @@ export function ThreadContextDragGhost() {
           +{ghost.count - 1}
         </span>
       ) : null}
-    </div>,
-    document.body,
+    </div>
   );
 }

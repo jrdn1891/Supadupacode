@@ -55,6 +55,7 @@ vi.mock("../../state/session", () => ({
 }));
 vi.mock("../../state/server", () => ({
   environmentServerConfigsAtom: "server-configs",
+  serverEnvironment: { updateSettings: "update-settings" },
 }));
 vi.mock("../../state/atom-registry", () => ({
   appAtomRegistry: {

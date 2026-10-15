@@ -18,7 +18,13 @@ import type {
   EnvironmentThreadShell,
 } from "@supacode/client-runtime/state/shell";
 import type { EnvironmentThreadSearchMatch } from "@supacode/client-runtime/state/thread-search";
-import { AuthOrchestrationOperateScope, type EnvironmentMachineKind } from "@supacode/contracts";
+import {
+  AuthOrchestrationOperateScope,
+  OrchestrationV2ThreadPhase,
+  type EnvironmentMachineKind,
+} from "@supacode/contracts";
+import { resolveProjectContext } from "@supacode/shared/projectSettings";
+import { THREAD_PHASE_LABELS } from "@supacode/client-runtime/state/thread-phase";
 import { resolveThreadListDurationStartedAt } from "@supacode/client-runtime/state/thread-timing";
 import { canSnooze, resolveSnoozePresets } from "@supacode/client-runtime/state/thread-settled";
 import { withOccurrenceKeys } from "@supacode/shared/occurrenceKeys";
@@ -27,7 +33,10 @@ import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } 
 import { Alert, Pressable, useWindowDimensions, View } from "react-native";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
-import type { ThreadListProvider } from "../../state/thread-list-environments";
+import type {
+  ThreadListContextSettings,
+  ThreadListProvider,
+} from "../../state/thread-list-environments";
 import { environmentPresentations } from "../../state/presentation";
 import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
 import { AppText as Text } from "../../components/AppText";
@@ -55,6 +64,7 @@ import {
   resolveThreadListV2SwipeActions,
 } from "./threadListV2";
 import { QueuedMessageIcon } from "./queued-message-icon";
+import { ThreadContextDot, ThreadPhasePips } from "./thread-labels";
 import { shouldRecedeThreadRow } from "./thread-row-emphasis";
 import { ThreadSearchMatchExcerpt } from "./thread-search-match";
 import { DisclosureChevron } from "../../components/DisclosureChevron";
@@ -229,7 +239,7 @@ const SHELF_LABEL = {
   active: "Active",
   pinned: "Pinned",
   working: "Working",
-  snoozed: "Snoozed",
+  snoozed: "Parked",
   settled: "Settled",
 } as const;
 
@@ -603,13 +613,20 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly onRenameThread: (thread: EnvironmentThreadShell) => void;
   readonly onRegenerateThreadTitle: (thread: EnvironmentThreadShell) => void;
   readonly onSettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
-  readonly onSnoozeThread: (thread: EnvironmentThreadShell, snoozedUntil: string) => void;
+  readonly onSnoozeThread: (thread: EnvironmentThreadShell, snoozedUntil: string | null) => void;
   readonly onUnsnoozeThread: (thread: EnvironmentThreadShell) => void;
   readonly onUnsettleThread: (thread: EnvironmentThreadShell) => void;
   readonly onArchiveThread: (thread: EnvironmentThreadShell) => void;
   readonly onPinThread: (thread: EnvironmentThreadShell) => void;
   readonly onUnpinThread: (thread: EnvironmentThreadShell) => void;
   readonly onSetThreadAutoSettle: (thread: EnvironmentThreadShell, enabled: boolean) => void;
+  readonly onSetThreadPhase: (
+    thread: EnvironmentThreadShell,
+    phase: OrchestrationV2ThreadPhase | null,
+  ) => void;
+  readonly onSetProjectContext: (thread: EnvironmentThreadShell, contextId: string | null) => void;
+  /** The environment's project contexts; stable across unrelated list updates. */
+  readonly contextSettings: ThreadListContextSettings | null;
   /** False on environments whose server predates thread.settle/unsettle:
       swipe + menu fall back to Archive instead of failing on use. */
   readonly settlementSupported: boolean;
@@ -648,8 +665,12 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     onPinThread,
     onUnpinThread,
     onSetThreadAutoSettle,
+    onSetThreadPhase,
+    onSetProjectContext,
   } = props;
   const snoozedRow = props.snoozed === true;
+  const parkedRow = snoozedRow && thread.snoozedUntil === null;
+  const context = resolveProjectContext(props.contextSettings, thread.projectId);
   const pinnedRow = props.pinned === true;
   const environmentConnected = useAtomValue(
     environmentPresentations.presentationAtom(thread.environmentId),
@@ -740,7 +761,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     setCustomSnoozeOpen(false);
   }
   const handleSnooze = useCallback(
-    (snoozedUntil: string) => onSnoozeThread(thread, snoozedUntil),
+    (snoozedUntil: string | null) => onSnoozeThread(thread, snoozedUntil),
     [onSnoozeThread, thread],
   );
   const handleUnsnooze = useCallback(() => onUnsnoozeThread(thread), [onUnsnoozeThread, thread]);
@@ -853,52 +874,104 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     ],
     [props.titleRegenerationSupported, thread.titleRegeneration],
   );
+  const labelMenuItems = useMemo<MenuAction[]>(
+    () => [
+      {
+        id: "phase",
+        title: "Phase",
+        image: "flag",
+        subactions: [
+          ...OrchestrationV2ThreadPhase.literals.map((phase): MenuAction => ({
+            id: `phase:${phase}`,
+            title: THREAD_PHASE_LABELS[phase],
+            state: thread.phase === phase ? "on" : "off",
+          })),
+          { id: "phase:none", title: "No phase", state: thread.phase === null ? "on" : "off" },
+        ],
+      },
+      ...(props.contextSettings !== null && props.contextSettings.projectContexts.length > 0
+        ? [
+            {
+              id: "context",
+              title: "Project context",
+              image: "tag",
+              subactions: [
+                ...props.contextSettings.projectContexts.map((option): MenuAction => ({
+                  id: `context:${option.id}`,
+                  title: option.name,
+                  state: context?.id === option.id ? "on" : "off",
+                })),
+                {
+                  id: "context:none",
+                  title: "No context",
+                  state: context === null ? "on" : "off",
+                },
+              ],
+            } satisfies MenuAction,
+          ]
+        : []),
+    ],
+    [context, props.contextSettings, thread.phase],
+  );
   const snoozableCardMenuActions = useMemo<MenuAction[]>(
     () => [
       { id: "settle", title: "Settle", image: "checkmark" },
+      { id: "park", title: "Park", image: "parkingsign.circle" },
       {
         id: "snooze",
         title: "Snooze",
         image: "clock",
         subactions: snoozePresetActions,
       },
+      ...labelMenuItems,
       ...arrangementMenuItems,
       ...titleMenuItems,
       ...autoSettleMenuItems,
       { id: "delete", title: "Delete", image: "trash", attributes: { destructive: true } },
     ],
-    [arrangementMenuItems, autoSettleMenuItems, snoozePresetActions, titleMenuItems],
+    [
+      arrangementMenuItems,
+      autoSettleMenuItems,
+      labelMenuItems,
+      snoozePresetActions,
+      titleMenuItems,
+    ],
   );
   const cardMenuActions = useMemo<MenuAction[]>(
     () => [
       CARD_MENU_ACTIONS[0]!,
+      ...labelMenuItems,
       ...arrangementMenuItems,
       ...titleMenuItems,
       ...autoSettleMenuItems,
       ...CARD_MENU_ACTIONS.slice(1),
     ],
-    [arrangementMenuItems, autoSettleMenuItems, titleMenuItems],
+    [arrangementMenuItems, autoSettleMenuItems, labelMenuItems, titleMenuItems],
   );
   // Settled and snoozed rows keep the setting too, matching web where every
   // row shares one menu builder.
   const slimMenuActions = useMemo<MenuAction[]>(
     () => [
       SLIM_MENU_ACTIONS[0]!,
+      ...labelMenuItems,
       ...arrangementMenuItems,
       ...titleMenuItems,
       ...autoSettleMenuItems,
       SLIM_MENU_ACTIONS[1]!,
     ],
-    [arrangementMenuItems, autoSettleMenuItems, titleMenuItems],
+    [arrangementMenuItems, autoSettleMenuItems, labelMenuItems, titleMenuItems],
   );
   const snoozedMenuActions = useMemo<MenuAction[]>(
     () => [
-      SNOOZED_MENU_ACTIONS[0]!,
+      parkedRow
+        ? { ...SNOOZED_MENU_ACTIONS[0]!, title: "Unpark thread" }
+        : SNOOZED_MENU_ACTIONS[0]!,
+      ...labelMenuItems,
       ...titleMenuItems,
       ...autoSettleMenuItems,
       SNOOZED_MENU_ACTIONS[1]!,
     ],
-    [autoSettleMenuItems, titleMenuItems],
+    [autoSettleMenuItems, labelMenuItems, parkedRow, titleMenuItems],
   );
   const legacyMenuActions = useMemo<MenuAction[]>(
     () => [
@@ -927,6 +1000,21 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         copyTextWithHaptic(thread.id, { target: "thread-id" });
       }
       if (nativeEvent.event === "delete") handleDelete();
+      if (nativeEvent.event === "park") handleSnooze(null);
+      if (nativeEvent.event.startsWith("phase:")) {
+        onSetThreadPhase(
+          thread,
+          OrchestrationV2ThreadPhase.literals.find(
+            (phase) => nativeEvent.event === `phase:${phase}`,
+          ) ?? null,
+        );
+        return;
+      }
+      if (nativeEvent.event.startsWith("context:")) {
+        const contextId = nativeEvent.event.slice("context:".length);
+        onSetProjectContext(thread, contextId === "none" ? null : contextId);
+        return;
+      }
       if (nativeEvent.event === "snooze:custom") {
         setCustomSnoozeOpen(true);
         return;
@@ -944,6 +1032,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     },
     [
       onNewThreadOnBranch,
+      onSetProjectContext,
+      onSetThreadPhase,
       thread,
       handleArchive,
       handleDelete,
@@ -974,9 +1064,9 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     }
     if (swipeActions.primary === "unsnooze") {
       return {
-        accessibilityLabel: `Wake ${thread.title} now`,
+        accessibilityLabel: parkedRow ? `Unpark ${thread.title}` : `Wake ${thread.title} now`,
         icon: "clock" as const,
-        label: "Wake",
+        label: parkedRow ? "Unpark" : "Wake",
         onPress: handleUnsnooze,
       };
     }
@@ -998,6 +1088,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     handleSettle,
     handleUnsettle,
     handleUnsnooze,
+    parkedRow,
     swipeActions.primary,
     thread.title,
   ]);
@@ -1009,9 +1100,12 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             icon: "clock" as const,
             label: "Snooze",
             menu: {
-              actions: snoozePresetActions,
+              actions: [
+                { id: "park", title: "Park", subtitle: "Until you pick it up" },
+                ...snoozePresetActions,
+              ],
               onPressAction: handleMenuAction,
-              title: "Snooze until",
+              title: "Park or snooze",
             },
             onPress: () => undefined,
           }
@@ -1038,6 +1132,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             workspaceRoot={props.project.workspaceRoot}
           />
         ) : null}
+        {context ? <ThreadContextDot context={context} /> : null}
         <Text
           className={cn(
             "flex-1 text-sm font-supacode-medium",
@@ -1049,6 +1144,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         >
           {props.projectTitle ?? props.project?.title ?? ""}
         </Text>
+        {thread.phase ? <ThreadPhasePips phase={thread.phase} /> : null}
         {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
         {pinnedRow ? (
           <SymbolView

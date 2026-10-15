@@ -45,7 +45,7 @@ describe("resolveDesktopAppBranding", () => {
         isDevelopment: false,
         appVersion: "0.0.28",
       }),
-      { baseName: "Supacode", stageLabel: null, displayName: "Supacode" },
+      { baseName: "Supadupacode", stageLabel: null, displayName: "Supadupacode" },
     );
   });
 
@@ -55,7 +55,7 @@ describe("resolveDesktopAppBranding", () => {
         isDevelopment: true,
         appVersion: "0.0.28",
       }),
-      { baseName: "Supacode", stageLabel: "Dev", displayName: "Supacode (Dev)" },
+      { baseName: "Supadupacode", stageLabel: "Dev", displayName: "Supadupacode (Dev)" },
     );
   });
 
@@ -65,7 +65,7 @@ describe("resolveDesktopAppBranding", () => {
         isDevelopment: false,
         appVersion: "0.0.28-nightly.20260616.12",
       }),
-      { baseName: "Supacode", stageLabel: "Nightly", displayName: "Supacode (Nightly)" },
+      { baseName: "Supadupacode", stageLabel: "Nightly", displayName: "Supadupacode (Nightly)" },
     );
   });
 });

@@ -420,27 +420,56 @@ describe("pageRecentThreads", () => {
 });
 
 describe("sortSnoozedThreadsByWake", () => {
+  const snoozedAt = "2026-03-08T10:00:00.000Z";
+
   it("puts the next wake at the bottom with stable ties across environments", () => {
     const threads = [
       {
         id: ThreadId.make("same"),
         environmentId: EnvironmentId.make("env-b"),
         snoozedUntil: "2026-03-09T10:00:00.000Z",
+        snoozedAt,
       },
       {
         id: ThreadId.make("later"),
         environmentId: EnvironmentId.make("env-a"),
         snoozedUntil: "2026-03-10T10:00:00.000Z",
+        snoozedAt,
       },
       {
         id: ThreadId.make("same"),
         environmentId: EnvironmentId.make("env-a"),
         snoozedUntil: "2026-03-09T10:00:00.000Z",
+        snoozedAt,
       },
     ];
     expect(
       sortSnoozedThreadsByWake(threads).map((thread) => `${thread.id}:${thread.environmentId}`),
     ).toEqual(["later:env-a", "same:env-a", "same:env-b"]);
+  });
+
+  it("keeps parked threads above timed ones, the latest park lowest", () => {
+    const environmentId = EnvironmentId.make("env-a");
+    const threads = [
+      {
+        id: ThreadId.make("timed"),
+        environmentId,
+        snoozedUntil: "2026-03-10T10:00:00.000Z",
+        snoozedAt,
+      },
+      {
+        id: ThreadId.make("parked-late"),
+        environmentId,
+        snoozedUntil: null,
+        snoozedAt: "2026-03-08T12:00:00.000Z",
+      },
+      { id: ThreadId.make("parked-early"), environmentId, snoozedUntil: null, snoozedAt },
+    ];
+    expect(sortSnoozedThreadsByWake(threads).map((thread) => thread.id)).toEqual([
+      "parked-early",
+      "parked-late",
+      "timed",
+    ]);
   });
 });
 

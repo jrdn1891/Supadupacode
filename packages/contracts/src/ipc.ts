@@ -1110,6 +1110,15 @@ export const DesktopPreviewRecordingSaveInputSchema = Schema.Struct({
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+export const DesktopBackstageItemSchema = Schema.Struct({
+  environmentId: Schema.String,
+  threadId: Schema.String,
+  title: Schema.String.check(Schema.isMaxLength(200)),
+  cue: Schema.Literals(["needs-you", "ready", "standby", "working"]),
+  detail: Schema.NullOr(Schema.String.check(Schema.isMaxLength(80))),
+});
+export type DesktopBackstageItem = typeof DesktopBackstageItemSchema.Type;
+
 export interface DesktopBridge {
   webLinks?: {
     setReady: (ready: boolean) => Promise<void>;
@@ -1124,6 +1133,12 @@ export interface DesktopBridge {
   getEnvironmentMachineIcons?: () => DesktopEnvironmentMachineIcons;
   setNotificationBadge?: (badge: { count: number; image: string | null }) => Promise<void>;
   onNotificationBadgeClear?: (listener: () => void) => () => void;
+  requestAttention?: (kind: "informational" | "critical") => Promise<void>;
+  performHaptic?: (pattern: "generic" | "alignment" | "level-change") => Promise<void>;
+  setBackstageSummary?: (items: ReadonlyArray<DesktopBackstageItem>) => Promise<void>;
+  onBackstageOpen?: (
+    listener: (thread: Pick<DesktopBackstageItem, "environmentId" | "threadId">) => void,
+  ) => () => void;
   onTrackpadScrollEnd?: (listener: () => void) => () => void;
   /**
    * The OS locale as a BCP-47 tag, which the renderer cannot read for itself:

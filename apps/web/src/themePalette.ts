@@ -1076,7 +1076,7 @@ const BUILT_IN_THEME_DEFINITIONS: ReadonlyArray<ThemeDefinition> = BUILT_IN_THEM
 // Resolve saved selections and appearance mixes without listing a second copy of Supacode.
 const LEGACY_GRAPHITE_THEME: ThemeDefinition = {
   id: "graphite",
-  label: "Supacode",
+  label: "Supadupacode",
   appearance: "light",
   colors: SUPACODE_LIGHT_THEME_COLORS,
   variants: { dark: SUPACODE_DARK_THEME_COLORS },

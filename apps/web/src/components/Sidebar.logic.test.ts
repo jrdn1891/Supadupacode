@@ -1954,7 +1954,7 @@ describe("navigation after parking a thread", () => {
           thread: {
             settledOverride,
             snoozedUntil,
-            snoozedAt: null,
+            snoozedAt: snoozedUntil === null ? null : "2026-09-12T09:30:00.000Z",
             session: null,
             latestTurn: null,
             hasPendingApprovals,
@@ -1964,6 +1964,26 @@ describe("navigation after parking a thread", () => {
       ).toBe(expected);
     },
   );
+
+  it("moves on after parking the open thread", () => {
+    expect(
+      shouldNavigateAfterThreadPark({
+        threadKey: "thread",
+        currentThreadKey: "thread",
+        action: "snooze",
+        now: "2026-09-12T10:00:00.000Z",
+        thread: {
+          settledOverride: null,
+          snoozedUntil: null,
+          snoozedAt: "2026-09-12T09:30:00.000Z",
+          session: null,
+          latestTurn: null,
+          hasPendingApprovals: false,
+          hasPendingUserInput: false,
+        },
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("unseen completion with background work", () => {
@@ -2119,6 +2139,29 @@ describe("Working shelf", () => {
         activeOrder: ["a1", "a2", "p1"],
       });
       expect(resolveSidebarDropVerb("active", "working")).toBeNull();
+    });
+
+    it("parks a row dropped into the Parked shelf when the thread can be put away", () => {
+      const withParked: readonly SidebarListItem[] = [
+        ...items.slice(0, -2),
+        marker("snoozed-header"),
+        row("z1", "snoozed"),
+        ...items.slice(-2),
+      ];
+      const target = resolveSidebarDropTarget(withParked, "a1", "z1");
+      expect(target?.section).toBe("snoozed");
+      expect(resolveSidebarDropVerb("active", "snoozed")).toBe("park");
+      const plan = (canPark: boolean) =>
+        planSidebarThreadDrop({
+          activeKey: "a1",
+          activeSection: "active",
+          canPark,
+          target: target!,
+          pinnedOrder: ["p1"],
+          pinnedKeysById: new Map(),
+        });
+      expect(plan(true)).toEqual({ kind: "park" });
+      expect(plan(false)).toEqual({ kind: "none" });
     });
 
     it("arranges the pinned rows it can write when another row's server cannot store an order", () => {

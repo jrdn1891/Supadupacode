@@ -219,8 +219,8 @@ describe("DesktopAppIdentity", () => {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
         yield* identity.configure;
 
-        assert.deepEqual(calls.setName, ["Supacode"]);
-        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, "Supacode");
+        assert.deepEqual(calls.setName, ["Supadupacode"]);
+        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, "Supadupacode");
         assert.equal(calls.setAboutPanelOptions[0]?.applicationVersion, "1.2.3");
         assert.equal(calls.setAboutPanelOptions[0]?.version, "0123456789ab");
         // Packaged: the bundle's own icon stands, so a custom one the user
@@ -240,17 +240,17 @@ describe("DesktopAppIdentity", () => {
   });
 
   it.effect.each([
-    { stage: "Stable", runtimeName: "Supacode", aboutName: "Supacode", environment: {} },
+    { stage: "Stable", runtimeName: "Supadupacode", aboutName: "Supadupacode", environment: {} },
     {
       stage: "Nightly",
-      runtimeName: "Supacode Nightly",
-      aboutName: "Supacode (Nightly)",
+      runtimeName: "Supadupacode Nightly",
+      aboutName: "Supadupacode (Nightly)",
       environment: { appVersion: "0.0.43-nightly.20260929.2428" },
     },
     {
       stage: "Dev",
-      runtimeName: "Supacode Dev",
-      aboutName: "Supacode (Dev)",
+      runtimeName: "Supadupacode Dev",
+      aboutName: "Supadupacode (Dev)",
       environment: { env: { VITE_DEV_SERVER_URL: "http://localhost:5173" } },
     },
   ])(

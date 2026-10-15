@@ -69,21 +69,21 @@ const RELEASE_ASSETS = {
 
 const VARIANT_CONFIG = {
   development: {
-    appName: "Supacode Dev",
+    appName: "Supadupacode Dev",
     scheme: "supacode-dev",
     iosBundleIdentifier: "com.supaterm.supacode.dev",
     androidPackage: "com.supaterm.supacode.dev",
     assets: DEVELOPMENT_ASSETS,
   },
   preview: {
-    appName: "Supacode Preview",
+    appName: "Supadupacode Preview",
     scheme: "supacode-preview",
     iosBundleIdentifier: "com.supaterm.supacode.preview",
     androidPackage: "com.supaterm.supacode.preview",
     assets: PREVIEW_ASSETS,
   },
   production: {
-    appName: "Supacode",
+    appName: "Supadupacode",
     scheme: "supacode",
     iosBundleIdentifier: "com.supaterm.supacode",
     androidPackage: "com.supaterm.supacode",

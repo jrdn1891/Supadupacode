@@ -104,6 +104,13 @@ function metadataCommand(input: {
         threadId: input.threadId,
         linkedPullRequest: null,
       };
+    case "set_phase":
+      return {
+        type: "thread.metadata.update",
+        commandId: input.commandId,
+        threadId: input.threadId,
+        phase: input.update.phase ?? null,
+      };
   }
 }
 
@@ -127,6 +134,7 @@ function resultFromThread(input: {
             startedAt: DateTime.formatIso(input.thread.titleRegeneration.startedAt),
           },
     linkedPullRequest: input.thread.linkedPullRequest ?? null,
+    phase: input.thread.phase ?? null,
     updatedAt: DateTime.formatIso(input.thread.updatedAt),
   };
 }

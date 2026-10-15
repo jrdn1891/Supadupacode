@@ -1,4 +1,9 @@
-import { CommandId, MessageId, type OrchestrationV2Command } from "@supacode/contracts";
+import {
+  CommandId,
+  MessageId,
+  orchestrationV2SnoozeHolds,
+  type OrchestrationV2Command,
+} from "@supacode/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -47,11 +52,7 @@ export function limitRecoveryCommand(
       },
     };
   }
-  if (
-    !recovery.autoResume ||
-    resetMs > nowMs ||
-    (thread.snoozedUntil != null && DateTime.toEpochMillis(thread.snoozedUntil) > nowMs)
-  )
+  if (!recovery.autoResume || resetMs > nowMs || orchestrationV2SnoozeHolds(thread, nowMs))
     return null;
   const deliveryIdentity = `${identity}:${recovery.requestId ?? "legacy"}`;
   return {

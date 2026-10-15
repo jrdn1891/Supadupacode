@@ -310,6 +310,9 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
           }
           command = { ...common, type: "thread.snooze", snoozedUntil: input.snoozedUntil };
           break;
+        case "park":
+          command = { ...common, type: "thread.snooze", snoozedUntil: null };
+          break;
         case "unsnooze":
         case "unsettle":
           command = { ...common, type: `thread.${input.action}`, reason: "user" };

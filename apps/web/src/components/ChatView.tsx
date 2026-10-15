@@ -302,6 +302,7 @@ import { resolveChatShortcutCommand, shortcutLabelForCommand } from "../keybindi
 import ThreadTerminalDrawer from "./ThreadTerminalDrawer";
 import {
   AlarmClockIcon,
+  SquareParkingIcon,
   CheckCircle2Icon,
   MessageCircleIcon,
   DownloadIcon,
@@ -552,6 +553,8 @@ import {
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
+import { useScenePane } from "../scene/ScenePaneContext";
+import { useSceneActions } from "../scene/useSceneActions";
 import {
   awaitAttachmentUploads,
   getUploadedAttachments,
@@ -1634,7 +1637,7 @@ export default function ChatView(props: ChatViewProps) {
   const canReadTerminal = useEnvironmentScope(environmentId, AuthTerminalReadScope);
   const draftId = routeKind === "draft" ? props.draftId : null;
   const handleNewThread = useNewThreadHandler();
-  const { settleThread, pinThread, confirmAndUnpinThread } = useThreadActions();
+  const { settleThread, pinThread, confirmAndUnpinThread, snoozeThread } = useThreadActions();
   const routeThreadRef = useMemo(
     () => scopeThreadRef(environmentId, threadId),
     [environmentId, threadId],
@@ -1909,6 +1912,13 @@ export default function ChatView(props: ChatViewProps) {
   const composerFilesRef = useRef<ComposerFileAttachment[]>([]);
   const composerTerminalContextsRef = useRef<TerminalContextDraft[]>([]);
   const composerRef = useChatComposerRef();
+  const {
+    paneId: scenePaneId,
+    focused: paneFocused,
+    split: paneSplit,
+    compact: paneCompact,
+  } = useScenePane();
+  const sceneActions = useSceneActions();
   const branchToolbarRef = useRef<BranchToolbarHandle>(null);
   const pasteAsTextShortcutUntilRef = useRef(0);
   const [restingComposerControlsHost, setRestingComposerControlsHost] =
@@ -2008,7 +2018,8 @@ export default function ChatView(props: ChatViewProps) {
   >({});
   const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
     useState<Record<string, number>>({});
-  const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
+  const shouldUsePlanSidebarSheet =
+    useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY) || paneCompact;
   const isMobileViewport = useMediaQuery("max-sm");
   const threadPanelPopoverAnchorRef = useRef<HTMLElement | null>(null);
   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
@@ -4249,7 +4260,7 @@ export default function ChatView(props: ChatViewProps) {
     remoteOpenMode: remoteOpenState.mode,
   });
   useOpenFavoriteEditorShortcut({
-    enabled: showOpenInPicker,
+    enabled: showOpenInPicker && paneFocused,
     environmentId: activeThread?.environmentId ?? environmentId,
     keybindings,
     availableEditors,
@@ -6375,13 +6386,12 @@ export default function ChatView(props: ChatViewProps) {
       },
     );
   }, []);
-  useEffect(
-    () =>
-      subscribePreviewAction((action) => {
-        if (action === "toggle-panel") togglePreviewPanel();
-      }),
-    [togglePreviewPanel],
-  );
+  useEffect(() => {
+    if (!paneFocused) return;
+    return subscribePreviewAction((action) => {
+      if (action === "toggle-panel") togglePreviewPanel();
+    });
+  }, [paneFocused, togglePreviewPanel]);
   const persistThreadSettingsForNextTurn = useCallback(
     async (input: {
       threadId: ThreadId;
@@ -6983,7 +6993,8 @@ export default function ChatView(props: ChatViewProps) {
   // terminal is a surface and is recognized by the predicate instead. Mobile is left alone so
   // returning to the app does not raise the keyboard.
   useEffect(() => {
-    if (!activeThread?.id || terminalUiState.terminalOpen || isMobileViewport) return;
+    if (!paneFocused || !activeThread?.id || terminalUiState.terminalOpen || isMobileViewport)
+      return;
     let frame: number | null = null;
     const onWindowFocus = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
@@ -7004,7 +7015,13 @@ export default function ChatView(props: ChatViewProps) {
       window.removeEventListener("focus", onWindowFocus);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
-  }, [activeThread?.id, focusComposer, isMobileViewport, terminalUiState.terminalOpen]);
+  }, [
+    activeThread?.id,
+    focusComposer,
+    isMobileViewport,
+    paneFocused,
+    terminalUiState.terminalOpen,
+  ]);
 
   useEffect(() => {
     if (!activeThread?.id) return;
@@ -7788,13 +7805,21 @@ export default function ChatView(props: ChatViewProps) {
     const nowMs = Date.parse(`${nowMinute}:00.000Z`);
     return activeThreadSnoozed ? (
       <ThreadStatusLine
-        icon={<AlarmClockIcon />}
+        icon={activeSnoozedUntil ? <AlarmClockIcon /> : <SquareParkingIcon />}
         label={
           activeSnoozedUntil
             ? `Snoozed, ${formatRelativeTimeUntilLabel(activeSnoozedUntil, nowMs)}`
-            : "Snoozed"
+            : "Parked"
         }
-        actionLabel={isUnsnoozing ? "Waking..." : "Wake now"}
+        actionLabel={
+          activeSnoozedUntil
+            ? isUnsnoozing
+              ? "Waking..."
+              : "Wake now"
+            : isUnsnoozing
+              ? "Unparking..."
+              : "Unpark"
+        }
         actionDisabled={!canOperateThread || isUnsnoozing}
         onAction={() => void handleUnsnoozeActiveThread()}
       />
@@ -8166,6 +8191,7 @@ export default function ChatView(props: ChatViewProps) {
   const closeThreadFind = useCallback(() => threadFindControlsRef.current?.close(), []);
 
   useEffect(() => {
+    if (!paneFocused) return;
     const handler = (event: globalThis.KeyboardEvent) => {
       if (preventRepeatedTerminalCloseShortcut(event, keybindings)) {
         event.stopPropagation();
@@ -8235,6 +8261,29 @@ export default function ChatView(props: ChatViewProps) {
             stackedThreadToast({
               type: "error",
               title: "Failed to settle thread",
+              description: error instanceof Error ? error.message : "An error occurred.",
+            }),
+          );
+        });
+        return;
+      }
+
+      if (command === "thread.park") {
+        if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isServerThread || !activeThreadRef || !supportsSnooze || event.repeat) return;
+        if (activeThreadSnoozed) {
+          void handleUnsnoozeActiveThread();
+          return;
+        }
+        void snoozeThread(activeThreadRef, null).then((result) => {
+          if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
+          const error = squashAtomCommandFailure(result);
+          toastManager.add(
+            stackedThreadToast({
+              type: "error",
+              title: "Failed to park thread",
               description: error instanceof Error ? error.message : "An error occurred.",
             }),
           );
@@ -8491,6 +8540,7 @@ export default function ChatView(props: ChatViewProps) {
       window.removeEventListener("keydown", dismissFind);
     };
   }, [
+    paneFocused,
     activeProject,
     activeRightPanelSurface,
     activeProjectScripts,
@@ -8515,14 +8565,18 @@ export default function ChatView(props: ChatViewProps) {
     keybindings,
     scriptKeybindings,
     handleUnsettleActiveThread,
+    handleUnsnoozeActiveThread,
+    activeThreadSnoozed,
     isServerThread,
     serverConfig?.threadFind,
     onInterrupt,
     onToggleDiff,
     pinThread,
     settleThread,
+    snoozeThread,
     supportsPinning,
     supportsSettlement,
+    supportsSnooze,
     confirmAndUnpinThread,
     copyActiveThreadReference,
     forkDisabled,
@@ -8548,16 +8602,18 @@ export default function ChatView(props: ChatViewProps) {
   ]);
 
   useEffect(() => {
+    if (!paneFocused) return;
     return window.desktopBridge?.onMenuAction((action) => {
       if (action === "rightPanel.toggle") toggleRightPanel();
       else if (action === "rightPanel.toggleMaximized") toggleRightPanelMaximized();
     });
-  }, [toggleRightPanel, toggleRightPanelMaximized]);
+  }, [paneFocused, toggleRightPanel, toggleRightPanelMaximized]);
 
   // Paste-to-focus: the resting composer blurs on a click into the timeline,
   // so a paste that follows has no editable target and would be dropped.
   // Route it to the composer like a typed key, which also expands it.
   useEffect(() => {
+    if (!paneFocused) return;
     const keyHandler = (event: KeyboardEvent) => {
       if (
         shouldRedirectInputToComposer(event) &&
@@ -8590,7 +8646,7 @@ export default function ChatView(props: ChatViewProps) {
       window.removeEventListener("keydown", keyHandler, true);
       window.removeEventListener("paste", handler, true);
     };
-  }, [activeThreadId, composerRef]);
+  }, [activeThreadId, composerRef, paneFocused]);
 
   const [pendingRevert, setPendingRevert] = useState<{
     turnCount: number;
@@ -9567,8 +9623,11 @@ export default function ChatView(props: ChatViewProps) {
       if (isLocalDraftThread && multipleModelSelections === null)
         markPromotedDraftThreadByRef(scopeThreadRef(environmentId, threadIdForSend));
       clearUsageLimitsFor(routeThreadKey);
-      if (submissionIntent === "background") handleNewThreadInActiveProject();
-      else if (isLocalDraftThread && targets[0]) {
+      if (submissionIntent === "background") {
+        if (paneSplit && scenePaneId !== null && !isLocalDraftThread)
+          sceneActions.close(scenePaneId);
+        else handleNewThreadInActiveProject();
+      } else if (isLocalDraftThread && targets[0]) {
         void navigate({
           to: "/$environmentId/$threadId",
           params: { environmentId, threadId: targets[0].threadId },

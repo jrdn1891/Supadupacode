@@ -211,6 +211,23 @@ describe("isAutoSettlementCandidate", () => {
       ),
     ).toBe(true);
   });
+
+  it("keeps a thread parked without a wake time until it fails", () => {
+    const parked = shell({ snoozedUntil: null, snoozedAt: at(-60 * 60 * 1_000) });
+    expect(ThreadSettlementService.isAutoSettlementCandidate(parked, NOW_MS)).toBe(false);
+    expect(
+      ThreadSettlementService.isAutoSettlementCandidate(
+        shell({ ...parked, latestRunCompletedAt: at(-30 * 60 * 1_000) }),
+        NOW_MS,
+      ),
+    ).toBe(false);
+    expect(
+      ThreadSettlementService.isAutoSettlementCandidate(
+        shell({ ...parked, status: "failed", latestRunCompletedAt: at(-30 * 60 * 1_000) }),
+        NOW_MS,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("threadHasQueuedTurnStart", () => {
@@ -1504,6 +1521,23 @@ describe("isSnoozed", () => {
     ).toBe(false);
     expect(
       ThreadSettlementService.isSnoozed(shell({ ...snoozed, snoozedUntil: at(-1) }), NOW_MS),
+    ).toBe(false);
+  });
+
+  it("keeps a park without a wake time through completed work", () => {
+    const parked = { snoozedAt: at(-2 * DAY_MS), snoozedUntil: null };
+    expect(ThreadSettlementService.isSnoozed(shell(parked), NOW_MS)).toBe(true);
+    expect(
+      ThreadSettlementService.isSnoozed(
+        shell({ ...parked, status: "completed", latestRunCompletedAt: at(-DAY_MS) }),
+        NOW_MS,
+      ),
+    ).toBe(true);
+    expect(
+      ThreadSettlementService.isSnoozed(
+        shell({ ...parked, status: "failed", latestRunCompletedAt: at(-DAY_MS) }),
+        NOW_MS,
+      ),
     ).toBe(false);
   });
 });

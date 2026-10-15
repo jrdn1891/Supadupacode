@@ -122,6 +122,7 @@ import {
 import { searchableSetting } from "./settingsSearch";
 import { OrchestrationSkillsSettings } from "./OrchestrationSkillsSettings";
 import { AgentBrowserAccessRow } from "./ProjectDefaultsSettings";
+import { APP_BASE_NAME } from "../../branding";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { BrowserImportWizard, type WizardTarget } from "./BrowserImportWizard";
 import type { ImportOutcome } from "./browserImportWizard.logic";
@@ -570,7 +571,7 @@ function BrowserRecordingFrameRateSetting({ disabled }: { readonly disabled: boo
 
 const LINK_TARGET_LABELS: Readonly<Record<BrowserLinkTarget, string>> = {
   system: "Your default browser",
-  app: "Supacode",
+  app: APP_BASE_NAME,
 };
 
 function BrowserLinkTargetSetting({ disabled }: { readonly disabled: boolean }) {

@@ -54,6 +54,7 @@ import {
   type FilesystemBrowseResult,
   type ProjectId,
   type SourceControlDiscoveryResult,
+  type ThreadId,
   SourceControlProviderKind,
   type SourceControlRepositoryInfo,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
@@ -62,6 +63,7 @@ import {
 import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
   CalendarClockIcon,
   ChartNoAxesColumnIcon,
   CheckIcon,
@@ -84,6 +86,9 @@ import {
   SquarePenIcon,
   SunIcon,
   TextSearchIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+  XIcon,
 } from "lucide-react";
 import { requestThreadFindOpen } from "./chat/threadFindActionBus";
 import {
@@ -254,6 +259,9 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { ComposerHandleContext, useComposerHandleContext } from "../composerHandleContext";
 import type { ChatComposerHandle } from "./chat/ChatComposer";
 import { getProjectOrderKey, selectProjectGroupingSettings } from "../logicalProject";
+import { scenePanes } from "../scene/scene.logic";
+import { useSceneStore } from "../scene/sceneStore";
+import { useSceneActions } from "../scene/useSceneActions";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import {
   buildSidebarProjectPickerEntries,
@@ -264,6 +272,8 @@ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { readPullRequestListPreferences } from "~/components/pullRequest/pullRequestListPreferences";
 
 const EMPTY_BROWSE_ENTRIES: FilesystemBrowseResult["entries"] = [];
+
+let paletteOptionHeld = false;
 
 function getEnvironmentBrowsePlatform(os: string | null | undefined): string {
   if (os === "windows") {
@@ -686,6 +696,34 @@ function OpenCommandPaletteDialog(props: {
       activeThreadRef !== null && store.rewindingThreadKeys.has(scopedThreadKey(activeThreadRef)),
   );
   const { onForkFromRun, disabled: forkDisabled } = useForkThread(activeThread, isRewinding);
+  const sceneActions = useSceneActions();
+  useEffect(() => {
+    const record = (event: globalThis.KeyboardEvent | globalThis.PointerEvent) => {
+      paletteOptionHeld = event.altKey;
+    };
+    window.addEventListener("keydown", record, true);
+    window.addEventListener("pointerdown", record, true);
+    return () => {
+      window.removeEventListener("keydown", record, true);
+      window.removeEventListener("pointerdown", record, true);
+    };
+  }, []);
+  const openThread = useCallback(
+    async (thread: { readonly environmentId: EnvironmentId; readonly id: ThreadId }) => {
+      const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+      if (paletteOptionHeld) {
+        sceneActions.open({ kind: "server", threadRef }, "right");
+        return;
+      }
+      await navigate({
+        to: "/$environmentId/$threadId",
+        params: buildThreadRouteParams(threadRef),
+      });
+    },
+    [navigate, sceneActions],
+  );
+  const sceneSplit = useSceneStore((state) => scenePanes(state.scene).length > 1);
+  const sceneSpotlit = useSceneStore((state) => state.scene.spotlightPaneId !== null);
   const forkSource =
     activeThreadProjection === null
       ? null
@@ -1426,17 +1464,12 @@ function OpenCommandPaletteDialog(props: {
               }
             : undefined;
         },
-        runThread: async (thread) => {
-          await navigate({
-            to: "/$environmentId/$threadId",
-            params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, thread.id)),
-          });
-        },
+        runThread: openThread,
       }),
     [
       activeThreadId,
       clientSettings.sidebarThreadSortOrder,
-      navigate,
+      openThread,
       projectByKey,
       projectEnvironmentLocationById,
       projectTitleById,
@@ -2073,6 +2106,51 @@ function OpenCommandPaletteDialog(props: {
         };
   if (forkThreadItem !== null) actionItems.push(forkThreadItem);
 
+  if (activeThreadId && sceneSplit) {
+    actionItems.push(
+      {
+        kind: "action",
+        value: "action:scene-spotlight",
+        searchTerms: ["spotlight", "focus mode", "full screen", "stage", "pane"],
+        title: sceneSpotlit ? "Return to the stage" : "Spotlight thread",
+        icon: sceneSpotlit ? (
+          <Minimize2Icon className={ITEM_ICON_CLASS} />
+        ) : (
+          <Maximize2Icon className={ITEM_ICON_CLASS} />
+        ),
+        shortcutCommand: "stage.toggleSpotlight",
+        run: async () => sceneActions.toggleFocusedSpotlight(),
+      },
+      {
+        kind: "action",
+        value: "action:scene-close-pane",
+        searchTerms: ["close", "pane", "stage", "split"],
+        title: "Close pane",
+        icon: <XIcon className={ITEM_ICON_CLASS} />,
+        shortcutCommand: "stage.closePane",
+        run: async () => sceneActions.closeFocused(),
+      },
+      {
+        kind: "action",
+        value: "action:scene-focus-next",
+        searchTerms: ["next", "pane", "stage", "focus"],
+        title: "Focus next pane",
+        icon: <ArrowRightIcon className={ITEM_ICON_CLASS} />,
+        shortcutCommand: "stage.focusNext",
+        run: async () => sceneActions.focusAdjacent(1),
+      },
+      {
+        kind: "action",
+        value: "action:scene-focus-previous",
+        searchTerms: ["previous", "pane", "stage", "focus"],
+        title: "Focus previous pane",
+        icon: <ArrowLeftIcon className={ITEM_ICON_CLASS} />,
+        shortcutCommand: "stage.focusPrevious",
+        run: async () => sceneActions.focusAdjacent(-1),
+      },
+    );
+  }
+
   if (
     activeThread !== null &&
     threadPullRequestLinkMode(activeThreadServerConfig?.environment.capabilities) !== "unsupported"
@@ -2475,12 +2553,7 @@ function OpenCommandPaletteDialog(props: {
             ...linkedThreadSearch.linkedThreads,
             query: linkedThreadSearch.query,
             icon: <MessageSquareIcon className={ITEM_ICON_CLASS} />,
-            runThread: async (thread) => {
-              await navigate({
-                to: "/$environmentId/$threadId",
-                params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, thread.id)),
-              });
-            },
+            runThread: openThread,
           })
         : allThreadItems,
   });

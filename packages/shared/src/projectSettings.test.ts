@@ -14,6 +14,8 @@ import {
   hasProjectSettingsOverrides,
   projectSettingsOverridesForWrite,
   resolveNewThreadEnvMode,
+  projectContextPatch,
+  resolveProjectContext,
   resolveProjectFileBackedSetting,
   resolveProjectSettings,
   resolveWorktreeCleanup,
@@ -187,6 +189,45 @@ describe("resolveProjectSettings", () => {
     expect(
       resolveProjectSettings(settings, projectId).settings.textGenerationModelSelection.instanceId,
     ).toBe(codexWork);
+  });
+});
+
+describe("resolveProjectContext", () => {
+  const work = { id: "work", name: "Work", color: "sky" } as const;
+  const side = { id: "side", name: "Side", color: "amber" } as const;
+  const settings = {
+    ...DEFAULT_SERVER_SETTINGS,
+    projectContexts: [work, side],
+    projectContext: "work",
+    projectSettingsOverrides: {
+      [projectId]: { projectContext: "side" },
+      [otherProjectId]: { projectContext: null },
+    },
+  };
+
+  it("prefers the project's own context, including none, over the environment default", () => {
+    expect(resolveProjectContext(settings, projectId)).toEqual(side);
+    expect(resolveProjectContext(settings, otherProjectId)).toBe(null);
+    expect(resolveProjectContext(settings, ProjectId.make("project-c"))).toEqual(work);
+    expect(resolveProjectContext(settings, null)).toEqual(work);
+  });
+
+  it("ignores a context that no longer exists", () => {
+    expect(resolveProjectContext({ ...settings, projectContexts: [side] }, null)).toBe(null);
+  });
+
+  it("writes a project's context and inherits again when it matches the default", () => {
+    const withWork = applyServerSettingsPatch(
+      settings,
+      projectContextPatch(settings, projectId, "work"),
+    );
+    expect(withWork.projectSettingsOverrides[projectId]).toBeUndefined();
+    expect(resolveProjectContext(withWork, projectId)).toEqual(work);
+    const withNone = applyServerSettingsPatch(
+      withWork,
+      projectContextPatch(withWork, projectId, null),
+    );
+    expect(resolveProjectContext(withNone, projectId)).toBe(null);
   });
 });
 

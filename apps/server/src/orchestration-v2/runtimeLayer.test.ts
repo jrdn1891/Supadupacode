@@ -4618,6 +4618,113 @@ it.layer(layerSharedApplicationDataPlaneTest)("snooze projection", (it) => {
     }),
   );
 
+  it.effect("parks a thread without a wake time until the user writes to it", () =>
+    Effect.gen(function* () {
+      const projects = yield* ProjectService.ProjectService;
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const projectId = ProjectId.make("runtime-layer-parked-project");
+      const threadId = ThreadId.make("runtime-layer-parked-thread");
+
+      yield* projects.create({
+        commandId: CommandId.make("runtime-layer-parked-project-create"),
+        projectId,
+        title: "Parked shell projection",
+        workspaceRoot: "/tmp/runtime-layer-parked-project",
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("runtime-layer-parked-thread-create"),
+        threadId,
+        projectId,
+        title: "Parked thread",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.snooze",
+        commandId: CommandId.make("runtime-layer-parked-thread-park"),
+        threadId,
+        snoozedUntil: null,
+      });
+      const parked = yield* orchestrator.getThreadProjection(threadId);
+      assert.isNull(parked.thread.snoozedUntil);
+      assert.isNotNull(parked.thread.snoozedAt);
+
+      yield* orchestrator.dispatch({
+        type: "thread.snooze",
+        commandId: CommandId.make("runtime-layer-parked-thread-park-again"),
+        threadId,
+        snoozedUntil: null,
+      });
+      const shell = yield* orchestrator.getShellSnapshot();
+      const thread = shell.threads.find((candidate) => candidate.id === threadId);
+      assert.isDefined(thread);
+      assert.isNull(thread.snoozedUntil);
+      assert.deepEqual(thread.snoozedAt, parked.thread.snoozedAt);
+      assert.deepEqual(thread.updatedAt, parked.thread.updatedAt);
+
+      yield* orchestrator.dispatch({
+        type: "message.dispatch",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("runtime-layer-parked-message"),
+        threadId,
+        messageId: MessageId.make("runtime-layer-parked-message"),
+        text: "Picking this back up.",
+        attachments: [],
+        modelSelection,
+        dispatchMode: { type: "start_immediately" },
+      });
+      const resumed = yield* orchestrator.getThreadProjection(threadId);
+      assert.isNull(resumed.thread.snoozedUntil);
+      assert.isNull(resumed.thread.snoozedAt);
+    }),
+  );
+
+  it.effect("sets and clears a thread's phase", () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const threadId = ThreadId.make("runtime-layer-phase-thread");
+
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("runtime-layer-phase-thread-create"),
+        threadId,
+        projectId: ProjectId.make("runtime-layer-phase-project"),
+        title: "Phased thread",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.metadata.update",
+        commandId: CommandId.make("runtime-layer-phase-thread-build"),
+        threadId,
+        phase: "build",
+      });
+      const building = yield* orchestrator.getShellSnapshot();
+      assert.equal(building.threads.find((thread) => thread.id === threadId)?.phase, "build");
+
+      yield* orchestrator.dispatch({
+        type: "thread.metadata.update",
+        commandId: CommandId.make("runtime-layer-phase-thread-clear"),
+        threadId,
+        phase: null,
+      });
+      const cleared = yield* orchestrator.getThreadProjection(threadId);
+      assert.isNull(cleared.thread.phase);
+    }),
+  );
+
   it.effect("clears snooze state when settling a snoozed thread", () =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;

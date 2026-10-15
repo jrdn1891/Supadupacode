@@ -81,13 +81,12 @@ returns it to the usual settlement rules, and settling a pinned thread removes i
 On web and desktop, drag a thread between sections to change its state. Drag a thread up into
 the pinned section to pin it at the spot you drop it; drag a pinned thread down into the active
 list to unpin it. Dragging a thread onto the **Settled** header settles it, and dragging a settled
-thread into the active list un-settles it. A snoozed thread can be dragged out of the snoozed
-shelf, which wakes it, but threads cannot be dragged into the shelf because snoozing needs a wake
-time. Dragging a pinned thread out of the pinned section does not ask for unpin confirmation.
+thread into the active list un-settles it. Dragging a thread into the **Parked** shelf parks it, and
+dragging one out wakes it. To snooze until a set time, use **Snooze** from the thread's menu. Dragging a pinned thread out of the pinned section does not ask for unpin confirmation.
 Pinned and active boundary labels appear only while dragging, without moving the rows. The
 other rows slide aside to show where the thread will land. When you cross into another section,
 the dragged thread shows the action the drop performs, with its icon: **Pin**, **Unpin**,
-**Settle**, **Un-settle**, or **Wake**. Its status and hover actions hide during the drag. A pinned
+**Settle**, **Un-settle**, **Wake**, or **Park**. Its status and hover actions hide during the drag. A pinned
 thread keeps its pin only while it stays in the pinned section; once it leaves, the badge takes
 over. Reordering within the same section shows no badge. When there are no pins, drag to the top
 edge to pin a thread. Section labels stay readable for the whole drag, and the section the
@@ -98,7 +97,7 @@ Drag within the pinned section to change its order. Other rows slide aside to sh
 the thread will land. On mobile, open a thread's menu and choose **Arrange threads**. Drag a
 handle within **Pinned** to reorder, or between **Pinned** and **Active** to pin or unpin. Drop
 onto the **Settled** divider to settle a thread. The dragged card shows the action before you
-release it. Expand **Snoozed** or **Settled** to drag a parked thread back into either live
+release it. Expand **Parked** or **Settled** to drag a thread back into either live
 section. Each drop saves; **Done** returns to the thread list. The server saves the pinned order,
 so it survives a refresh and appears on your other connected devices.
 
@@ -233,9 +232,75 @@ Expand a tool call in the conversation to see its full command and output.
 Summaries shorten shell wrappers and can still describe the latest call after it
 finishes; the call's own result shows its status.
 
-## Snooze until later
+## Work side by side
 
-Choose **Snooze → Custom…** from a thread's menu to pick a date and time in your
-local time zone, or a duration in minutes, hours, or days. Durations start when
-you confirm; one day means 24 hours. On web and desktop, you can also snooze
-several selected threads together. Choose **Wake thread** to bring a thread back early.
+On web and desktop, put as many threads on the stage as you like. Choose **Open beside** or
+**Open below** from a thread's menu in the sidebar, or Option-click a thread (Option-Shift-click
+for below). The focused pane is the one the address bar, shortcuts, and pasted text follow;
+click a pane to focus it, or press `mod+alt+arrowright` and `mod+alt+arrowleft` to move between
+panes. Clicking a thread in the sidebar shows it in the focused pane, or focuses the pane that
+already shows it. Threads on the stage keep a light highlight in the sidebar. In the command
+palette, press Option-Enter on a thread to open it beside.
+
+You can also drag a thread from the sidebar onto the stage. Drop it near a pane's edge to open it
+on that side, or in the middle to show it in that pane instead. To rearrange the stage, drag a
+pane by the grip in its header onto another pane the same way; dropping in the middle swaps the
+two. Flick a pane's grip downward to send it off the stage. Parking or settling a thread also
+takes it off the stage.
+
+To give one thread the whole stage, choose **Spotlight** in its header or press `mod+alt+s`.
+While in Spotlight, moving to another pane spotlights that one instead; press `mod+alt+s` again
+to bring every pane back. Close a pane with its **×** or `mod+alt+w`. The stage is remembered
+when you reload.
+
+## Backstage
+
+A thread that is running but not on the stage is backstage. On web and desktop, a bar under the
+stage lists each one with a cue light: gray while it works, amber on its last step, green when it
+has finished, and red when it needs you for an approval, a question, or an error. If the agent
+keeps a todo list, the chip shows how many steps are done; otherwise it shows how long the agent
+has been working. Click a chip to bring the thread on stage, or drag it onto a pane to place it.
+Move the pointer over a finished chip and choose **×** to dismiss it.
+
+On macOS, the desktop app also lists backstage threads in the menu bar, with the count and the
+most urgent cue as the item's title. Choose a thread there to bring it on stage. On a Force Touch
+trackpad, the trackpad gives a light tap as a dragged thread or pane snaps to a drop zone, and a
+firmer one when you send a pane backstage.
+
+On iPhone and iPad, a **Backstage** card at the top of the thread list sums up the same threads,
+such as "1 needs you · 2 working". Tap it to list them, then tap one to open it. The phone gives
+a haptic tap when a backstage thread finishes or needs you.
+
+To send a thread backstage, choose the arrow in its pane header, flick the pane's grip down, or
+drag the pane onto the bar. In a pane on a split stage, `mod+alt+enter` sends your message and
+sends the pane backstage in one step; with a single thread it still starts a new thread.
+
+Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
+General → Threads** to get a toast with **Bring on stage** when a backstage thread finishes or
+needs you. With system notifications on, the desktop app also bounces its Dock icon, or flashes
+the taskbar button on Windows and Linux.
+
+## Park or snooze for later
+
+Choose **Park thread** from a thread's menu, or press `mod+alt+p` on web and desktop, to put
+a thread away until you pick it back up. It moves to the **Parked** shelf and never settles on
+its own. A thread that is still running finishes quietly and stays parked; an approval, a
+question, or an error brings it back. Choose **Unpark thread**, or send it a message, to return
+it to your active work.
+
+To have a thread come back at a set time, choose **Snooze** and a time instead, or
+**Snooze → Custom…** to pick a date and time in your local time zone, or a duration in
+minutes, hours, or days. Durations start when you confirm; one day means 24 hours. Snoozed
+threads wait in the **Parked** shelf with the time they return. Choose **Wake thread** to bring
+one back early. On web and desktop, you can also park or snooze several selected threads together.
+
+## Phase and project context
+
+Choose **Phase** from a thread's menu to mark where the work stands: **Explore**, **Build**, or
+**Ready**. Rows show the phase as three small bars, filled up to the current one. Agents can set
+a thread's phase too.
+
+To tell work apart at a glance, add contexts such as Work and Side under **Contexts** in
+**Settings → General** on web and desktop. Then choose **Project context** from a thread's
+menu, or set **Project context** in settings for one project or as an environment's default.
+Every thread in that project shows the context's color in the sidebar.

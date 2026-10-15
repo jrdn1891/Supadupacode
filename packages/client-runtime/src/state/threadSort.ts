@@ -76,17 +76,28 @@ export function pageRecentThreads<T>(
 }
 
 export function sortSnoozedThreadsByWake<
-  T extends Pick<EnvironmentThreadShell, "id" | "environmentId" | "snoozedUntil">,
+  T extends Pick<EnvironmentThreadShell, "id" | "environmentId" | "snoozedUntil" | "snoozedAt">,
 >(threads: readonly T[]): T[] {
-  const timestamps = new Map(
-    threads.map((thread) => [thread, toSortableTimestamp(thread.snoozedUntil ?? undefined) ?? 0]),
+  const keys = new Map(
+    threads.map((thread) => [
+      thread,
+      {
+        wake: toSortableTimestamp(thread.snoozedUntil ?? undefined) ?? Number.POSITIVE_INFINITY,
+        parked: toSortableTimestamp(thread.snoozedAt ?? undefined) ?? 0,
+      },
+    ]),
   );
-  return [...threads].sort(
-    (left, right) =>
-      timestamps.get(right)! - timestamps.get(left)! ||
+  return [...threads].sort((left, right) => {
+    const leftKey = keys.get(left)!;
+    const rightKey = keys.get(right)!;
+    return (
+      (leftKey.wake === rightKey.wake
+        ? leftKey.parked - rightKey.parked
+        : rightKey.wake - leftKey.wake) ||
       left.id.localeCompare(right.id) ||
-      left.environmentId.localeCompare(right.environmentId),
-  );
+      left.environmentId.localeCompare(right.environmentId)
+    );
+  });
 }
 
 function getFirstSortableTimestamp(...values: Array<string | null | undefined>): number | null {

@@ -64,11 +64,13 @@ function SheetPopup({
   transitionDurationMs,
   side = "right",
   variant = "default",
+  container,
   style,
   ...props
 }: SheetPrimitive.Popup.Props & {
   showCloseButton?: boolean;
   keepMounted?: boolean;
+  container?: HTMLElement | null;
   transitionDurationMs?: number;
   side?: "right" | "left" | "top" | "bottom";
   variant?: "default" | "inset";
@@ -80,7 +82,7 @@ function SheetPopup({
   const instant = transitionDurationMs === 0;
 
   return (
-    <SheetPortal keepMounted={keepMounted}>
+    <SheetPortal keepMounted={keepMounted} container={container}>
       <SheetBackdrop
         className={
           instant

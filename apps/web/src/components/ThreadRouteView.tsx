@@ -1,13 +1,11 @@
 import { scopedThreadKey } from "@supacode/client-runtime/environment";
 import type { ScopedThreadRef } from "@supacode/contracts";
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import ChatView from "./ChatView";
 import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
 import { waitForDraftHeroTransition } from "./chat/draftHeroTransition";
 import { ThreadTimelineLoading } from "./chat/ThreadTimelineLoading";
-import { SidebarInset } from "./ui/sidebar";
 import {
   finalizePromotedDraftThreadByRef,
   markPromotedDraftThreadByRef,
@@ -21,7 +19,6 @@ import { environmentShell } from "../state/shell";
 import { usePendingThreadCreation, useThreadOutboxLoaded } from "../state/threadOutbox";
 import { scopeThreadRef } from "@supacode/client-runtime/environment";
 import {
-  buildThreadRouteParams,
   isThreadRouteSnapshotAuthoritative,
   resolveThreadRouteRenderState,
   type ThreadRouteTarget,
@@ -40,8 +37,14 @@ import {
  * Rendered by the `_chat` layout rather than by the two leaf routes, since
  * an element only survives a route swap when the same parent renders it.
  */
-export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
-  const navigate = useNavigate();
+export function ThreadRouteView({
+  target,
+  onLeave,
+}: {
+  target: ThreadRouteTarget;
+  onLeave: (target: ThreadRouteTarget | null) => void;
+}) {
+  const leave = useEffectEvent(onLeave);
   const draftId = target.kind === "draft" ? target.draftId : null;
   const draftSession = useComposerDraftStore((store) =>
     draftId === null ? null : store.getDraftSession(draftId),
@@ -141,23 +144,19 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       if (cancelled) {
         return;
       }
-      void navigate({
-        to: "/$environmentId/$threadId",
-        params: buildThreadRouteParams(canonicalThreadRef),
-        replace: true,
-      });
+      leave({ kind: "server", threadRef: canonicalThreadRef });
     });
     return () => {
       cancelled = true;
     };
-  }, [canonicalThreadRef, navigate]);
+  }, [canonicalThreadRef]);
 
   useEffect(() => {
     if (target.kind !== "draft" || draftSession || canonicalThreadRef) {
       return;
     }
-    void navigate({ to: "/", replace: true });
-  }, [canonicalThreadRef, draftSession, navigate, target.kind]);
+    leave(null);
+  }, [canonicalThreadRef, draftSession, target.kind]);
 
   useEffect(() => {
     if (target.kind !== "server" || !bootstrapComplete) {
@@ -170,10 +169,10 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       const { clearPendingFileDropsForThread } = useSidebarPendingFileDropStore.getState();
       clearPendingFileDropsForThread(target.threadRef);
       if (environmentHasAnyThreads) {
-        void navigate({ to: "/", replace: true });
+        leave(null);
       }
     }
-  }, [bootstrapComplete, environmentHasAnyThreads, navigate, renderState, target]);
+  }, [bootstrapComplete, environmentHasAnyThreads, renderState, target]);
 
   useEffect(() => {
     if (target.kind !== "server" || !serverThreadStarted || !draftThread) {
@@ -209,9 +208,5 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     view = <ThreadTimelineLoading />;
   }
 
-  return (
-    <SidebarInset className="h-svh min-h-0 overflow-hidden overscroll-y-none md:h-dvh">
-      {view}
-    </SidebarInset>
-  );
+  return view;
 }

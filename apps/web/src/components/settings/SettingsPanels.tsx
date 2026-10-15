@@ -47,7 +47,12 @@ import { createModelSelection } from "@supacode/shared/model";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
-import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
+import {
+  APP_BASE_NAME,
+  APP_VERSION,
+  HOSTED_APP_CHANNEL,
+  HOSTED_APP_CHANNEL_LABEL,
+} from "../../branding";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
 import { DaysField } from "./DaysField";
 import {
@@ -76,6 +81,7 @@ import {
 } from "./useScopedSettings";
 import { useScopedModelDisabledReason } from "./useScopedModelAvailability";
 import { useSettingsScope } from "./SettingsScopeContext";
+import { ProjectContextSettingsRows } from "./ProjectContextSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { useThreadActions } from "../../hooks/useThreadActions";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
@@ -1919,7 +1925,7 @@ export function GeneralSettingsPanel() {
         <NotificationSettings />
         <SettingsRow
           {...searchableSetting("in-app-notifications")}
-          description="Show toasts for other threads while Supacode is focused."
+          description={`Show toasts for threads off the stage while ${APP_BASE_NAME} is focused.`}
           control={
             <Switch
               checked={settings.inAppNotificationsEnabled}
@@ -2432,6 +2438,7 @@ export function GeneralSettingsPanel() {
             />
           }
         />
+        <ProjectContextSettingsRows />
       </SettingsSection>
 
       <SettingsSection id="confirmations" title="Confirmations">

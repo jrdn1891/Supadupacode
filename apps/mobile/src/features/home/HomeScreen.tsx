@@ -1,3 +1,4 @@
+import { BackstageCard } from "../threads/backstage-card";
 import { useThreadListV2Layout } from "../threads/use-thread-list-v2-layout";
 import { AppActivityIndicator } from "../../components/AppActivityIndicator";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
@@ -13,7 +14,11 @@ import {
   threadSearchMatchKey,
   type EnvironmentThreadSearchMatch,
 } from "@supacode/client-runtime/state/thread-search";
-import { type EnvironmentId, type SidebarProjectGroupingMode } from "@supacode/contracts";
+import {
+  type EnvironmentId,
+  type OrchestrationV2ThreadPhase,
+  type SidebarProjectGroupingMode,
+} from "@supacode/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { HeaderHeightContext } from "@react-navigation/elements";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -124,8 +129,13 @@ interface HomeScreenProps {
   readonly onSettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly onSnoozeThread: (
     thread: EnvironmentThreadShell,
-    snoozedUntil: string,
+    snoozedUntil: string | null,
   ) => Promise<boolean>;
+  readonly onSetThreadPhase: (
+    thread: EnvironmentThreadShell,
+    phase: OrchestrationV2ThreadPhase | null,
+  ) => void;
+  readonly onSetProjectContext: (thread: EnvironmentThreadShell, contextId: string | null) => void;
   readonly onUnsnoozeThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly onUnsettleThread: (thread: EnvironmentThreadShell) => void;
   readonly onPinThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
@@ -482,7 +492,7 @@ export function HomeScreen(props: HomeScreenProps) {
     onRenameThread,
   } = props;
   const handleSnoozeThread = useCallback(
-    (thread: EnvironmentThreadShell, snoozedUntil: string) => {
+    (thread: EnvironmentThreadShell, snoozedUntil: string | null) => {
       void onSnoozeThread(thread, snoozedUntil);
     },
     [onSnoozeThread],
@@ -585,6 +595,7 @@ export function HomeScreen(props: HomeScreenProps) {
     autoSettleOptOutEnvironmentIds,
     pinReorderEnvironmentIds,
     titleRegenerationEnvironmentIds,
+    contextSettingsByEnvironmentId,
   } = listEnvironments;
   const resolveProviderInstance = useThreadRowProviderInstanceResolver(providersByEnvironmentId);
   const pendingOrder = usePendingThreadOrder(nowMinute, snoozeWakeTick);
@@ -825,6 +836,9 @@ export function HomeScreen(props: HomeScreenProps) {
           onPinThread={handlePinThread}
           onUnpinThread={handleUnpinThread}
           onSetThreadAutoSettle={handleSetThreadAutoSettle}
+          onSetThreadPhase={props.onSetThreadPhase}
+          onSetProjectContext={props.onSetProjectContext}
+          contextSettings={contextSettingsByEnvironmentId.get(thread.environmentId) ?? null}
           onSwipeableClose={handleSwipeableClose}
           onSwipeableWillOpen={handleSwipeableWillOpen}
           simultaneousSwipeGesture={homeScrollGesture}
@@ -846,6 +860,9 @@ export function HomeScreen(props: HomeScreenProps) {
       handleUnsettleThread,
       handleSetThreadAutoSettle,
       homeScrollGesture,
+      contextSettingsByEnvironmentId,
+      props.onSetThreadPhase,
+      props.onSetProjectContext,
       autoSettleOptOutEnvironmentIds,
       pinningEnvironmentIds,
       autoSettleOptOutEnvironmentIds,
@@ -986,7 +1003,19 @@ export function HomeScreen(props: HomeScreenProps) {
 
   const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
 
-  const v2ListHeader = <>{listHeader}</>;
+  const v2ListHeader = (
+    <>
+      {listHeader}
+      {hasSearchQuery ? null : (
+        <BackstageCard
+          threads={props.threads}
+          openThreadKey={selectedThreadKey}
+          nowMinute={nowMinute}
+          onSelectThread={props.onSelectThread}
+        />
+      )}
+    </>
+  );
 
   // Use the v2 project scope for its empty state. Snoozed threads need no
   // special empty state: their shelf header is a list row even while collapsed.
