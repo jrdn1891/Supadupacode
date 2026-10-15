@@ -290,6 +290,12 @@ fish to send it away. Your pellets and strand last until you reload or restart
 the app. With reduced motion turned on, the creatures hold still and the water ignores taps and
 drags.
 
+The seabed grows with your own work across every project: each commit you author sprouts
+seaweed, and each pull request you open grows a coral in its project's color. Commits count by
+your Git `user.email`, on any local or remote branch. The seabed starts bare at midnight; use the
+arrows on the sand to look back at earlier days. Supacode keeps each day's record, so a seabed
+stays as it grew even after its branches are merged or deleted.
+
 On iOS and Android, the phone taps when an agent finishes or needs you while the app is open,
 except for the thread you are reading. Add the **Aquarium** widget from your widget gallery to see
 your agents as the same creatures on your home screen, with the thread that needs you named

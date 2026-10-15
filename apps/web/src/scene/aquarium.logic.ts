@@ -212,15 +212,6 @@ function petSize(kind: PetKind) {
   return frameSize(PETS[kind].frames[0]);
 }
 
-export function aquariumWeeds(width: number) {
-  return [
-    { x: Math.round(width * 0.08), height: 22, phase: 0 },
-    { x: Math.round(width * 0.1), height: 14, phase: 2.4 },
-    { x: Math.round(width * 0.76), height: 30, phase: 1.1 },
-    { x: Math.round(width * 0.93), height: 18, phase: 3.3 },
-  ];
-}
-
 export function featuredResident<T extends { readonly cue: AgentCue }>(
   residents: ReadonlyArray<T>,
 ): T | null {
@@ -537,15 +528,15 @@ export function stepAquarium(
   input: {
     readonly featuredKey: string | null;
     readonly heldKey: string | null;
+    readonly vents: ReadonlyArray<number>;
     readonly random: Random;
   },
 ): Aquarium {
-  const { random } = input;
-  const weeds = aquariumWeeds(aquarium.width);
+  const { random, vents } = input;
   const floor = aquarium.height - AQUARIUM_SAND - 2;
   const spawned =
-    random() < BUBBLE_CHANCE
-      ? [{ x: weeds[Math.floor(random() * weeds.length)]!.x, y: floor, big: random() < 0.3 }]
+    random() < BUBBLE_CHANCE && vents.length > 0
+      ? [{ x: vents[Math.floor(random() * vents.length)]!, y: floor, big: random() < 0.3 }]
       : [];
   const bottom = seabed(aquarium);
   const pet =

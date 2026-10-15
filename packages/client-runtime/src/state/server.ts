@@ -1148,6 +1148,19 @@ export function createServerEnvironmentAtoms<R, E>(
           ),
         ),
     }),
+    contributions: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:contributions",
+      tag: WS_METHODS.contributionsList,
+      staleTimeMs: 30_000,
+      refreshIntervalMs: 60_000,
+      execute: (input, emit) =>
+        request(WS_METHODS.contributionsList, input).pipe(
+          Effect.flatMap(emit),
+          Effect.andThen(
+            request(WS_METHODS.contributionsList, { ...input, awaitPullRequests: true }),
+          ),
+        ),
+    }),
     resourceTelemetry: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:server:resource-telemetry",
       tag: WS_METHODS.subscribeResourceTelemetry,
