@@ -82,7 +82,7 @@ export function SceneStage({ target }: { readonly target: ThreadRouteTarget }) {
           </Fragment>
         ))}
       </ResizablePanelGroup>
-      <SceneBackstage />
+      <SceneBackstage stageVisible />
     </SidebarInset>
   );
 }
@@ -172,8 +172,8 @@ function SceneShortcuts() {
           editableFocus: isEditableFocused(event.target),
         },
       });
-      if (scenePanes(useSceneStore.getState().scene).length < 2) return;
       if (command === "stage.closePane") actions.closeFocused();
+      else if (scenePanes(useSceneStore.getState().scene).length < 2) return;
       else if (command === "stage.toggleSpotlight") actions.toggleFocusedSpotlight();
       else if (command === "stage.focusNext") actions.focusAdjacent(1);
       else if (command === "stage.focusPrevious") actions.focusAdjacent(-1);
