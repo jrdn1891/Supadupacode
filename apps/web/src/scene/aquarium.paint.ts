@@ -7,13 +7,13 @@ import {
   type AquariumResident,
   type AquariumStash,
   aquariumHash,
-  aquariumWeeds,
   FULL_TICKS,
   fishSize,
   fishTraits,
   PETS,
   SPECIES,
 } from "./aquarium.logic";
+import { type AquariumPlant, GROW_TICKS } from "./aquariumSeabed";
 
 export type AquariumAppearance = "light" | "dark";
 
@@ -288,16 +288,35 @@ export function paintAquarium(
     readonly tick: number;
     readonly appearance: AquariumAppearance;
     readonly stash: AquariumStash | null;
+    readonly plants: ReadonlyArray<AquariumPlant>;
+    readonly sprouts: ReadonlyMap<string, number>;
   },
 ) {
   const { aquarium, tick } = input;
   const look = SCENERY[input.appearance];
   context.drawImage(input.scenery, 0, 0);
   const floor = aquarium.height - AQUARIUM_SAND - 1;
-  for (const weed of aquariumWeeds(aquarium.width)) {
-    for (let step = 0; step < weed.height; step++) {
-      const sway = Math.sin(tick * 0.13 + step * 0.28 + weed.phase) * (step / weed.height) * 1.6;
-      const x = weed.x + Math.round(sway);
+  for (const plant of input.plants) {
+    const sprout = input.sprouts.get(plant.key);
+    const grown = sprout === undefined ? 1 : Math.min(1, (tick - sprout) / GROW_TICKS);
+    if (plant.kind === "coral") {
+      const width = plant.form[0].length;
+      const left = Math.max(0, Math.min(aquarium.width - width, plant.x - Math.floor(width / 2)));
+      const hidden = Math.round(plant.form.length * (1 - grown));
+      paintSprite(
+        context,
+        plant.form.slice(hidden),
+        colorsOf(plant.projectKey),
+        left,
+        floor + 1 - plant.form.length + hidden,
+        1,
+      );
+      continue;
+    }
+    const height = Math.ceil(plant.height * grown);
+    for (let step = 0; step < height; step++) {
+      const sway = Math.sin(tick * 0.13 + step * 0.28 + plant.phase) * (step / plant.height) * 1.6;
+      const x = plant.x + Math.round(sway);
       context.fillStyle = look.weed[step % 3 === 0 ? 0 : 1];
       context.fillRect(x, floor - step, 1, 1);
       if (step % 4 === 2) context.fillRect(x + (step % 8 === 2 ? 1 : -1), floor - step, 1, 1);

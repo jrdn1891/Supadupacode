@@ -69,7 +69,7 @@ function run(
   const random = seeded(7);
   let next = aquarium;
   for (let tick = 0; tick < ticks; tick++)
-    next = stepAquarium(next, { featuredKey, heldKey, random });
+    next = stepAquarium(next, { featuredKey, heldKey, vents: [], random });
   return next;
 }
 

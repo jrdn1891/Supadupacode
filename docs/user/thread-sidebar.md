@@ -286,6 +286,12 @@ fish to send it away. Your pellets and strand last until you reload or restart
 the app. With reduced motion turned on, the creatures hold still and the water ignores taps and
 drags.
 
+The seabed grows with your own work across every project: each commit you author sprouts
+seaweed, and each pull request you open grows a coral in its project's color. Commits count by
+your Git `user.email`, on any local or remote branch. The seabed starts bare at midnight; use the
+arrows on the sand to look back at earlier days. Supacode keeps each day's record, so a seabed
+stays as it grew even after its branches are merged or deleted.
+
 Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
 General → Threads** to get a toast with **Bring on stage** when a thread off the stage finishes or
 needs you. With system notifications on, the desktop app also bounces its Dock icon, or flashes

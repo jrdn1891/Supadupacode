@@ -319,6 +319,7 @@ import {
   ProviderConsumeResetCreditResult,
 } from "./providerUsageLimits.ts";
 import { UsagePricing, UsageReadError, UsageSummary, UsageSummaryInput } from "./usage.ts";
+import { Contribution, ContributionListInput } from "./contribution.ts";
 import {
   StorageCleanupReport,
   ServerSettingsError,
@@ -502,6 +503,9 @@ export const WS_METHODS = {
   serverGetBackgroundPolicy: "server.getBackgroundPolicy",
   serverGetUsageSummary: "server.getUsageSummary",
   serverRefreshUsageRates: "server.refreshUsageRates",
+
+  // Contributions
+  contributionsList: "contributions.list",
 
   // Scheduled tasks
   scheduledTasksList: "scheduledTasks.list",
@@ -907,6 +911,12 @@ const WsServerGetUsageSummaryRpc = Rpc.make(WS_METHODS.serverGetUsageSummary, {
   payload: UsageSummaryInput,
   success: UsageSummary,
   error: Schema.Union([EnvironmentAuthorizationError, UsageReadError]),
+});
+
+const WsContributionsListRpc = Rpc.make(WS_METHODS.contributionsList, {
+  payload: ContributionListInput,
+  success: Schema.Array(Contribution),
+  error: EnvironmentAuthorizationError,
 });
 
 /**
@@ -1901,6 +1911,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerCheckOtlpEndpointRpc,
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
+  WsContributionsListRpc,
   WsServerSignalProcessRpc,
   WsScheduledTasksListRpc,
   WsScheduledTasksSubscribeRpc,

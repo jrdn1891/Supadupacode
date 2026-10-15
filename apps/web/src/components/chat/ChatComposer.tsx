@@ -260,12 +260,8 @@ import { resolveAssetUrl } from "~/assets/assetUrls";
 import { assetEnvironment } from "~/state/assets";
 import { readPreparedConnection } from "~/state/session";
 import { useAtomQueryRunner } from "~/state/use-atom-query-runner";
-import {
-  pullRequestEnvironment,
-  usePullRequestList,
-  type EnvironmentQueryTarget,
-} from "~/state/pullRequests";
-import { useEnvironmentQuery } from "~/state/query";
+import { pullRequestEnvironment, usePullRequestList } from "~/state/pullRequests";
+import { type EnvironmentQueryTarget, useEnvironmentQuery } from "~/state/query";
 import { useDebouncedValue } from "~/state/queries";
 import { ProviderModelPicker } from "./ProviderModelPicker";
 import { resolveModelPickerSelectedModel } from "./ModelPickerContent";

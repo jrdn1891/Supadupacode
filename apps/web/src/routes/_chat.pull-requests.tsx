@@ -166,8 +166,8 @@ import {
   usePullRequestList,
   usePullRequestListStats,
   usePullRequestTurnRefreshes,
-  type EnvironmentQueryTarget,
 } from "../state/pullRequests";
+import type { EnvironmentQueryTarget } from "../state/query";
 import { useAtomCommand } from "../state/use-atom-command";
 import { cn } from "~/lib/utils";
 import { Separator } from "~/components/ui/separator";

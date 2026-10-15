@@ -1,5 +1,6 @@
 import { scopeThreadRef } from "@supacode/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -14,6 +15,7 @@ import {
   resolveSidebarThreadStatus,
   resolveThreadLastVisitedAt,
 } from "../components/Sidebar.logic";
+import { Button } from "../components/ui/button";
 import { Popover } from "../components/ui/popover";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -21,6 +23,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useVisitThread } from "../hooks/useThreadActions";
 import { observeResize } from "../lib/observeResize";
 import { cn } from "../lib/utils";
+import { useContributions } from "../state/contributions";
 import { useThreadShells } from "../state/entities";
 import { buildThreadRouteParams } from "../threadRoutes";
 import { useUiStateStore } from "../uiStateStore";
@@ -57,6 +60,7 @@ import {
   paintScenery,
 } from "./aquarium.paint";
 import { AquariumEffortMenu } from "./AquariumEffortMenu";
+import { type AquariumPlant, seabedDay, seabedPlants, seabedTally } from "./aquariumSeabed";
 import { type AquariumAgent, agentCueDetail, aquariumAgents } from "./aquariumAgents";
 import { AquariumChat } from "./AquariumChat";
 import { takeRelease } from "./aquariumReleases";
@@ -75,6 +79,12 @@ interface TankInput {
   readonly featuredKey: string | null;
   readonly appearance: AquariumAppearance;
   readonly reducedMotion: boolean;
+  readonly seabed: Seabed | null;
+}
+
+interface Seabed {
+  readonly since: string;
+  readonly plants: ReadonlyArray<AquariumPlant>;
 }
 
 interface HoveredFish {
@@ -109,7 +119,9 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
   let prey: string | null = null;
   let tick = resting?.tick ?? 0;
   let timer: number | undefined;
+  let vents: ReadonlyArray<number> = [];
   const leaps = new Map<string, Animation>();
+  const sprouts = new Map<string, number>();
 
   const paint = () => {
     if (context === null || input === null || aquarium === null || scenery === null) return;
@@ -120,6 +132,8 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
       tick,
       appearance: input.appearance,
       stash: input.reducedMotion ? null : stash,
+      plants: input.seabed?.plants ?? [],
+      sprouts,
     });
   };
 
@@ -136,6 +150,7 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
     aquarium = stepAquarium(aquarium, {
       featuredKey: input.featuredKey,
       heldKey: pinned ?? held,
+      vents,
       random: Math.random,
     });
     tick += 1;
@@ -189,6 +204,14 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
     update(next: TankInput) {
       const previous = input;
       input = next;
+      const before = previous?.seabed ?? null;
+      if (next.seabed?.since !== before?.since) sprouts.clear();
+      else if (next.seabed !== null && before !== null && !next.reducedMotion) {
+        const known = new Set(before.plants.map((plant) => plant.key));
+        for (const plant of next.seabed.plants)
+          if (!known.has(plant.key)) sprouts.set(plant.key, tick);
+      }
+      vents = next.seabed?.plants.map((plant) => plant.x) ?? [];
       if (next.reducedMotion) {
         window.clearTimeout(timer);
         timer = undefined;
@@ -307,6 +330,7 @@ export function SceneAquarium() {
   const [hovered, setHovered] = useState<HoveredFish | null>(null);
   const [chat, setChat] = useState<Chat | null>(null);
   const [prey, setPrey] = useState<AquariumFish | null>(null);
+  const [daysBack, setDaysBack] = useState(0);
   const tankRef = useRef<ReturnType<typeof startTank> | null>(null);
   const pressRef = useRef<Press | null>(null);
   const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
@@ -350,9 +374,21 @@ export function SceneAquarium() {
     });
   }, [ceiling, root]);
 
+  const day = useMemo(() => seabedDay(nowMs, daysBack), [daysBack, nowMs]);
+  const contributions = useContributions(day);
+  const width = size?.width ?? null;
+  const seabed = useMemo(
+    () =>
+      contributions === null || width === null
+        ? null
+        : { since: day.since, plants: seabedPlants(width, contributions) },
+    [contributions, day.since, width],
+  );
+  const tally = contributions === null ? null : seabedTally(contributions);
+
   useLayoutEffect(() => {
-    tankRef.current?.update({ size, residents, featuredKey, appearance, reducedMotion });
-  }, [appearance, featuredKey, reducedMotion, residents, size]);
+    tankRef.current?.update({ size, residents, featuredKey, appearance, reducedMotion, seabed });
+  }, [appearance, featuredKey, reducedMotion, residents, seabed, size]);
 
   const chatAgent = chat === null ? undefined : entries.find((entry) => entry.key === chat.key);
   if (chat !== null && chatAgent === undefined) setChat(null);
@@ -505,6 +541,41 @@ export function SceneAquarium() {
             </span>
           </div>
         ) : null}
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0.5 flex justify-center">
+        <div className="pointer-events-auto flex items-center gap-1 text-xs text-muted-foreground">
+          <Button
+            variant="ghost-muted"
+            size="icon-micro"
+            aria-label="Previous day"
+            onClick={() => setDaysBack(daysBack + 1)}
+          >
+            <ChevronLeftIcon />
+          </Button>
+          <span className="tabular-nums">
+            {daysBack === 0
+              ? "Today"
+              : daysBack === 1
+                ? "Yesterday"
+                : new Date(day.since).toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
+            {tally === null
+              ? null
+              : ` · ${tally || (daysBack === 0 ? "nothing grown yet" : "nothing grew")}`}
+          </span>
+          <Button
+            variant="ghost-muted"
+            size="icon-micro"
+            aria-label="Next day"
+            disabled={daysBack === 0}
+            onClick={() => setDaysBack(daysBack - 1)}
+          >
+            <ChevronRightIcon />
+          </Button>
+        </div>
       </div>
       <Popover
         open={chat?.open === true && chatAgent !== undefined}
