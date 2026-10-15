@@ -20,6 +20,7 @@ function ComposerProbe() {
       hasExpandedChrome: false,
       hasMultilinePrompt: false,
       timelineOverflows: true,
+      restRequested: false,
     });
   });
   return null;
