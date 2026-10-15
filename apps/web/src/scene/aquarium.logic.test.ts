@@ -1,22 +1,48 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  AQUARIUM_FPS,
   AQUARIUM_SAND,
   type Aquarium,
+  type AquariumFish,
   type AquariumResident,
   createAquarium,
+  creditStash,
+  dropPearls,
+  finishedResidents,
   fishSize,
+  fishTraits,
+  FRESH_STASH,
   landingSpot,
   leapKeyframes,
   parkingSpot,
+  type Species,
+  SPECIES,
   stepAquarium,
+  stirAquarium,
   stockAquarium,
+  tapAquarium,
 } from "./aquarium.logic";
 
-const resident = (key: string, cue: AquariumResident["cue"] = "working"): AquariumResident => ({
+const resident = (
+  key: string,
+  cue: AquariumResident["cue"] = "working",
+  items = 0,
+): AquariumResident => ({ key, projectKey: "project", cue, items });
+
+const KEYS = Array.from({ length: 40 }, (_, index) => `thread-${index}`);
+
+const keyOf = (species: Species, nth = 0) =>
+  KEYS.filter((key) => fishTraits(key).species === species)[nth]!;
+
+const swimmer = (key: string, x: number, y: number, dir: 1 | -1 = 1): AquariumFish => ({
   key,
-  projectKey: "project",
-  cue,
+  x,
+  y,
+  dir,
+  wait: 0,
+  full: 0,
+  drift: { x: 0, y: 0 },
 });
 
 function seeded(seed: number) {
@@ -28,14 +54,25 @@ function seeded(seed: number) {
 }
 
 const SIZE = { width: 200, height: 120, top: 40 };
+const SEABED = SIZE.height - AQUARIUM_SAND - 1;
 
-function run(aquarium: Aquarium, ticks: number, featuredKey: string | null = null) {
+function run(
+  aquarium: Aquarium,
+  ticks: number,
+  featuredKey: string | null = null,
+  heldKey: string | null = null,
+) {
   const random = seeded(7);
   let next = aquarium;
   for (let tick = 0; tick < ticks; tick++)
-    next = stepAquarium(next, { featuredKey, heldKey: null, random });
+    next = stepAquarium(next, { featuredKey, heldKey, random });
   return next;
 }
+
+const tankOf = (
+  fish: ReadonlyArray<AquariumFish>,
+  pellets: Aquarium["pellets"] = [],
+): Aquarium => ({ ...createAquarium(SIZE, [], null, seeded(1)), fish, pellets });
 
 describe("stockAquarium", () => {
   it("keeps one fish per agent and leaves settled fish where they swim", () => {
@@ -66,11 +103,14 @@ describe("stockAquarium", () => {
 });
 
 describe("stepAquarium", () => {
-  it("keeps every fish inside the swim band as it crosses and re-enters the tank", () => {
+  it("keeps every species inside the swim band as it crosses and re-enters the tank", () => {
+    expect(new Set(KEYS.map((key) => fishTraits(key).species))).toEqual(
+      new Set(Object.keys(SPECIES)),
+    );
     const tank = run(
       createAquarium(
         SIZE,
-        ["a", "b", "c"].map((key) => resident(key)),
+        KEYS.map((key) => resident(key)),
         null,
         seeded(4),
       ),
@@ -88,6 +128,161 @@ describe("stepAquarium", () => {
     const parked = tank.fish.find((fish) => fish.key === "b")!;
     expect({ x: parked.x, y: parked.y }).toEqual(parkingSpot(tank, "b"));
     expect(run(tank, 30, "b").fish.find((fish) => fish.key === "b")).toEqual(parked);
+  });
+
+  it("sinks a starfish that is no longer featured back to the floor", () => {
+    const key = keyOf("starfish");
+    const climbed = run(createAquarium(SIZE, [resident(key, "ready")], key, seeded(6)), 10, key);
+    expect(climbed.fish[0]!.y).toBe(SIZE.top);
+    expect(run(climbed, 100).fish[0]!.y).toBe(
+      SIZE.height - AQUARIUM_SAND - 2 - fishSize(key).height,
+    );
+  });
+});
+
+describe("feeding", () => {
+  it("sinks a pellet onto the sand, rests it there for half a minute, then dissolves it", () => {
+    const { aquarium, stash } = tapAquarium(tankOf([]), FRESH_STASH, { x: 100, y: 60 });
+    expect(stash.food).toBe(FRESH_STASH.food - 1);
+    const sinking = run(aquarium, 50).pellets[0]!;
+    expect(sinking.y).toBeGreaterThan(60);
+    expect(sinking.y).toBeLessThan(SEABED);
+    const landed = run(aquarium, 15 * AQUARIUM_FPS);
+    expect(landed.pellets[0]?.y).toBe(SEABED);
+    expect(run(landed, 25 * AQUARIUM_FPS).pellets).toHaveLength(1);
+    expect(run(landed, 32 * AQUARIUM_FPS).pellets).toEqual([]);
+  });
+
+  it("feeds the nearest free creature while parked and held creatures ignore food", () => {
+    const [near, far] = [keyOf("fish", 0), keyOf("fish", 1)];
+    const fed = run(
+      tankOf([swimmer(near, 80, 56), swimmer(far, 130, 56, -1)], [{ x: 100, y: 60, rest: 0 }]),
+      30,
+    );
+    expect(fed.pellets).toEqual([]);
+    expect(fed.fish.map((fish) => fish.full > 0)).toEqual([true, false]);
+
+    const ignored = run(
+      tankOf(
+        [swimmer(near, 80, 56), swimmer(far, 120, 56)],
+        [
+          { x: 86, y: 58, rest: 0 },
+          { x: 126, y: 58, rest: 0 },
+        ],
+      ),
+      5,
+      near,
+      far,
+    );
+    expect(ignored.fish.map((fish) => fish.full)).toEqual([0, 0]);
+    expect(ignored.pellets).toHaveLength(2);
+  });
+
+  it("never steers a seahorse, which only snaps up pellets passing its snout", () => {
+    const key = keyOf("seahorse");
+    const passed = run(tankOf([swimmer(key, 100, 60)], [{ x: 90, y: 75, rest: 0 }]), 20).fish[0]!;
+    expect(passed).toMatchObject({ y: 60, full: 0 });
+    expect(passed.x).toBeCloseTo(100 + 20 * fishTraits(key).speed);
+    const snapped = run(tankOf([swimmer(key, 100, 60)], [{ x: 108, y: 56, rest: 0 }]), 15);
+    expect(snapped.fish[0]!.full).toBeGreaterThan(0);
+  });
+
+  it("lets a turtle ignore sinking pellets and graze the ones resting on the sand", () => {
+    const key = keyOf("turtle");
+    const sinking = run(tankOf([swimmer(key, 100, 90)], [{ x: 110, y: 92, rest: 0 }]), 3);
+    expect(sinking.fish[0]!.full).toBe(0);
+    expect(sinking.pellets).toHaveLength(1);
+    const resting = run(tankOf([swimmer(key, 100, 90)], [{ x: 125, y: SEABED, rest: 0 }]), 150);
+    expect(resting.fish[0]!.full).toBeGreaterThan(0);
+    expect(resting.pellets).toEqual([]);
+  });
+
+  it("earns a pellet for every four new items and a bonus when an agent finishes, up to nine", () => {
+    const before = [resident("a", "working", 10), resident("b")];
+    const credit = (after: ReadonlyArray<AquariumResident>) =>
+      creditStash(FRESH_STASH, before, after).food - FRESH_STASH.food;
+    expect(credit([resident("a", "working", 18), resident("b")])).toBe(2);
+    expect(credit([resident("a", "ready", 10), resident("b")])).toBe(3);
+    expect(credit([resident("a"), resident("b"), resident("c", "working", 40)])).toBe(0);
+    expect(creditStash(FRESH_STASH, before, [resident("a", "working", 400)]).food).toBe(9);
+  });
+
+  it("drops nothing from an empty feeder and ripples the water instead", () => {
+    const empty = { food: 0.75, strand: [] };
+    const { aquarium, stash } = tapAquarium(tankOf([]), empty, { x: 50, y: 50 });
+    expect(aquarium.pellets).toEqual([]);
+    expect(aquarium.ripple).not.toBeNull();
+    expect(stash).toBe(empty);
+  });
+});
+
+describe("pearls", () => {
+  it("drops a pearl to the sand when an agent finishes and strings it when tapped", () => {
+    const before = [resident("a")];
+    const after = [{ ...resident("a", "ready"), projectKey: "blue" }];
+    const tank = createAquarium(SIZE, before, null, seeded(3));
+    const [finisher] = tank.fish;
+    const [pearl] = run(dropPearls(tank, finishedResidents(before, after)), 120).pearls;
+    expect(pearl).toMatchObject({ y: SEABED, projectKey: "blue" });
+    expect(Math.abs(pearl!.x + 1 - (finisher!.x + fishSize("a").width / 2))).toBeLessThanOrEqual(1);
+    const { aquarium, stash } = tapAquarium({ ...tank, pearls: [pearl!] }, FRESH_STASH, {
+      x: pearl!.x + 1,
+      y: pearl!.y + 1,
+    });
+    expect(aquarium.pearls).toEqual([]);
+    expect(aquarium.pellets).toEqual([]);
+    expect(stash).toEqual({ food: FRESH_STASH.food, strand: ["blue"] });
+  });
+});
+
+describe("stirAquarium", () => {
+  it("sweeps nearby creatures along the drag until the current dies down", () => {
+    const [swept, parked, star] = [keyOf("fish"), keyOf("angelfish"), keyOf("starfish")];
+    const tank = tankOf([
+      swimmer(swept, 90, 60, -1),
+      swimmer(parked, 95, 60),
+      swimmer(star, 88, 60),
+    ]);
+    const stirred = stirAquarium(tank, {
+      from: { x: 90, y: 64 },
+      to: { x: 96, y: 64 },
+      residents: [resident(swept), resident(parked), resident(star)],
+      featuredKey: parked,
+      heldKey: null,
+    });
+    expect(stirred.fish.slice(1)).toEqual(tank.fish.slice(1));
+    const pushed = run(stirred, 5, parked);
+    expect(pushed.fish[0]!.x).toBeGreaterThan(90);
+    const calm = run(pushed, 3 * AQUARIUM_FPS, parked);
+    expect(calm.fish[0]!.drift).toEqual({ x: 0, y: 0 });
+    expect(run(calm, 1, parked).fish[0]!.x).toBeCloseTo(calm.fish[0]!.x - fishTraits(swept).speed);
+  });
+
+  it("schools stirred creatures of one project that swim close together", () => {
+    const [first, second, stranger] = [keyOf("fish", 0), keyOf("fish", 1), keyOf("fish", 2)];
+    const stirred = stirAquarium(
+      tankOf([
+        swimmer(first, 80, 60, -1),
+        swimmer(second, 92, 62, -1),
+        swimmer(stranger, 86, 70, -1),
+      ]),
+      {
+        from: { x: 70, y: 66 },
+        to: { x: 86, y: 66 },
+        residents: [
+          resident(first),
+          resident(second),
+          { ...resident(stranger), projectKey: "other" },
+        ],
+        featuredKey: null,
+        heldKey: null,
+      },
+    );
+    const [lead, mate, loner] = stirred.fish;
+    expect([lead!.dir, mate!.dir, loner!.dir]).toEqual([1, 1, -1]);
+    expect(mate!.drift).toEqual(lead!.drift);
+    expect(loner!.drift.x).toBeGreaterThan(0);
+    expect(loner!.drift.x).toBeLessThan(lead!.drift.x);
   });
 });
 
