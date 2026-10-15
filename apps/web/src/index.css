@@ -548,6 +548,27 @@ html[data-mobile-composer-route-transition="true"]::view-transition-new(supacode
   will-change: var(--visible-animation-will-change, auto);
 }
 
+@keyframes thinking-fish-swim {
+  50% {
+    translate: calc(100cqw - 100%);
+  }
+}
+
+@keyframes thinking-fish-turn {
+  50%,
+  to {
+    scale: -1 1;
+  }
+}
+
+@utility thinking-fish {
+  animation:
+    thinking-fish-swim 3s steps(15) infinite,
+    thinking-fish-turn 3s step-end infinite;
+  animation-play-state: var(--visible-animation-state, paused);
+  will-change: var(--visible-animation-will-change, auto);
+}
+
 @keyframes live-activity-focus {
   from {
     transform: translateX(0);

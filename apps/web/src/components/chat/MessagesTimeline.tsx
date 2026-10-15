@@ -3978,6 +3978,8 @@ function LiveActivityRow({
 }) {
   const animated = active && !failed;
   const showShimmer = animated && shimmer;
+  const swimming = animated && iconName === "brain";
+  const contentIconName = swimming ? undefined : iconName;
   return (
     <div
       ref={animated ? observeVisibleAnimation : undefined}
@@ -3985,15 +3987,22 @@ function LiveActivityRow({
     >
       <LiveActivityContent
         label={label}
-        iconName={iconName}
+        iconName={contentIconName}
         toolIcon={toolIcon}
         failed={failed}
         announceFailure={failed}
         active={animated && !shimmer}
+        swimming={swimming}
       />
       {showShimmer ? (
         <ActivityShimmerOverlay>
-          <LiveActivityContent label={label} iconName={iconName} toolIcon={toolIcon} highlighted />
+          <LiveActivityContent
+            label={label}
+            iconName={contentIconName}
+            toolIcon={toolIcon}
+            swimming={swimming}
+            highlighted
+          />
         </ActivityShimmerOverlay>
       ) : null}
     </div>
@@ -4007,6 +4016,7 @@ function LiveActivityContent({
   failed = false,
   announceFailure = false,
   active = false,
+  swimming = false,
   highlighted = false,
 }: {
   label: ReactNode;
@@ -4015,6 +4025,7 @@ function LiveActivityContent({
   failed?: boolean;
   announceFailure?: boolean;
   active?: boolean;
+  swimming?: boolean;
   highlighted?: boolean;
 }) {
   const showTrailingFailureMark =
@@ -4057,7 +4068,17 @@ function LiveActivityContent({
         </span>
       }
       trailing={
-        showTrailingFailureMark ? (
+        swimming ? (
+          <span
+            aria-hidden
+            className={cn(
+              "@container relative h-3 w-12 shrink-0",
+              highlighted ? "text-foreground" : "text-icon-muted",
+            )}
+          >
+            <SupacodeMark className="thinking-fish absolute left-0 h-full" />
+          </span>
+        ) : showTrailingFailureMark ? (
           <XIcon aria-hidden className={cn("size-3 shrink-0", failedToolIconClassName)} />
         ) : null
       }
