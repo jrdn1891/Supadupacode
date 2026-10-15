@@ -13,9 +13,12 @@ import {
   fishSize,
   fishTraits,
   FRESH_STASH,
+  HATCH_MS,
   landingSpot,
   leapKeyframes,
   parkingSpot,
+  type PetKind,
+  PETS,
   type Species,
   SPECIES,
   stepAquarium,
@@ -142,7 +145,7 @@ describe("stepAquarium", () => {
 
 describe("feeding", () => {
   it("sinks a pellet onto the sand, rests it there for half a minute, then dissolves it", () => {
-    const { aquarium, stash } = tapAquarium(tankOf([]), FRESH_STASH, { x: 100, y: 60 });
+    const { aquarium, stash } = tapAquarium(tankOf([]), FRESH_STASH, { x: 100, y: 60 }, 0);
     expect(stash.food).toBe(FRESH_STASH.food - 1);
     const sinking = run(aquarium, 50).pellets[0]!;
     expect(sinking.y).toBeGreaterThan(60);
@@ -209,7 +212,7 @@ describe("feeding", () => {
 
   it("drops nothing from an empty feeder and ripples the water instead", () => {
     const empty = { food: 0.75, strand: [] };
-    const { aquarium, stash } = tapAquarium(tankOf([]), empty, { x: 50, y: 50 });
+    const { aquarium, stash } = tapAquarium(tankOf([]), empty, { x: 50, y: 50 }, 0);
     expect(aquarium.pellets).toEqual([]);
     expect(aquarium.ripple).not.toBeNull();
     expect(stash).toBe(empty);
@@ -225,10 +228,12 @@ describe("pearls", () => {
     const [pearl] = run(dropPearls(tank, finishedResidents(before, after)), 120).pearls;
     expect(pearl).toMatchObject({ y: SEABED, projectKey: "blue" });
     expect(Math.abs(pearl!.x + 1 - (finisher!.x + fishSize("a").width / 2))).toBeLessThanOrEqual(1);
-    const { aquarium, stash } = tapAquarium({ ...tank, pearls: [pearl!] }, FRESH_STASH, {
-      x: pearl!.x + 1,
-      y: pearl!.y + 1,
-    });
+    const { aquarium, stash } = tapAquarium(
+      { ...tank, pearls: [pearl!] },
+      FRESH_STASH,
+      { x: pearl!.x + 1, y: pearl!.y + 1 },
+      0,
+    );
     expect(aquarium.pearls).toEqual([]);
     expect(aquarium.pellets).toEqual([]);
     expect(stash).toEqual({ food: FRESH_STASH.food, strand: ["blue"] });
@@ -283,6 +288,89 @@ describe("stirAquarium", () => {
     expect(mate!.drift).toEqual(lead!.drift);
     expect(loner!.drift.x).toBeGreaterThan(0);
     expect(loner!.drift.x).toBeLessThan(lead!.drift.x);
+  });
+});
+
+describe("your fish", () => {
+  const sizeOf = (kind: PetKind) => ({
+    width: PETS[kind].frames[0][0].length,
+    height: PETS[kind].frames[0].length,
+  });
+  const clownfish = { kind: "clownfish" as const, x: 70, y: 60, dir: 1 as const };
+
+  it("hatches where you hold the water, swims where you steer it, and leaves when tapped", () => {
+    const at = { x: 100, y: 60 };
+    const { width, height } = sizeOf("clownfish");
+    expect(tapAquarium(tankOf([]), FRESH_STASH, at, HATCH_MS - 1).aquarium.pet).toBeNull();
+    const { aquarium, stash } = tapAquarium(tankOf([]), FRESH_STASH, at, HATCH_MS);
+    expect(stash).toBe(FRESH_STASH);
+    expect(aquarium.pellets).toEqual([]);
+    expect(aquarium.pet).toMatchObject({
+      kind: "clownfish",
+      x: at.x - width / 2,
+      y: at.y - height / 2,
+    });
+
+    const pet = run({ ...aquarium, pet: { ...aquarium.pet!, goal: { x: 900, y: -40 } } }, 100).pet!;
+    expect(pet).toMatchObject({ x: SIZE.width - width, y: SIZE.top, dir: 1 });
+
+    const center = { x: pet.x + width / 2, y: pet.y + height / 2 };
+    const held = tapAquarium({ ...aquarium, pet }, FRESH_STASH, center, HATCH_MS);
+    expect(held.aquarium.pet).toBeNull();
+    expect(held.stash).toBe(FRESH_STASH);
+  });
+
+  it("swaps between clownfish and shark each time you hold the water again", () => {
+    const hold = (aquarium: Aquarium, at: { x: number; y: number }) =>
+      tapAquarium(aquarium, FRESH_STASH, at, HATCH_MS).aquarium;
+    const shark = hold(hold(tankOf([]), { x: 40, y: 60 }), { x: 150, y: 80 });
+    const { width, height } = sizeOf("shark");
+    expect(shark.pet).toMatchObject({
+      kind: "shark",
+      x: 150 - width / 2,
+      y: 80 - height / 2,
+      dir: -1,
+    });
+    expect(hold(shark, { x: 40, y: 60 }).pet).toMatchObject({ kind: "clownfish", dir: 1 });
+  });
+
+  it("scares swimmers away from its mouth while crawlers keep to the sand", () => {
+    const [prey, star] = [keyOf("fish"), keyOf("starfish")];
+    const sand = SIZE.height - AQUARIUM_SAND - 2 - fishSize(star).height;
+    const pet = { ...clownfish, y: sand - 4, goal: { x: 76, y: sand } };
+    const [fled, crawled] = run(
+      { ...tankOf([swimmer(prey, 90, sand - 6, -1), swimmer(star, 84, sand, -1)]), pet },
+      1,
+    ).fish;
+    expect(fled!.dir).toBe(1);
+    expect(fled!.x).toBeGreaterThan(90);
+    expect(crawled!).toMatchObject({ x: 84 - fishTraits(star).speed, y: sand, dir: -1 });
+  });
+
+  it("frightens creatures from farther away as a shark than as a clownfish", () => {
+    const prey = swimmer(keyOf("fish"), 117, 60, -1);
+    const shark = { kind: "shark" as const, x: 62, y: 59, dir: 1 as const, goal: { x: 72, y: 64 } };
+    const [calm] = run(
+      { ...tankOf([prey]), pet: { ...clownfish, goal: { x: 76, y: 64 } } },
+      1,
+    ).fish;
+    const [scared] = run({ ...tankOf([prey]), pet: shark }, 1).fish;
+    expect(calm!.dir).toBe(-1);
+    expect(scared!.dir).toBe(1);
+  });
+
+  it("sends a caught creature out of the tank in a puff and spares a parked one", () => {
+    const [prey, parked] = [keyOf("fish", 0), keyOf("fish", 1)];
+    const pet = { ...clownfish, goal: { x: 76, y: 64 } };
+    const after = run(
+      { ...tankOf([swimmer(prey, 76, 60), swimmer(parked, 76, 60)]), pet },
+      1,
+      parked,
+    );
+    const [caught, spared] = after.fish;
+    expect(caught!.x <= -fishSize(prey).width || caught!.x >= SIZE.width).toBe(true);
+    expect(spared!.x).toBeGreaterThan(76);
+    expect(after.bubbles).toContainEqual(expect.objectContaining({ y: 64, big: true }));
   });
 });
 

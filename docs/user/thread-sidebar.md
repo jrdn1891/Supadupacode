@@ -273,9 +273,13 @@ Click or tap empty water to drop a pellet, and hungry creatures nearby come to e
 the top right show how many pellets you have left, up to nine. Your agents earn more as they work,
 and a few at once each time one finishes. A finishing agent's creature also drops a pearl in its
 project's color; tap the pearl on the sand to add it to the strand at the top left. Drag through
-the water to stir a current that sweeps nearby creatures along. Your pellets and strand last until
-you reload or restart the app. With reduced motion turned on, the creatures hold still and the
-water ignores taps and drags.
+the water to stir a current that sweeps nearby creatures along. Press and hold empty water to hatch
+a clownfish of your own, and hold again to swap it for a shark, which is faster and scares
+creatures from farther away. While your fish is out, dragging steers it instead of stirring.
+Creatures scatter as it comes near, and one it catches vanishes in a puff of bubbles and swims back
+in later. Tap your fish to send it away. Your pellets and strand last until you reload or restart
+the app. With reduced motion turned on, the creatures hold still and the water ignores taps and
+drags.
 
 Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
 General → Threads** to get a toast with **Bring on stage** when a thread off the stage finishes or

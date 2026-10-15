@@ -21,7 +21,7 @@ const CHASE_RANGE = 48;
 const CHASE_BOOST = 1.6;
 const DART_RANGE = 80;
 const DART_BOOST = 2.2;
-const EAT_REACH = 2;
+const TOUCH_REACH = 2;
 const SNAP_REACH = 3;
 const STIR_RADIUS = 24;
 const STIR_PUSH = 1.5;
@@ -32,6 +32,9 @@ const RIPPLE_TICKS = 6;
 const FEEDER_CAP = 9;
 const ITEMS_PER_PELLET = 4;
 const FINISH_BONUS = 3;
+const FLEE_BOOST = 5;
+
+export const HATCH_MS = 500;
 
 type Diet = "chase" | "dart" | "snap" | "absorb" | "graze" | "crawl";
 
@@ -42,6 +45,13 @@ interface SpeciesLook {
   readonly diet: Diet;
   readonly frames: ReadonlyArray<ReadonlyArray<string>>;
   readonly puffed?: ReadonlyArray<string>;
+}
+
+interface PetLook {
+  readonly speed: number;
+  readonly fright: number;
+  readonly stroke: number;
+  readonly frames: ReadonlyArray<ReadonlyArray<string>>;
 }
 
 export const SPECIES = {
@@ -352,6 +362,69 @@ export type Species = keyof typeof SPECIES;
 
 const SPECIES_NAMES = Object.keys(SPECIES) as ReadonlyArray<Species>;
 
+export const PETS = {
+  clownfish: {
+    speed: 3,
+    fright: 36,
+    stroke: 2,
+    frames: [
+      [
+        "......ff....",
+        "f...xxxxx...",
+        "ff.xwxxxwxx.",
+        ".fxxwxxxwexx",
+        ".fxxwxxxwxxx",
+        "ff.xwxxxwxx.",
+        "f...xxxxx...",
+        "......f.....",
+      ],
+      [
+        "......ff....",
+        ".f..xxxxx...",
+        ".f.xwxxxwxx.",
+        "ffxxwxxxwexx",
+        "ffxxwxxxwxxx",
+        ".f.xwxxxwxx.",
+        ".f..xxxxx...",
+        "......f.....",
+      ],
+    ],
+  },
+  shark: {
+    speed: 4,
+    fright: 48,
+    stroke: 3,
+    frames: [
+      [
+        "f.........f.........",
+        "ff.......ff.........",
+        ".ff....xxxxxx.......",
+        "..fxxxxxxxxxxxxx....",
+        "...xxxxxxxxxxxxxxx..",
+        "..fxxxxxxxxxxxxxxexx",
+        ".ffooooooooooooooooo",
+        "ff....oooooooooooo..",
+        "f.......off.........",
+        ".........f..........",
+      ],
+      [
+        ".f........f.........",
+        ".ff......ff.........",
+        "..ff...xxxxxx.......",
+        "..fxxxxxxxxxxxxx....",
+        "..fxxxxxxxxxxxxxxx..",
+        "..fxxxxxxxxxxxxxxexx",
+        "..foooooooooooooooo.",
+        ".ff...oooooooooooo..",
+        ".f......off.........",
+        ".........f..........",
+      ],
+    ],
+  },
+} as const satisfies Record<string, PetLook>;
+
+export type PetKind = keyof typeof PETS;
+
 export interface AquariumResident {
   readonly key: string;
   readonly projectKey: string;
@@ -372,6 +445,14 @@ export interface AquariumFish {
   readonly wait: number;
   readonly full: number;
   readonly drift: AquariumPoint;
+}
+
+export interface AquariumPet {
+  readonly kind: PetKind;
+  readonly x: number;
+  readonly y: number;
+  readonly dir: 1 | -1;
+  readonly goal: AquariumPoint;
 }
 
 export interface AquariumBubble {
@@ -403,6 +484,7 @@ export interface Aquarium extends AquariumSize {
   readonly bubbles: ReadonlyArray<AquariumBubble>;
   readonly pellets: ReadonlyArray<AquariumPellet>;
   readonly pearls: ReadonlyArray<AquariumPearl>;
+  readonly pet: AquariumPet | null;
   readonly ripple: { readonly x: number; readonly y: number; readonly age: number } | null;
 }
 
@@ -416,6 +498,11 @@ export const FRESH_STASH: AquariumStash = { food: 3, strand: [] };
 const STILL: AquariumPoint = { x: 0, y: 0 };
 
 type Random = () => number;
+
+interface Sprite {
+  readonly width: number;
+  readonly height: number;
+}
 
 export function aquariumHash(value: string): number {
   let hash = 2166136261;
@@ -436,9 +523,16 @@ export function fishTraits(key: string) {
   };
 }
 
+function frameSize(rows: ReadonlyArray<string>): Sprite {
+  return { width: rows[0]!.length, height: rows.length };
+}
+
 export function fishSize(key: string) {
-  const [rows] = SPECIES[fishTraits(key).species].frames;
-  return { width: rows[0].length, height: rows.length };
+  return frameSize(SPECIES[fishTraits(key).species].frames[0]);
+}
+
+function petSize(kind: PetKind) {
+  return frameSize(PETS[kind].frames[0]);
 }
 
 export function aquariumWeeds(width: number) {
@@ -498,12 +592,12 @@ export function leapKeyframes(
   });
 }
 
-function swimBottom(size: AquariumSize, key: string) {
-  return Math.max(size.top, size.height - AQUARIUM_SAND - 2 - fishSize(key).height);
+function swimBottom(size: AquariumSize, sprite: Sprite) {
+  return Math.max(size.top, size.height - AQUARIUM_SAND - 2 - sprite.height);
 }
 
-function inBand(size: AquariumSize, key: string, y: number) {
-  return Math.min(swimBottom(size, key), Math.max(size.top, y));
+function inBand(size: AquariumSize, sprite: Sprite, y: number) {
+  return Math.min(swimBottom(size, sprite), Math.max(size.top, y));
 }
 
 function seabed(size: AquariumSize) {
@@ -511,8 +605,9 @@ function seabed(size: AquariumSize) {
 }
 
 function swimRow(size: AquariumSize, key: string, random: Random) {
-  if (fishTraits(key).diet === "crawl") return swimBottom(size, key);
-  return Math.round(size.top + random() * (swimBottom(size, key) - size.top));
+  const bottom = swimBottom(size, fishSize(key));
+  if (fishTraits(key).diet === "crawl") return bottom;
+  return Math.round(size.top + random() * (bottom - size.top));
 }
 
 function jitter(random: Random) {
@@ -567,6 +662,7 @@ export function createAquarium(
     bubbles: [],
     pellets: [],
     pearls: [],
+    pet: null,
     ripple: null,
   };
 }
@@ -593,7 +689,7 @@ export function resizeAquarium(aquarium: Aquarium, size: AquariumSize): Aquarium
     fish: aquarium.fish.map((fish) => ({
       ...fish,
       x: Math.min(fish.x, size.width),
-      y: Math.min(fish.y, swimBottom(size, fish.key)),
+      y: Math.min(fish.y, swimBottom(size, fishSize(fish.key))),
     })),
     bubbles: aquarium.bubbles.filter((bubble) => bubble.x < size.width && bubble.y < size.height),
     pellets: aquarium.pellets.map((pellet) => ({
@@ -635,6 +731,15 @@ function centerOf(fish: AquariumFish): AquariumPoint {
   return { x: fish.x + width / 2, y: fish.y + height / 2 };
 }
 
+function touches(body: AquariumPoint, sprite: Sprite, at: AquariumPoint) {
+  return (
+    at.x >= body.x - TOUCH_REACH &&
+    at.x < body.x + sprite.width + TOUCH_REACH &&
+    at.y >= body.y - TOUCH_REACH &&
+    at.y < body.y + sprite.height + TOUCH_REACH
+  );
+}
+
 function edible(aquarium: Aquarium, key: string, pellet: AquariumPellet) {
   const { diet } = fishTraits(key);
   return (diet !== "graze" && diet !== "crawl") || pellet.y >= seabed(aquarium);
@@ -655,12 +760,7 @@ function bites(fish: AquariumFish, pellet: AquariumPellet) {
       pellet.y >= fish.y &&
       pellet.y < fish.y + height / 2
     );
-  return (
-    pellet.x >= fish.x - EAT_REACH &&
-    pellet.x < fish.x + width + EAT_REACH &&
-    pellet.y >= fish.y - EAT_REACH &&
-    pellet.y < fish.y + height + EAT_REACH
-  );
+  return touches(fish, { width, height }, pellet);
 }
 
 function nearestMeal(aquarium: Aquarium, fish: AquariumFish) {
@@ -674,20 +774,55 @@ function nearestMeal(aquarium: Aquarium, fish: AquariumFish) {
     .toSorted((left, right) => away(left) - away(right))[0];
 }
 
+function glide<T extends AquariumFish | AquariumPet>(body: T, to: AquariumPoint, speed: number): T {
+  const dx = to.x - body.x;
+  const dy = to.y - body.y;
+  const pull = Math.min(1, speed / Math.hypot(dx, dy));
+  return {
+    ...body,
+    x: body.x + dx * pull,
+    y: body.y + dy * pull,
+    dir: Math.abs(dx) < 1 ? body.dir : dx > 0 ? 1 : -1,
+  };
+}
+
 function chase(aquarium: Aquarium, fish: AquariumFish, pellet: AquariumPellet): AquariumFish {
-  const { width, height } = fishSize(fish.key);
+  const sprite = fishSize(fish.key);
   const { diet, speed } = fishTraits(fish.key);
-  const dx = pellet.x - (fish.x + width / 2);
-  const dy = inBand(aquarium, fish.key, pellet.y - height / 2) - fish.y;
-  const pull = Math.min(
-    1,
-    (speed * (diet === "dart" ? DART_BOOST : CHASE_BOOST)) / Math.hypot(dx, dy),
+  return glide(
+    fish,
+    { x: pellet.x - sprite.width / 2, y: inBand(aquarium, sprite, pellet.y - sprite.height / 2) },
+    speed * (diet === "dart" ? DART_BOOST : CHASE_BOOST),
   );
+}
+
+function petSpot(size: AquariumSize, kind: PetKind, at: AquariumPoint) {
+  const sprite = petSize(kind);
+  return {
+    x: Math.max(0, Math.min(size.width - sprite.width, at.x - sprite.width / 2)),
+    y: inBand(size, sprite, at.y - sprite.height / 2),
+  };
+}
+
+function mouthOf(pet: AquariumPet): AquariumPoint {
+  const { width, height } = petSize(pet.kind);
+  return { x: pet.dir === 1 ? pet.x + width - 1 : pet.x, y: pet.y + height / 2 };
+}
+
+function flee(fish: AquariumFish, pet: AquariumPet): AquariumFish {
+  const center = centerOf(fish);
+  const mouth = mouthOf(pet);
+  const dx = center.x - mouth.x;
+  const dy = center.y - mouth.y;
+  const away = Math.max(1, Math.hypot(dx, dy));
+  const fear = 1 - away / PETS[pet.kind].fright;
+  const { diet, speed } = fishTraits(fish.key);
+  if (fear <= 0 || diet === "crawl") return fish;
+  const push = speed * FLEE_BOOST * fear;
   return {
     ...fish,
-    x: fish.x + dx * pull,
-    y: fish.y + dy * pull,
     dir: Math.abs(dx) < 1 ? fish.dir : dx > 0 ? 1 : -1,
+    drift: { x: (dx / away) * push, y: (dy / away) * push },
   };
 }
 
@@ -697,14 +832,14 @@ function drift(aquarium: Aquarium, fish: AquariumFish): AquariumFish {
   return {
     ...fish,
     x: fish.x + fish.drift.x,
-    y: inBand(aquarium, fish.key, fish.y + fish.drift.y),
+    y: inBand(aquarium, fishSize(fish.key), fish.y + fish.drift.y),
     drift: Math.hypot(decayed.x, decayed.y) < CURRENT_REST ? STILL : decayed,
   };
 }
 
 function swim(aquarium: Aquarium, fish: AquariumFish, random: Random): AquariumFish {
   if (fish.wait > 0) return { ...fish, wait: fish.wait - 1 };
-  const bottom = swimBottom(aquarium, fish.key);
+  const bottom = swimBottom(aquarium, fishSize(fish.key));
   if (fishTraits(fish.key).diet === "crawl" && fish.y < bottom)
     return { ...fish, y: Math.min(bottom, fish.y + 1) };
   const drifting = drift(aquarium, fish);
@@ -731,6 +866,14 @@ export function stepAquarium(
       ? [{ x: weeds[Math.floor(random() * weeds.length)]!.x, y: floor, big: random() < 0.3 }]
       : [];
   const bottom = seabed(aquarium);
+  const pet =
+    aquarium.pet &&
+    glide(
+      aquarium.pet,
+      petSpot(aquarium, aquarium.pet.kind, aquarium.pet.goal),
+      PETS[aquarium.pet.kind].speed,
+    );
+  const mouth = pet && mouthOf(pet);
   let pellets = aquarium.pellets;
   const fed = aquarium.fish
     .map((fish) =>
@@ -738,7 +881,7 @@ export function stepAquarium(
         ? park(aquarium, fish)
         : fish.key === input.heldKey
           ? fish
-          : swim(aquarium, fish, random),
+          : swim(aquarium, pet === null ? fish : flee(fish, pet), random),
     )
     .map((fish) => {
       if (fish.full > 0) return { ...fish, full: fish.full - 1 };
@@ -749,9 +892,14 @@ export function stepAquarium(
       pellets = pellets.filter((pellet) => pellet !== meal);
       return { ...fish, full: FULL_TICKS };
     });
+  const caught =
+    mouth === null
+      ? []
+      : fed.filter((fish) => free(fish, input) && touches(fish, fishSize(fish.key), mouth));
   return {
     ...aquarium,
-    fish: fed,
+    fish: fed.map((fish) => (caught.includes(fish) ? enter(aquarium, fish.key, random) : fish)),
+    pet,
     pellets: pellets.flatMap((pellet) =>
       pellet.y < bottom
         ? [
@@ -778,6 +926,10 @@ export function stepAquarium(
         bubble.y > 2 ? [{ ...bubble, x: bubble.x + jitter(random), y: bubble.y - 1 }] : [],
       ),
       ...spawned,
+      ...caught.map((fish) => {
+        const center = centerOf(fish);
+        return { x: Math.round(center.x), y: Math.round(center.y), big: true };
+      }),
     ],
   };
 }
@@ -878,7 +1030,12 @@ export function dropPearls(
   return { ...aquarium, pearls: [...aquarium.pearls, ...dropped].slice(-PEARL_LIMIT) };
 }
 
-export function tapAquarium(aquarium: Aquarium, stash: AquariumStash, at: AquariumPoint) {
+export function tapAquarium(
+  aquarium: Aquarium,
+  stash: AquariumStash,
+  at: AquariumPoint,
+  heldMs: number,
+) {
   const pearl = aquarium.pearls.find(
     (candidate) =>
       Math.abs(candidate.x + 1 - at.x) <= PEARL_REACH &&
@@ -889,6 +1046,23 @@ export function tapAquarium(aquarium: Aquarium, stash: AquariumStash, at: Aquari
       aquarium: { ...aquarium, pearls: aquarium.pearls.filter((candidate) => candidate !== pearl) },
       stash: { ...stash, strand: [...stash.strand, pearl.projectKey] },
     };
+  if (aquarium.pet !== null && touches(aquarium.pet, petSize(aquarium.pet.kind), at))
+    return { aquarium: { ...aquarium, pet: null }, stash };
+  if (heldMs >= HATCH_MS) {
+    const kind = aquarium.pet?.kind === "clownfish" ? "shark" : "clownfish";
+    return {
+      aquarium: {
+        ...aquarium,
+        pet: {
+          kind,
+          ...petSpot(aquarium, kind, at),
+          dir: at.x < aquarium.width / 2 ? 1 : -1,
+          goal: at,
+        } satisfies AquariumPet,
+      },
+      stash,
+    };
+  }
   const x = Math.round(at.x);
   const y = Math.min(seabed(aquarium), at.y);
   if (stash.food < 1 || aquarium.pellets.length >= PELLET_LIMIT)

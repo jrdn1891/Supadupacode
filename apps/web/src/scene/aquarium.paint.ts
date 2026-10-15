@@ -11,6 +11,7 @@ import {
   FULL_TICKS,
   fishSize,
   fishTraits,
+  PETS,
   SPECIES,
 } from "./aquarium.logic";
 
@@ -55,6 +56,11 @@ const FISH_COLORS = [
   { x: "#a99ad8", o: "#cfc5ee", f: "#8676b8" },
   { x: "#d6b85a", o: "#ecd895", f: "#b0953c" },
 ] as const;
+
+const PET_COLORS = {
+  clownfish: { x: "#f07a2c", w: "#fbf3e8", f: "#c4531c" },
+  shark: { x: "#6f8399", o: "#b9c6d2", f: "#53667b" },
+} as const;
 
 const EXCLAIM = ["...#...", "...#...", "...#...", ".......", "...#..."];
 const QUESTION = ["..###..", "....#..", "...#...", ".......", "...#..."];
@@ -170,6 +176,25 @@ function paintPearl(context: CanvasRenderingContext2D, projectKey: string, x: nu
   context.fillRect(x, y, 1, 1);
 }
 
+function paintSprite(
+  context: CanvasRenderingContext2D,
+  rows: ReadonlyArray<string>,
+  palette: Readonly<Record<string, string>>,
+  left: number,
+  top: number,
+  dir: 1 | -1,
+) {
+  const width = rows[0]!.length;
+  rows.forEach((row, y) => {
+    for (let x = 0; x < width; x++) {
+      const color = palette[row.charAt(x)];
+      if (color === undefined) continue;
+      context.fillStyle = color;
+      context.fillRect(dir === 1 ? left + x : left + width - 1 - x, top + y, 1, 1);
+    }
+  });
+}
+
 function paintCue(context: CanvasRenderingContext2D, cue: AgentCue, left: number, top: number) {
   if (cue === "working") return;
   const { color, glyph } = CUE_BUBBLES[cue];
@@ -216,14 +241,7 @@ function paintFish(
   const left = Math.round(fish.x) - (width - still[0].length) / 2;
   const top = Math.round(fish.y) - (rows.length - still.length) / 2 + fishBob(fish.key, tick);
   context.globalAlpha = traits.depth;
-  rows.forEach((row, y) => {
-    for (let x = 0; x < width; x++) {
-      const color = palette[row.charAt(x)];
-      if (color === undefined) continue;
-      context.fillStyle = color;
-      context.fillRect(fish.dir === 1 ? left + x : left + width - 1 - x, top + y, 1, 1);
-    }
-  });
+  paintSprite(context, rows, palette, left, top, fish.dir);
   if (savoring) {
     context.globalAlpha = 1 - sinceMeal / AFTER_MEAL;
     context.fillStyle = colors.x;
@@ -305,7 +323,18 @@ export function paintAquarium(
   );
   for (const fish of byDepth)
     paintFish(context, fish, input.residents.get(fish.key), tick, look.eye);
-  const { ripple, width } = aquarium;
+  const { pet, ripple, width } = aquarium;
+  if (pet !== null) {
+    const { frames, stroke } = PETS[pet.kind];
+    paintSprite(
+      context,
+      frames[Math.floor(tick / stroke) % frames.length]!,
+      { ...PET_COLORS[pet.kind], e: look.eye },
+      Math.round(pet.x),
+      Math.round(pet.y),
+      pet.dir,
+    );
+  }
   if (ripple !== null) {
     const radius = 1 + Math.floor(ripple.age / 2);
     context.fillStyle = look.bubble;
