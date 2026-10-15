@@ -111,7 +111,7 @@ function WorkLogIcon(props: {
   if (props.icon === "supacode") {
     return (
       <SupacodeMark
-        height={10}
+        height={8}
         {...(colorClassName ? { colorClassName } : { color: props.color })}
       />
     );
