@@ -42,6 +42,12 @@ export function backstageCue(input: {
   return input.unseen ? "ready" : null;
 }
 
+export function awaitsYou(
+  thread: Pick<EnvironmentThreadShell, "hasPendingApprovals" | "hasPendingUserInput">,
+): boolean {
+  return thread.hasPendingApprovals || thread.hasPendingUserInput;
+}
+
 export function backstageEntries(input: {
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
   readonly onStage: (key: string) => boolean;

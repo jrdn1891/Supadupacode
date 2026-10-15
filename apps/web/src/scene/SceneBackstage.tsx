@@ -1,5 +1,9 @@
 import { scopeThreadRef } from "@supacode/client-runtime/environment";
-import { type BackstageEntry, backstageDetail } from "@supacode/client-runtime/state/backstage";
+import {
+  awaitsYou,
+  type BackstageEntry,
+  backstageDetail,
+} from "@supacode/client-runtime/state/backstage";
 import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/models";
 import type { BackstageCue } from "@supacode/contracts";
 import { resolveProjectContext } from "@supacode/shared/projectSettings";
@@ -208,6 +212,12 @@ function BackstageChip({
           >
             <XIcon className="size-3" />
           </button>
+        ) : null}
+        {awaitsYou(thread) ? (
+          <span
+            aria-hidden
+            className="attention-glow pointer-events-none absolute inset-0 rounded-[inherit]"
+          />
         ) : null}
       </TooltipTrigger>
       <TooltipPopup side="top">

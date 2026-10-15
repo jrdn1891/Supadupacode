@@ -624,6 +624,17 @@ html[data-mobile-composer-route-transition="true"]::view-transition-new(supacode
   margin-left: var(--live-activity-focus-width);
 }
 
+@utility attention-glow {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-warning) 55%, transparent),
+    inset 0 0 32px color-mix(in oklab, var(--color-warning) 16%, transparent);
+  animation: var(--animate-status-pulse);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 @property --assistant-citation-highlight-opacity {
   syntax: "<number>";
   inherits: true;
