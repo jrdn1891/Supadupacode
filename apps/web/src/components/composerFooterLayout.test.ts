@@ -152,6 +152,14 @@ describe("shouldUseRestingComposerLayout", () => {
     hasExpandedChrome: false,
     hasMultilinePrompt: false,
     timelineOverflows: true,
+    restRequested: false,
+  };
+  const newThreadAwaitingReach = {
+    ...resting,
+    isExistingThread: false,
+    isScrollCollapsed: false,
+    timelineOverflows: false,
+    restRequested: true,
   };
 
   it("uses the resting layout after a timeline scroll", () => {
@@ -190,6 +198,18 @@ describe("shouldUseRestingComposerLayout", () => {
       ).toBe(false);
     },
   );
+
+  it("rests a new thread's composer when its parent asks", () => {
+    expect(shouldUseRestingComposerLayout(newThreadAwaitingReach)).toBe(true);
+  });
+
+  it.each([
+    ["a multiline draft", { hasMultilinePrompt: true }],
+    ["an open menu", { hasExpandedChrome: true }],
+    ["a phone", { isMobileViewport: true }],
+  ])("keeps a requested rest open for %s", (_, override) => {
+    expect(shouldUseRestingComposerLayout({ ...newThreadAwaitingReach, ...override })).toBe(false);
+  });
 });
 
 describe("shouldAnimateComposerRestingTransition", () => {

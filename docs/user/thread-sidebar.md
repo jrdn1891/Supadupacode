@@ -278,6 +278,8 @@ drag the pane onto the bar. In a pane on a split stage, `mod+alt+enter` sends yo
 sends the pane backstage in one step; with a single thread it still starts a new thread.
 
 When a new thread is alone on the stage, a quiet aquarium fills the space behind its composer.
+The composer rests there as a bare text field; point at it, or press a composer shortcut such as
+the model picker's, to bring back its project, branch, model, and access controls.
 Each backstage agent swims there as a fish, colored by its project. Point at a fish to see which
 agent it is, and click it to open that thread in place of the new one; dropping a thread from the
 sidebar or the backstage bar onto the aquarium does the same. When an agent needs you or
