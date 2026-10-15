@@ -276,8 +276,9 @@ such as "1 needs you · 2 working". Tap it to list them, then tap one to open it
 a haptic tap when a backstage thread finishes or needs you.
 
 To send a thread backstage, choose the arrow in its pane header, flick the pane's grip down, or
-drag the pane onto the bar. In a pane on a split stage, `mod+alt+enter` sends your message and
-sends the pane backstage in one step; with a single thread it still starts a new thread.
+drag the pane onto the bar. On a split stage, `mod+alt+enter` in a thread's pane sends your
+message and the pane backstage in one step, and sending from a new thread's pane swaps that pane
+for a fresh new thread. With a single thread, both start a new thread.
 
 When a new thread is alone on the stage, a quiet aquarium fills the space behind its composer.
 The composer rests there as a bare text field; point at it, or press a composer shortcut such as

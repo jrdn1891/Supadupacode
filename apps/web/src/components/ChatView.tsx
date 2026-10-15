@@ -9642,9 +9642,11 @@ export default function ChatView(props: ChatViewProps) {
         markPromotedDraftThreadByRef(scopeThreadRef(environmentId, threadIdForSend));
       clearUsageLimitsFor(routeThreadKey);
       if (submissionIntent === "background") {
-        if (paneSplit && scenePaneId !== null && !isLocalDraftThread)
+        if (paneSplit && scenePaneId !== null) {
+          if (isLocalDraftThread && activeProjectRef !== null)
+            await handleNewThread(activeProjectRef);
           sceneActions.close(scenePaneId);
-        else {
+        } else {
           const sendButton = composerOverlayElement?.querySelector(
             '[data-chat-composer-send="true"]',
           );
