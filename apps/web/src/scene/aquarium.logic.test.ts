@@ -80,7 +80,7 @@ describe("stepAquarium", () => {
     }
   });
 
-  it("brings the fish of the agent that needs you to the middle and holds it there", () => {
+  it("brings the fish of the agent that needs you under the caption and holds it there", () => {
     const residents = [resident("a"), resident("b", "approval")];
     const tank = run(createAquarium(SIZE, residents, null, seeded(5)), 400, "b");
     const parked = tank.fish.find((fish) => fish.key === "b")!;

@@ -108,11 +108,7 @@ export function featuredResident<T extends { readonly cue: BackstageCue }>(
 }
 
 export function parkingSpot(size: AquariumSize, key: string) {
-  const { width, height } = fishSize(key);
-  return {
-    x: Math.round(size.width / 2 - width / 2),
-    y: Math.round((size.top + size.height - AQUARIUM_SAND - height) / 2),
-  };
+  return { x: Math.round(size.width / 2 - fishSize(key).width / 2), y: size.top };
 }
 
 function swimBottom(size: AquariumSize, key: string) {

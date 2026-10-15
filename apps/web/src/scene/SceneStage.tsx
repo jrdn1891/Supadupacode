@@ -84,7 +84,7 @@ export function SceneStage({ target }: { readonly target: ThreadRouteTarget }) {
           </Fragment>
         ))}
       </ResizablePanelGroup>
-      <SceneBackstage stageVisible />
+      <SceneBackstage />
     </SidebarInset>
   );
 }

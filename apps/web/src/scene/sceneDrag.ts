@@ -83,7 +83,8 @@ export function sceneDropTargetAt(
   const paneId = pane?.dataset.scenePane;
   if (pane == null || paneId === undefined || paneId === options.exceptPaneId) return null;
   const rect = boundsOf(pane);
-  const zone = sceneDropZone(rect, point);
+  const zone =
+    element.closest("[data-scene-takeover]") === null ? sceneDropZone(rect, point) : "center";
   const column = boundsOf(pane.closest("[data-scene-column]") ?? pane);
   return { kind: "pane", paneId, zone, preview: zoneRect(rect, column, zone) };
 }

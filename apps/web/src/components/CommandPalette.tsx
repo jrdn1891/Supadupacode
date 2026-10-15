@@ -74,7 +74,6 @@ import {
   FolderIcon,
   FolderPlusIcon,
   GitForkIcon,
-  HouseIcon,
   MessageSquareDashedIcon,
   LinkIcon,
   MessageSquareIcon,
@@ -389,7 +388,6 @@ function overlayModeForCommand(command: string | null): SearchOverlayMode | null
 const PAGE_BY_COMMAND = {
   "usage.open": "/usage",
   "automations.open": "/automations",
-  "home.open": "/home",
 } as const;
 
 function pageForCommand(command: string | null) {
@@ -2427,18 +2425,6 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
-
-  actionItems.push({
-    kind: "action",
-    value: "action:home",
-    searchTerms: ["home", "aquarium", "calm", "quiet", "backstage", "away", "rest"],
-    title: "Go home",
-    icon: <HouseIcon className={ITEM_ICON_CLASS} />,
-    shortcutCommand: "home.open",
-    run: async () => {
-      await navigate({ to: "/home" });
-    },
-  });
 
   actionItems.push({
     kind: "action",

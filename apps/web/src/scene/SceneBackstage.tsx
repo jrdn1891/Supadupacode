@@ -64,8 +64,8 @@ const CUE_LOOK: Readonly<
   working: { icon: CircleDashedIcon, hue: "text-info", surface: "hover:bg-accent" },
 };
 
-export function SceneBackstage({ stageVisible }: { readonly stageVisible: boolean }) {
-  const { entries, nowMs } = useBackstageEntries(stageVisible);
+export function SceneBackstage() {
+  const { entries, nowMs } = useBackstageEntries(true);
   const dragging = useSceneDragView().ghost !== null;
   if (entries.length === 0)
     return dragging ? (
