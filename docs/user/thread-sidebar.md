@@ -239,7 +239,8 @@ On web and desktop, put as many threads on the stage as you like. Choose **Open 
 for below). The focused pane is the one the address bar, shortcuts, and pasted text follow;
 click a pane to focus it, or press `mod+alt+arrowright` and `mod+alt+arrowleft` to move between
 panes. Clicking a thread in the sidebar shows it in the focused pane, or focuses the pane that
-already shows it. Threads on the stage keep a light highlight in the sidebar. In the command
+already shows it. While the stage is split, a new thread opens in its own pane beside the
+focused one. Threads on the stage keep a light highlight in the sidebar. In the command
 palette, press Option-Enter on a thread to open it beside.
 
 You can also drag a thread from the sidebar onto the stage. Drop it near a pane's edge to open it

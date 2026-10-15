@@ -37,6 +37,8 @@ import {
   startNewThreadFromContext,
 } from "../lib/chatThreadActions";
 import { readSupacodeProjectFile } from "../lib/supacodeProjectFileDefaults";
+import { scenePanes } from "../scene/scene.logic";
+import { useSceneStore } from "../scene/sceneStore";
 import { environmentServerConfigsAtom } from "../state/server";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
@@ -99,6 +101,15 @@ export function useNewThreadHandler() {
       } = useComposerDraftStore.getState();
       const requestingRouteHref = router.state.location.href;
       const routeChangedSinceRequest = () => router.state.location.href !== requestingRouteHref;
+      const openDraft = (draftId: DraftId) => {
+        const stage = useSceneStore.getState();
+        if (scenePanes(stage.scene).length > 1) stage.open({ kind: "draft", draftId }, "right");
+        return router.navigate({
+          to: "/draft/$draftId",
+          params: { draftId },
+          replace: options?.replace ?? false,
+        });
+      };
       const currentRouteTarget = getCurrentRouteTarget();
       // A new thread carries the user's working mode from the thread being
       // viewed. The target project's configured model still wins; interaction
@@ -324,11 +335,7 @@ export function useNewThreadHandler() {
           ) {
             return opened;
           }
-          await router.navigate({
-            to: "/draft/$draftId",
-            params: { draftId: emptyStoredDraftThread.draftId },
-            replace: options?.replace ?? false,
-          });
+          await openDraft(emptyStoredDraftThread.draftId);
           return opened;
         })();
       }
@@ -398,11 +405,7 @@ export function useNewThreadHandler() {
             runtimeMode: racedDraft.runtimeMode,
             ...pickExplicitWorkspaceOptions(options),
           });
-          await router.navigate({
-            to: "/draft/$draftId",
-            params: { draftId: racedDraft.draftId },
-            replace: options?.replace ?? false,
-          });
+          await openDraft(racedDraft.draftId);
           return { draftId: racedDraft.draftId, threadId: racedDraft.threadId };
         }
         setLogicalProjectDraftThreadId(logicalProjectKey, projectRef, draftId, {
@@ -426,11 +429,7 @@ export function useNewThreadHandler() {
           // state. The project default wins when both are present.
           setModelSelection(draftId, modelSelectionOverride, { replaceOptions: true });
         }
-        await router.navigate({
-          to: "/draft/$draftId",
-          params: { draftId },
-          replace: options?.replace ?? false,
-        });
+        await openDraft(draftId);
         return { draftId, threadId };
       })();
     },
