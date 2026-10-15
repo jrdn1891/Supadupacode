@@ -1,4 +1,4 @@
-import type { BackstageCue } from "@supacode/contracts";
+import type { AgentCue } from "./aquariumAgents";
 
 import {
   AQUARIUM_SAND,
@@ -55,7 +55,7 @@ const CHECK = ["......#", ".....#.", "#...#..", ".#.#...", "..#...."];
 
 const CUE_BUBBLES: Readonly<
   Record<
-    Exclude<BackstageCue, "working">,
+    Exclude<AgentCue, "working">,
     { readonly color: string; readonly glyph: ReadonlyArray<string> }
   >
 > = {
@@ -138,7 +138,7 @@ export function paintScenery(width: number, height: number, appearance: Aquarium
   return canvas;
 }
 
-function paintCue(context: CanvasRenderingContext2D, cue: BackstageCue, left: number, top: number) {
+function paintCue(context: CanvasRenderingContext2D, cue: AgentCue, left: number, top: number) {
   if (cue === "working") return;
   const { color, glyph } = CUE_BUBBLES[cue];
   context.fillStyle = color;

@@ -36,7 +36,7 @@ function run(aquarium: Aquarium, ticks: number, featuredKey: string | null = nul
 }
 
 describe("stockAquarium", () => {
-  it("keeps one fish per backstage agent and leaves settled fish where they swim", () => {
+  it("keeps one fish per agent and leaves settled fish where they swim", () => {
     const random = seeded(1);
     const tank = createAquarium(SIZE, [resident("a"), resident("b")], null, random);
     const restocked = stockAquarium(tank, [resident("b"), resident("c")], random);

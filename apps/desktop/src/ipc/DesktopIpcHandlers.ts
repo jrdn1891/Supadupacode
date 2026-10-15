@@ -75,7 +75,6 @@ import * as WebLinksIpc from "./methods/webLinks.ts";
 import * as AppActivationIpc from "./methods/appActivation.ts";
 import { requestAttention } from "./methods/attention.ts";
 import { performHaptic } from "./methods/haptics.ts";
-import { installBackstageTray } from "./methods/backstageTray.ts";
 import { getWslState, setWslBackendEnabled, setWslDistro, setWslOnly } from "./methods/wsl.ts";
 import {
   getCliCommandState,
@@ -86,7 +85,6 @@ import {
 export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers")(function* () {
   const ipc = yield* DesktopIpc.DesktopIpc;
   yield* installNotificationBadge();
-  yield* installBackstageTray();
   yield* PreviewIpc.installPreviewEventForwarding();
 
   yield* ipc.handle(requestAttention);

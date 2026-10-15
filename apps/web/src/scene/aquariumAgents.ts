@@ -1,26 +1,22 @@
-import type { BackstageCue } from "@supacode/contracts";
+import { scopedThreadKey, scopeThreadRef } from "@supacode/client-runtime/environment";
+import type { EnvironmentThreadShell } from "@supacode/client-runtime/state/models";
+import { effectiveSnoozed } from "@supacode/client-runtime/state/thread-settled";
+import {
+  formatWorkingDurationLabel,
+  resolveThreadListDurationStartedAt,
+} from "@supacode/client-runtime/state/thread-timing";
 
-import { scopedThreadKey, scopeThreadRef } from "../environment/scoped.ts";
-import type { EnvironmentThreadShell } from "./models.ts";
-import { effectiveSnoozed } from "./threadSettled.ts";
-import { formatWorkingDurationLabel, resolveThreadListDurationStartedAt } from "./threadTiming.ts";
+import type { SidebarThreadStatus } from "../components/Sidebar.logic";
 
-export type BackstageThreadStatus =
-  | "approval"
-  | "input"
-  | "working"
-  | "waiting"
-  | "failed"
-  | "limited"
-  | "ready";
+export type AgentCue = "approval" | "input" | "failed" | "limited" | "ready" | "working";
 
-export interface BackstageEntry {
+export interface AquariumAgent {
   readonly key: string;
   readonly thread: EnvironmentThreadShell;
-  readonly cue: BackstageCue;
+  readonly cue: AgentCue;
 }
 
-const CUE_ORDER: Readonly<Record<BackstageCue, number>> = {
+const CUE_ORDER: Readonly<Record<AgentCue, number>> = {
   approval: 0,
   input: 0,
   failed: 0,
@@ -29,11 +25,11 @@ const CUE_ORDER: Readonly<Record<BackstageCue, number>> = {
   working: 2,
 };
 
-export function backstageCue(input: {
-  readonly status: BackstageThreadStatus;
+function agentCue(input: {
+  readonly status: SidebarThreadStatus;
   readonly thread: Pick<EnvironmentThreadShell, "latestRun">;
   readonly unseen: boolean;
-}): BackstageCue | null {
+}): AgentCue | null {
   const { status } = input;
   if (status === "approval" || status === "input" || status === "failed" || status === "limited")
     return status;
@@ -42,20 +38,13 @@ export function backstageCue(input: {
   return input.unseen ? "ready" : null;
 }
 
-export function awaitsYou(
-  thread: Pick<EnvironmentThreadShell, "hasPendingApprovals" | "hasPendingUserInput">,
-): boolean {
-  return thread.hasPendingApprovals || thread.hasPendingUserInput;
-}
-
-export function backstageEntries(input: {
+export function aquariumAgents(input: {
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
-  readonly onStage: (key: string) => boolean;
-  readonly status: (thread: EnvironmentThreadShell) => BackstageThreadStatus;
+  readonly status: (thread: EnvironmentThreadShell) => SidebarThreadStatus;
   readonly unseen: (thread: EnvironmentThreadShell, key: string) => boolean;
   readonly now: string;
-}): ReadonlyArray<BackstageEntry> {
-  const entries: BackstageEntry[] = [];
+}): ReadonlyArray<AquariumAgent> {
+  const agents: AquariumAgent[] = [];
   for (const thread of input.threads) {
     if (
       thread.archivedAt !== null ||
@@ -65,24 +54,23 @@ export function backstageEntries(input: {
     )
       continue;
     const key = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
-    if (input.onStage(key)) continue;
-    const cue = backstageCue({
+    const cue = agentCue({
       status: input.status(thread),
       thread,
       unseen: input.unseen(thread, key),
     });
-    if (cue !== null) entries.push({ key, thread, cue });
+    if (cue !== null) agents.push({ key, thread, cue });
   }
-  return entries.sort(
+  return agents.sort(
     (left, right) =>
       CUE_ORDER[left.cue] - CUE_ORDER[right.cue] ||
       right.thread.updatedAt.localeCompare(left.thread.updatedAt),
   );
 }
 
-export function backstageDetail(
+export function agentCueDetail(
   thread: EnvironmentThreadShell,
-  cue: BackstageCue,
+  cue: AgentCue,
   nowMs: number,
 ): string | null {
   switch (cue) {

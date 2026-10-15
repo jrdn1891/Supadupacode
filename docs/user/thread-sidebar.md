@@ -247,46 +247,24 @@ You can also drag a thread from the sidebar onto the stage. Drop it near a pane'
 on that side, or in the middle to show it in that pane instead. To rearrange the stage, drag a
 pane by the grip in its header onto another pane the same way; dropping in the middle swaps the
 two. Flick a pane's grip downward to send it off the stage. Parking or settling a thread also
-takes it off the stage.
+takes it off the stage. On a Force Touch trackpad, the trackpad gives a light tap as a dragged
+thread or pane snaps to a drop zone, and a firmer one when you flick a pane off the stage.
 
 To give one thread the whole stage, choose **Spotlight** in its header or press `mod+alt+s`.
 While in Spotlight, moving to another pane spotlights that one instead; press `mod+alt+s` again
-to bring every pane back. Close a pane with its **×** or `mod+alt+w`. The stage is remembered
-when you reload.
-
-## Backstage
-
-A thread that is running but not on the stage is backstage. On web and desktop, a bar under the
-stage lists each one with the same status colors as the sidebar. Threads that need you for an
-approval, a question, or an error come first and are highlighted. If the agent keeps a todo list,
-the chip shows how many steps are done; otherwise it shows how long the agent has been working.
-When the bar runs out of room, the rest fold into a **+** count; choose it to list them. Click a
-chip to bring the thread on stage, or drag it onto a pane to place it. Move the pointer over a
-finished chip, or focus it, and choose **×** to dismiss it.
-
-On macOS, the desktop app also lists backstage threads in the menu bar, with the count and the
-most urgent cue as the item's title. Choose a thread there to bring it on stage. On a Force Touch
-trackpad, the trackpad gives a light tap as a dragged thread or pane snaps to a drop zone, and a
-firmer one when you send a pane backstage.
-
-On iPhone and iPad, a **Backstage** card at the top of the thread list sums up the same threads,
-such as "1 needs you · 2 working". Tap it to list them, then tap one to open it. The phone gives
-a haptic tap when a backstage thread finishes or needs you.
-
-To send a thread backstage, choose the arrow in its pane header, flick the pane's grip down, or
-drag the pane onto the bar. In a pane on a split stage, `mod+alt+enter` sends your message and
-sends the pane backstage in one step; with a single thread it still starts a new thread.
+to bring every pane back. Close a pane with its **×** or `mod+alt+w`. In a pane on a split
+stage, `mod+alt+enter` sends your message and closes the pane in one step; with a single thread
+it starts a new thread. The stage is remembered when you reload.
 
 When a new thread is alone on the stage, a quiet aquarium fills the space behind its composer.
-Each backstage agent swims there as a fish, colored by its project. Point at a fish to see which
-agent it is, and click it to open that thread in place of the new one; dropping a thread from the
-sidebar or the backstage bar onto the aquarium does the same. When an agent needs you or
-finishes, its fish swims to the middle under a colored bubble. Sending the last pane on the stage
-backstage starts a new thread, so you land in the aquarium. With reduced motion turned on, the
-fish hold still.
+Each agent that is working, needs you, or has finished since you last looked swims there as a
+fish, colored by its project. Point at a fish to see which agent it is, and click it to open that
+thread in place of the new one. When an agent needs you or finishes, its fish swims to the middle
+under a colored bubble. Closing the last pane starts a new thread, so you land in the aquarium.
+With reduced motion turned on, the fish hold still.
 
 Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
-General → Threads** to get a toast with **Bring on stage** when a backstage thread finishes or
+General → Threads** to get a toast with **Bring on stage** when a thread off the stage finishes or
 needs you. With system notifications on, the desktop app also bounces its Dock icon, or flashes
 the taskbar button on Windows and Linux.
 

@@ -81,24 +81,6 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   },
   requestAttention: (kind) => ipcRenderer.invoke(IpcChannels.REQUEST_ATTENTION_CHANNEL, kind),
   performHaptic: (pattern) => ipcRenderer.invoke(IpcChannels.PERFORM_HAPTIC_CHANNEL, pattern),
-  setBackstageSummary: (items) =>
-    ipcRenderer.invoke(IpcChannels.SET_BACKSTAGE_SUMMARY_CHANNEL, items),
-  onBackstageOpen: (listener) => {
-    const handler = (_event: Electron.IpcRendererEvent, thread: unknown) => {
-      if (
-        typeof thread === "object" &&
-        thread !== null &&
-        "environmentId" in thread &&
-        "threadId" in thread &&
-        typeof thread.environmentId === "string" &&
-        typeof thread.threadId === "string"
-      ) {
-        listener({ environmentId: thread.environmentId, threadId: thread.threadId });
-      }
-    };
-    ipcRenderer.on(IpcChannels.BACKSTAGE_OPEN_CHANNEL, handler);
-    return () => ipcRenderer.removeListener(IpcChannels.BACKSTAGE_OPEN_CHANNEL, handler);
-  },
   onTrackpadScrollEnd: (listener) => {
     const handler = () => listener();
     ipcRenderer.on(IpcChannels.TRACKPAD_SCROLL_END_CHANNEL, handler);

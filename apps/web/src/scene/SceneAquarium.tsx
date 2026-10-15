@@ -1,13 +1,20 @@
 import { scopeThreadRef } from "@supacode/client-runtime/environment";
-import { backstageDetail } from "@supacode/client-runtime/state/backstage";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import {
+  hasUnseenCompletion,
+  resolveSidebarThreadStatus,
+  resolveThreadLastVisitedAt,
+} from "../components/Sidebar.logic";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { useNowMinute } from "../hooks/useNowMinute";
 import { useTheme } from "../hooks/useTheme";
 import { observeResize } from "../lib/observeResize";
 import { cn } from "../lib/utils";
+import { useThreadShells } from "../state/entities";
 import { buildThreadRouteParams } from "../threadRoutes";
+import { useUiStateStore } from "../uiStateStore";
 import {
   AQUARIUM_FPS,
   AQUARIUM_PIXEL,
@@ -22,7 +29,7 @@ import {
   stockAquarium,
 } from "./aquarium.logic";
 import { type AquariumAppearance, CUE_RISE, paintAquarium, paintScenery } from "./aquarium.paint";
-import { useBackstageEntries } from "./useBackstageEntries";
+import { agentCueDetail, aquariumAgents } from "./aquariumAgents";
 
 const CEILING_GAP = 12;
 
@@ -123,7 +130,24 @@ function startTank(canvas: HTMLCanvasElement) {
 }
 
 export function SceneAquarium() {
-  const { entries, nowMs } = useBackstageEntries(true);
+  const threads = useThreadShells();
+  const localVisits = useUiStateStore((state) => state.threadLastVisitedAtById);
+  const nowMinute = useNowMinute();
+  const nowMs = Date.parse(`${nowMinute}:00Z`);
+  const entries = useMemo(
+    () =>
+      aquariumAgents({
+        threads,
+        status: resolveSidebarThreadStatus,
+        unseen: (thread, key) =>
+          hasUnseenCompletion({
+            ...thread,
+            lastVisitedAt: resolveThreadLastVisitedAt(thread.lastVisitedAt, localVisits[key]),
+          }),
+        now: `${nowMinute}:00Z`,
+      }),
+    [localVisits, nowMinute, threads],
+  );
   const navigate = useNavigate();
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const appearance = useTheme().resolvedTheme;
@@ -208,7 +232,6 @@ export function SceneAquarium() {
   return (
     <div
       ref={setRoot}
-      data-scene-takeover
       className={cn("absolute inset-0 overflow-hidden", hoveredEntry && "cursor-pointer")}
       onPointerMove={(event) => hover(event.clientX, event.clientY)}
       onPointerLeave={() => {
@@ -240,8 +263,8 @@ export function SceneAquarium() {
         {entries.length > 0 ? (
           <p className="max-w-md truncate text-xs text-muted-foreground">
             {featured === null
-              ? `${entries.length} ${entries.length === 1 ? "agent" : "agents"} working backstage · nothing needs you`
-              : `${featured.thread.title} · ${backstageDetail(featured.thread, featured.cue, nowMs)}`}
+              ? `${entries.length} ${entries.length === 1 ? "agent" : "agents"} working · nothing needs you`
+              : `${featured.thread.title} · ${agentCueDetail(featured.thread, featured.cue, nowMs)}`}
           </p>
         ) : null}
       </div>
@@ -252,7 +275,7 @@ export function SceneAquarium() {
         >
           {hoveredEntry.thread.title}
           <span className="ml-1.5 text-muted-foreground tabular-nums">
-            {backstageDetail(hoveredEntry.thread, hoveredEntry.cue, nowMs)}
+            {agentCueDetail(hoveredEntry.thread, hoveredEntry.cue, nowMs)}
           </span>
         </div>
       ) : null}

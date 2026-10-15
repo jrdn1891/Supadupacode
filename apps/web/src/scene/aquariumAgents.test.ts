@@ -9,8 +9,13 @@ import {
 import * as DateTime from "effect/DateTime";
 import { describe, expect, it } from "vite-plus/test";
 
-import { type BackstageThreadStatus, backstageEntries } from "./backstage.ts";
-import { type EnvironmentThreadShell, presentThreadShell } from "./models.ts";
+import {
+  type EnvironmentThreadShell,
+  presentThreadShell,
+} from "@supacode/client-runtime/state/models";
+
+import type { SidebarThreadStatus } from "../components/Sidebar.logic";
+import { aquariumAgents } from "./aquariumAgents";
 
 const now = DateTime.makeUnsafe("2026-10-14T12:00:00.000Z");
 const environmentId = "env" as EnvironmentId;
@@ -64,7 +69,7 @@ const running = (progress: OrchestrationV2ThreadShell["progress"] = null) => ({
   progress,
 });
 
-function status(thread: EnvironmentThreadShell): BackstageThreadStatus {
+function status(thread: EnvironmentThreadShell): SidebarThreadStatus {
   if (thread.hasPendingApprovals) return "approval";
   if (thread.hasPendingUserInput) return "input";
   if (thread.runtime?.status === "running") return "working";
@@ -74,49 +79,41 @@ function status(thread: EnvironmentThreadShell): BackstageThreadStatus {
 const unseenSince = (visitedAt: string) => (thread: EnvironmentThreadShell) =>
   thread.latestRun?.completedAt != null && thread.latestRun.completedAt > visitedAt;
 
-const cues = (threads: EnvironmentThreadShell[], stage: string[] = []) =>
-  backstageEntries({
+const cues = (threads: EnvironmentThreadShell[]) =>
+  aquariumAgents({
     threads,
-    onStage: (key) => stage.some((id) => key === `${environmentId}:${id}`),
     status,
     unseen: unseenSince("2026-10-14T11:00:00.000Z"),
     now: "2026-10-14T12:00:00.000Z",
-  }).map((entry) => [entry.thread.title, entry.cue]);
+  }).map((agent) => [agent.thread.title, agent.cue]);
 
-describe("backstageEntries", () => {
-  it("lists running work off stage as working, whatever step it is on", () => {
+describe("aquariumAgents", () => {
+  it("lists running work as working, whatever step it is on", () => {
     expect(
-      cues(
-        [
-          shell("plain", running()),
-          shell("last-step", running({ done: 2, total: 3, current: "Ship" })),
-          shell("idle"),
-        ],
-        [],
-      ),
+      cues([
+        shell("plain", running()),
+        shell("last-step", running({ done: 2, total: 3, current: "Ship" })),
+        shell("idle"),
+      ]),
     ).toEqual([
       ["plain", "working"],
       ["last-step", "working"],
     ]);
   });
 
-  it("puts threads that need the user first and leaves on-stage threads out", () => {
+  it("puts threads that need the user first", () => {
     expect(
-      cues(
-        [
-          shell("working", running()),
-          shell("asking", {
-            ...running(),
-            pendingRuntimeRequest: {
-              id: "request" as never,
-              kind: "user_input",
-              createdAt: now,
-            },
-          }),
-          shell("watched", running()),
-        ],
-        ["watched"],
-      ),
+      cues([
+        shell("working", running()),
+        shell("asking", {
+          ...running(),
+          pendingRuntimeRequest: {
+            id: "request" as never,
+            kind: "user_input",
+            createdAt: now,
+          },
+        }),
+      ]),
     ).toEqual([
       ["asking", "input"],
       ["working", "working"],
@@ -144,7 +141,7 @@ describe("backstageEntries", () => {
     ]);
   });
 
-  it("keeps parked, settled, and subagent threads off the bar", () => {
+  it("leaves parked, settled, and subagent threads out", () => {
     expect(
       cues([
         shell("parked", { ...running(), snoozedAt: now, snoozedUntil: null }),
@@ -171,9 +168,8 @@ describe("backstageEntries", () => {
     });
     expect(cues([finished])).toEqual([["finished", "ready"]]);
     expect(
-      backstageEntries({
+      aquariumAgents({
         threads: [finished],
-        onStage: () => false,
         status,
         unseen: unseenSince("2026-10-14T12:30:00.000Z"),
         now: "2026-10-14T13:00:00.000Z",

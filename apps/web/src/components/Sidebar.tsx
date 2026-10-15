@@ -3350,7 +3350,7 @@ export default function Sidebar() {
       const threads = contextDragThreads();
       const stageTarget = sceneDropTargetAt(point, { yieldToComposer: true });
       if (dropThreadContext(point, threads)) return true;
-      if (stageTarget?.kind === "pane") {
+      if (stageTarget !== null) {
         sceneActions.dropAll(
           threads.map((threadRef) => ({ kind: "server", threadRef })),
           stageTarget.paneId,
