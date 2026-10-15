@@ -21,7 +21,7 @@ const IOS_BUNDLE_IDENTIFIER_PATTERN = /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 
 const fromRepoRoot = (relativePath: string) => `../../${relativePath}`;
 // Android layers are rendered by scripts/export-android-icons.ts from the Icon Composer sources.
-// The wordmark sits inside the adaptive safe zone; the variant artwork is a full-bleed background.
+// The mark, framed like the artwork, doubles as the monochrome themed icon.
 const androidAdaptiveForeground = "./assets/android-icon-foreground.png";
 
 if (
@@ -42,7 +42,6 @@ const DEVELOPMENT_ASSETS = {
   androidAdaptiveBackgroundColor: "#347FF8",
   androidAdaptiveBackgroundImage: "./assets/android-icon-background-dev.png",
   androidSplashIcon: "./assets/android-splash-icon-dev.png",
-  androidMonochromeIcon: "./assets/android-icon-mark.png",
 } as const;
 
 const PREVIEW_ASSETS = {
@@ -53,7 +52,6 @@ const PREVIEW_ASSETS = {
   androidAdaptiveBackgroundColor: "#111533",
   androidAdaptiveBackgroundImage: "./assets/android-icon-background-nightly.png",
   androidSplashIcon: "./assets/android-splash-icon-nightly.png",
-  androidMonochromeIcon: "./assets/android-icon-mark.png",
 } as const;
 
 const RELEASE_ASSETS = {
@@ -61,10 +59,9 @@ const RELEASE_ASSETS = {
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIconComposerProject),
   splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIosIconPng),
   androidAdaptiveForeground,
-  androidAdaptiveBackgroundColor: "#0E0F34",
+  androidAdaptiveBackgroundColor: "#0A3B62",
   androidAdaptiveBackgroundImage: "./assets/android-icon-background-prod.png",
   androidSplashIcon: "./assets/android-splash-icon-prod.png",
-  androidMonochromeIcon: "./assets/android-icon-mark.png",
 } as const;
 
 const VARIANT_CONFIG = {
@@ -288,7 +285,7 @@ const config: ExpoConfig = {
       backgroundColor: variant.assets.androidAdaptiveBackgroundColor,
       backgroundImage: variant.assets.androidAdaptiveBackgroundImage,
       foregroundImage: variant.assets.androidAdaptiveForeground,
-      monochromeImage: variant.assets.androidMonochromeIcon,
+      monochromeImage: variant.assets.androidAdaptiveForeground,
     },
     // Opts into OnBackInvokedCallback-based back dispatch (Android 13+).
     // JS back handling survives it via react-native's Android 16 shim plus

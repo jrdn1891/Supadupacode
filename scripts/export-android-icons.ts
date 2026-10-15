@@ -4,13 +4,13 @@
 //
 // Icon Composer exports already contain a rounded-square silhouette, and Android masks
 // the central 72dp of a 108dp adaptive canvas, so exporting them as a foreground produces
-// a double-framed icon with the letters cropped by the mask. Instead, each variant gets a
-// full-bleed background layer (the artwork behind the wordmark) and a shared transparent
-// foreground that keeps the wordmark inside the safe zone.
+// a double-framed icon with the mark cropped by the mask. Instead, each variant gets a
+// full-bleed background layer (the artwork behind the mark) and a shared transparent
+// foreground that frames the mark exactly like the artwork.
 //
 // The Android 12+ splash screen masks its icon to a circle covering the central two thirds
 // of a 288dp canvas, which is the same proportion the launcher crops. Composing the two
-// adaptive layers into one 288dp image therefore makes the splash frame the wordmark
+// adaptive layers into one 288dp image therefore makes the splash frame the mark
 // exactly like the launcher icon does.
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
@@ -29,17 +29,10 @@ type IconVariant = (typeof ICON_VARIANTS)[number];
 const ADAPTIVE_CANVAS = 432;
 // 288dp at xxxhdpi: the full Android 12+ splash canvas, so the icon needs no upscaling.
 const SPLASH_CANVAS = 1152;
-// Icon Composer's layer sources use a 128pt viewBox; the wordmark path spans this box.
-const TEXT = { x: 25.69, y: 37.17, width: 76.4, height: 52.95 };
-// Wordmark width as a fraction of the 108dp canvas. The visible area is 72dp (66dp
-// guaranteed), so 0.48 leaves the letters at ~72% of the mask with room for the
-// launcher's own zoom effects.
-const WORDMARK_FRACTION = 0.48;
 // Icon Composer places layers on a 1024pt canvas, so one unit of the 128pt sources is 8pt.
 const COMPOSER_POINTS_PER_UNIT = 8;
-// The background is the base the other layers are placed on. The wordmark and dev's annotations
-// follow the Android wordmark sizing rather than the artwork's iOS framing.
-const NON_OVERLAY_LAYERS = new Set(["background.svg", "text.svg", "annotations.svg"]);
+// The background is the base the other layers are placed on, and the mark is the foreground.
+const NON_OVERLAY_LAYERS = new Set(["background.svg", "mark.svg"]);
 const SVG_DENSITY = 300;
 const OUTPUT_DIRECTORY = "apps/mobile/assets";
 
@@ -68,11 +61,11 @@ export class AndroidIconRenderError extends Schema.TaggedError<AndroidIconRender
   { layer: Schema.String, cause: Schema.Defect() },
 ) {}
 
-const wordmarkTransform = (size: number) => {
-  const scale = (size * WORDMARK_FRACTION) / TEXT.width;
-  const tx = (size - TEXT.width * scale) / 2 - TEXT.x * scale;
-  const ty = (size - TEXT.height * scale) / 2 - TEXT.y * scale;
-  return `translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${scale.toFixed(4)})`;
+// Launcher and splash masks only reveal the central two thirds, so the 128pt artwork is fitted
+// there to keep the iOS framing.
+const artworkFrame = (size: number) => {
+  const visible = Math.round((size * 2) / 3);
+  return { visible, inset: Math.round((size - visible) / 2) };
 };
 
 const canvasSvg = (size: number, inner: string) =>
@@ -148,18 +141,21 @@ const renderForeground = Effect.fn("androidIcons.renderForeground")(function* (
   repositoryRoot: string,
   size: number,
 ) {
-  const text = yield* readLayerSource(repositoryRoot, "prod", "text.svg");
-  const paths = text.match(/<path[^>]*\/>/g) ?? [];
+  const mark = yield* readLayerSource(repositoryRoot, "prod", "mark.svg");
+  const paths = mark.match(/<path[^>]*\/>/g) ?? [];
+  const { visible, inset } = artworkFrame(size);
   return yield* rasterize(
     "foreground",
-    canvasSvg(size, `<g transform="${wordmarkTransform(size)}">${paths.join("")}</g>`),
+    canvasSvg(
+      size,
+      `<g transform="translate(${inset} ${inset}) scale(${visible / 128})">${paths.join("")}</g>`,
+    ),
     size,
   );
 });
 
-// Launcher and splash masks only reveal the central two thirds, so the artwork is fitted there
-// to keep the iOS framing. A full-bleed copy underneath fills the parallax margin.
-const renderArtworkBackground = Effect.fn("androidIcons.renderArtworkBackground")(function* (
+// A full-bleed copy of the artwork underneath fills the parallax margin.
+const renderBackground = Effect.fn("androidIcons.renderBackground")(function* (
   repositoryRoot: string,
   variant: IconVariant,
   size: number,
@@ -186,41 +182,10 @@ const renderArtworkBackground = Effect.fn("androidIcons.renderArtworkBackground"
     placedLayerImage(repositoryRoot, variant, overlay),
   );
   const bled = background.replace(/<\/svg>\s*$/, `${images.join("")}</svg>`);
-  const visible = Math.round((size * 2) / 3);
-  const inset = Math.round((size - visible) / 2);
+  const { visible, inset } = artworkFrame(size);
   const margin = yield* rasterize(layer, bled, size);
   const artwork = yield* rasterize(layer, bled, visible);
   return yield* composite(layer, margin, [{ input: artwork, left: inset, top: inset }]);
-});
-
-const renderDevelopmentBackground = Effect.fn("androidIcons.renderDevelopmentBackground")(
-  function* (repositoryRoot: string, size: number) {
-    // The annotation layer shares the wordmark's coordinate space, so it is scaled and
-    // centered the same way to keep the wireframe boxes around the letters.
-    const annotations = yield* readLayerSource(repositoryRoot, "dev", "annotations.svg");
-    const body = annotations.replace(/^[\s\S]*?<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
-    const background = yield* renderArtworkBackground(repositoryRoot, "dev", size);
-    const overlay = yield* rasterize(
-      "dev-annotations",
-      canvasSvg(size, `<g transform="${wordmarkTransform(size)}">${body}</g>`),
-      size,
-    );
-    return yield* composite("dev-background", background, [{ input: overlay }]);
-  },
-);
-
-const renderBackground = Effect.fn("androidIcons.renderBackground")(function* (
-  repositoryRoot: string,
-  variant: IconVariant,
-  size: number,
-) {
-  switch (variant) {
-    case "dev":
-      return yield* renderDevelopmentBackground(repositoryRoot, size);
-    case "nightly":
-    case "prod":
-      return yield* renderArtworkBackground(repositoryRoot, variant, size);
-  }
 });
 
 const exportAndroidIcons = Effect.gen(function* () {
