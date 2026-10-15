@@ -86,11 +86,11 @@ describe("composerSendShortcutLabels", () => {
     });
   });
 
-  it("sends a draft in the background on Mod+Enter", () => {
+  it("sends a draft in the background on Enter and opens it on Mod+Enter", () => {
     expect(composerSendShortcutLabels({ ...input, isDraftThread: true })).toEqual({
-      foreground: "Enter",
+      background: "Enter",
       newLine: "⇧Enter",
-      background: "⌘Enter",
+      foreground: "⌘Enter",
     });
   });
 
@@ -191,11 +191,17 @@ describe("composerSubmissionIntentForKey", () => {
           isDraftThread: true,
           event: modEnter,
         }),
-      ).toBe("background");
+      ).toBe("foreground");
       expect(
         composerSubmissionIntentForKey({ ...running, event: { ...enter, shiftKey: true } }),
       ).toBeNull();
     }
+  });
+
+  it("starts a draft in the background on Enter", () => {
+    expect(composerSubmissionIntentForKey({ ...input, isDraftThread: true, event: enter })).toBe(
+      "background",
+    );
   });
 
   it("leaves queued-message steering on Mod+Shift+Enter outside a draft", () => {
@@ -224,7 +230,7 @@ describe("composerSubmissionIntentForKey", () => {
   ] as const)("accepts a remapped %s action", (key, event) => {
     const keybindings = mergeWithDefaultKeybindings(
       compileResolvedKeybindingsConfig([
-        { key, command: "composer.sendBackground", when: "composerFocus && draftThreadRoute" },
+        { key, command: "composer.sendAndOpen", when: "composerFocus && draftThreadRoute" },
       ]),
     );
     expect(
@@ -234,7 +240,7 @@ describe("composerSubmissionIntentForKey", () => {
         isDraftThread: true,
         event: { ...enter, ...event },
       }),
-    ).toBe("background");
+    ).toBe("foreground");
   });
 
   it("uses remapped keys and removes the old action bindings", () => {
@@ -247,7 +253,7 @@ describe("composerSubmissionIntentForKey", () => {
         },
         {
           key: "alt+b",
-          command: "composer.sendBackground",
+          command: "composer.sendAndOpen",
           when: "composerFocus && draftThreadRoute",
         },
       ]),
@@ -266,7 +272,7 @@ describe("composerSubmissionIntentForKey", () => {
         isDraftThread: true,
         event: { ...enter, key: "b", altKey: true },
       }),
-    ).toBe("background");
+    ).toBe("foreground");
     expect(
       composerSubmissionIntentForKey({
         ...custom,
@@ -274,6 +280,13 @@ describe("composerSubmissionIntentForKey", () => {
         event: { ...enter, ctrlKey: true },
       }),
     ).toBe("foreground");
+    expect(
+      composerSubmissionIntentForKey({
+        ...custom,
+        isDraftThread: true,
+        event: { ...enter, ctrlKey: true },
+      }),
+    ).toBe("background");
     expect(
       composerSubmissionIntentForKey({
         ...custom,

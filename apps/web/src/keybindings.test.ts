@@ -1589,14 +1589,14 @@ describe("composer and pull request shortcuts", () => {
   ] as const;
 
   it.each(["MacIntel", "Win32", "Linux"])(
-    "separates queued steering and background start on %s",
+    "separates queued steering and send and open on %s",
     (platform) => {
       const modifier = {
         metaKey: platform === "MacIntel",
         ctrlKey: platform !== "MacIntel",
       };
       const queuedKey = event({ key: "Enter", shiftKey: true, ...modifier });
-      const backgroundKey = event({ key: "Enter", ...modifier });
+      const openKey = event({ key: "Enter", ...modifier });
       assert.strictEqual(
         resolveShortcutCommand(queuedKey, DEFAULT_RESOLVED_KEYBINDINGS, {
           platform,
@@ -1605,11 +1605,11 @@ describe("composer and pull request shortcuts", () => {
         "thread.steerQueuedMessage",
       );
       assert.strictEqual(
-        resolveShortcutCommand(backgroundKey, DEFAULT_RESOLVED_KEYBINDINGS, {
+        resolveShortcutCommand(openKey, DEFAULT_RESOLVED_KEYBINDINGS, {
           platform,
           context: { terminalFocus: false, draftThreadRoute: true, composerFocus: true },
         }),
-        "composer.sendBackground",
+        "composer.sendAndOpen",
       );
     },
   );

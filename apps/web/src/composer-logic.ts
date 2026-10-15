@@ -20,6 +20,10 @@ import { isMacPlatform } from "./lib/utils";
 
 export type ComposerSubmissionIntent = "foreground" | "background" | "alternate";
 
+export function composerDefaultSubmissionIntent(isDraftThread: boolean): ComposerSubmissionIntent {
+  return isDraftThread ? "background" : "foreground";
+}
+
 export function formatAssistantCitationForComposer(citation: AssistantCitation, comment = "") {
   return `${serializeAssistantCitation(withAssistantCitationComment(citation, comment))} `;
 }
@@ -56,8 +60,8 @@ export function composerSubmissionIntentForKey(input: {
     },
   });
   if (command === "composer.sendAlternate" && input.isRunning) return "alternate";
-  if (command === "composer.sendBackground" && input.isDraftThread) return "background";
-  if (command === "composer.sendAndNewThread" && !input.isDraftThread) return "background";
+  if (command === "composer.sendAndOpen" && input.isDraftThread) return "foreground";
+  if (command === "composer.sendAndNewThread") return "background";
   if (command !== null || event.key !== "Enter" || event.shiftKey || event.altKey) return null;
   if (
     composerRequiresModifier(input.sendShortcut, input.prompt ?? "") &&
@@ -65,7 +69,7 @@ export function composerSubmissionIntentForKey(input: {
     !event.ctrlKey
   )
     return null;
-  return "foreground";
+  return composerDefaultSubmissionIntent(input.isDraftThread);
 }
 
 export type ComposerSendAction = ComposerSubmissionIntent | "newLine";
@@ -124,12 +128,12 @@ export function composerSendShortcutLabels(input: {
   const alternate = isRunning
     ? shortcutLabelForCommand(keybindings, "composer.sendAlternate", options)
     : null;
-  const background = shortcutLabelForCommand(
-    keybindings,
-    isDraftThread ? "composer.sendBackground" : "composer.sendAndNewThread",
-    options,
-  );
+  const open = isDraftThread
+    ? shortcutLabelForCommand(keybindings, "composer.sendAndOpen", options)
+    : null;
+  const background = shortcutLabelForCommand(keybindings, "composer.sendAndNewThread", options);
   if (alternate && labels.alternate === undefined) labels.alternate = alternate;
+  if (open && labels.foreground === undefined) labels.foreground = open;
   if (background && labels.background === undefined) labels.background = background;
   return labels;
 }

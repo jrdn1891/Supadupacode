@@ -555,6 +555,7 @@ import {
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
 import { SceneAquarium } from "../scene/SceneAquarium";
+import { releaseFish } from "../scene/aquariumReleases";
 import { useScenePane } from "../scene/ScenePaneContext";
 import { useSceneActions } from "../scene/useSceneActions";
 import {
@@ -9641,9 +9642,23 @@ export default function ChatView(props: ChatViewProps) {
         markPromotedDraftThreadByRef(scopeThreadRef(environmentId, threadIdForSend));
       clearUsageLimitsFor(routeThreadKey);
       if (submissionIntent === "background") {
-        if (paneSplit && scenePaneId !== null && !isLocalDraftThread)
+        if (paneSplit && scenePaneId !== null) {
+          if (isLocalDraftThread && activeProjectRef !== null)
+            await handleNewThread(activeProjectRef);
           sceneActions.close(scenePaneId);
-        else handleNewThreadInActiveProject();
+        } else {
+          const sendButton = composerOverlayElement?.querySelector(
+            '[data-chat-composer-send="true"]',
+          );
+          if (sendButton)
+            releaseFish(
+              targets.map((target) =>
+                scopedThreadKey(scopeThreadRef(environmentId, target.threadId)),
+              ),
+              sendButton.getBoundingClientRect(),
+            );
+          handleNewThreadInActiveProject();
+        }
       } else if (isLocalDraftThread && targets[0]) {
         void navigate({
           to: "/$environmentId/$threadId",
