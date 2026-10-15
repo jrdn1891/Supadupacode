@@ -1,6 +1,13 @@
 import { scopeThreadRef } from "@supacode/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   hasUnseenCompletion,
@@ -19,16 +26,23 @@ import {
   AQUARIUM_FPS,
   AQUARIUM_PIXEL,
   type Aquarium,
+  type AquariumPoint,
   type AquariumResident,
   type AquariumSize,
   createAquarium,
+  creditStash,
+  dropPearls,
   featuredResident,
+  finishedResidents,
   fishSize,
+  FRESH_STASH,
   landingSpot,
   leapKeyframes,
   resizeAquarium,
   stepAquarium,
+  stirAquarium,
   stockAquarium,
+  tapAquarium,
 } from "./aquarium.logic";
 import {
   type AquariumAppearance,
@@ -44,6 +58,10 @@ import { takeRelease } from "./aquariumReleases";
 const CEILING_GAP = 12;
 const LEAP_MS = 600;
 const LEAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
+const TAP_SLOP = 5;
+
+let stash = FRESH_STASH;
+let seen: ReadonlyArray<AquariumResident> = [];
 
 interface TankInput {
   readonly size: AquariumSize | null;
@@ -57,6 +75,10 @@ interface HoveredFish {
   readonly key: string;
   readonly left: number;
   readonly top: number;
+}
+
+interface Press extends AquariumPoint {
+  readonly dragging: boolean;
 }
 
 const castOf = (residents: ReadonlyArray<AquariumResident>) =>
@@ -82,6 +104,7 @@ function startTank(canvas: HTMLCanvasElement) {
       residents: new Map(input.residents.map((resident) => [resident.key, resident])),
       tick,
       appearance: input.appearance,
+      stash: input.reducedMotion ? null : stash,
     });
   };
 
@@ -172,10 +195,29 @@ function startTank(canvas: HTMLCanvasElement) {
         aquarium = next.reducedMotion
           ? createAquarium(aquarium, residents, next.featuredKey, Math.random)
           : stockAquarium(aquarium, residents, Math.random);
+      if (!next.reducedMotion)
+        aquarium = dropPearls(aquarium, finishedResidents(seen, next.residents));
+      stash = creditStash(stash, seen, next.residents);
+      seen = next.residents;
       paint();
     },
     hold(key: string | null) {
       held = key;
+    },
+    tap(at: AquariumPoint) {
+      if (input === null || input.reducedMotion || aquarium === null) return;
+      ({ aquarium, stash } = tapAquarium(aquarium, stash, at));
+      paint();
+    },
+    stir(from: AquariumPoint, to: AquariumPoint) {
+      if (input === null || input.reducedMotion || aquarium === null) return;
+      aquarium = stirAquarium(aquarium, {
+        from,
+        to,
+        residents: input.residents,
+        featuredKey: input.featuredKey,
+        heldKey: held,
+      });
     },
     fishAt(x: number, y: number) {
       return (
@@ -226,6 +268,7 @@ export function SceneAquarium() {
   const [size, setSize] = useState<AquariumSize | null>(null);
   const [hovered, setHovered] = useState<HoveredFish | null>(null);
   const tankRef = useRef<ReturnType<typeof startTank> | null>(null);
+  const pressRef = useRef<Press | null>(null);
   const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     if (canvas === null) return;
     const tank = startTank(canvas);
@@ -242,6 +285,7 @@ export function SceneAquarium() {
         key: entry.key,
         projectKey: entry.thread.projectId,
         cue: entry.cue,
+        items: entry.thread.itemCount,
       })),
     [entries],
   );
@@ -270,19 +314,16 @@ export function SceneAquarium() {
     tankRef.current?.update({ size, residents, featuredKey, appearance, reducedMotion });
   }, [appearance, featuredKey, reducedMotion, residents, size]);
 
-  const fishUnder = (clientX: number, clientY: number) => {
-    if (root === null) return null;
-    const bounds = root.getBoundingClientRect();
-    return (
-      tankRef.current?.fishAt(
-        (clientX - bounds.left) / AQUARIUM_PIXEL,
-        (clientY - bounds.top) / AQUARIUM_PIXEL,
-      ) ?? null
-    );
+  const tankPoint = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return {
+      x: (event.clientX - bounds.left) / AQUARIUM_PIXEL,
+      y: (event.clientY - bounds.top) / AQUARIUM_PIXEL,
+    };
   };
 
-  const hover = (clientX: number, clientY: number) => {
-    const fish = fishUnder(clientX, clientY);
+  const hover = (at: AquariumPoint) => {
+    const fish = tankRef.current?.fishAt(at.x, at.y) ?? null;
     tankRef.current?.hold(fish?.key ?? null);
     setHovered((current) => {
       if (fish === null) return null;
@@ -302,21 +343,57 @@ export function SceneAquarium() {
   return (
     <div
       ref={setRoot}
-      className={cn("absolute inset-0 overflow-hidden", hoveredEntry && "cursor-pointer")}
-      onPointerMove={(event) => hover(event.clientX, event.clientY)}
-      onPointerLeave={() => {
-        tankRef.current?.hold(null);
-        setHovered(null);
+      className={cn(
+        "absolute inset-0 touch-none overflow-hidden select-none",
+        hoveredEntry && "cursor-pointer",
+      )}
+      onMouseDown={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        if (!event.isPrimary || event.button !== 0) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        pressRef.current = { ...tankPoint(event), dragging: false };
       }}
-      onClick={(event) => {
-        const fish = fishUnder(event.clientX, event.clientY);
+      onPointerMove={(event) => {
+        if (!event.isPrimary) return;
+        const at = tankPoint(event);
+        const press = pressRef.current;
+        if (press === null) {
+          hover(at);
+          return;
+        }
+        if (Math.hypot(at.x - press.x, at.y - press.y) * AQUARIUM_PIXEL < TAP_SLOP) return;
+        if (!press.dragging) {
+          tankRef.current?.hold(null);
+          setHovered(null);
+        }
+        pressRef.current = { ...at, dragging: true };
+        tankRef.current?.stir(press, at);
+      }}
+      onPointerUp={(event) => {
+        if (!event.isPrimary) return;
+        const press = pressRef.current;
+        pressRef.current = null;
+        if (press === null || press.dragging) return;
+        const at = tankPoint(event);
+        const fish = tankRef.current?.fishAt(at.x, at.y);
         const entry = entries.find((candidate) => candidate.key === fish?.key);
-        if (entry === undefined) return;
+        if (entry === undefined) {
+          tankRef.current?.tap(at);
+          return;
+        }
         const { environmentId, id } = entry.thread;
         void navigate({
           to: "/$environmentId/$threadId",
           params: buildThreadRouteParams(scopeThreadRef(environmentId, id)),
         });
+      }}
+      onPointerCancel={() => {
+        pressRef.current = null;
+      }}
+      onPointerLeave={() => {
+        tankRef.current?.hold(null);
+        setHovered(null);
       }}
     >
       <canvas

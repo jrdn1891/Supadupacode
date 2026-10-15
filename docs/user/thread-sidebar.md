@@ -262,11 +262,19 @@ both start a new thread. The stage is remembered when you reload.
 When a new thread is alone on the stage, a quiet aquarium fills the space behind its composer.
 The composer rests there as a bare text field; point at it, or press a composer shortcut such as
 the model picker's, to bring back its project, branch, model, and access controls.
-Each agent that is working, needs you, or has finished since you last looked swims there as a
-fish, colored by its project. Point at a fish to see which agent it is, and click it to open that
-thread in place of the new one. When an agent needs you or finishes, its fish swims to the middle
-under a colored bubble. Closing the last pane starts a new thread, so you land in the aquarium.
-With reduced motion turned on, the fish hold still.
+Each agent that is working, needs you, or has finished since you last looked swims there as a sea
+creature, such as a fish, jellyfish, turtle, seahorse, or starfish, colored by its project. Point
+at one to see which agent it is, and click it to open that thread in place of the new one. When an
+agent needs you or finishes, its creature swims to the middle under a colored bubble. Closing the
+last pane starts a new thread, so you land in the aquarium.
+
+Click or tap empty water to drop a pellet, and hungry creatures nearby come to eat it. The dots at
+the top right show how many pellets you have left, up to nine. Your agents earn more as they work,
+and a few at once each time one finishes. A finishing agent's creature also drops a pearl in its
+project's color; tap the pearl on the sand to add it to the strand at the top left. Drag through
+the water to stir a current that sweeps nearby creatures along. Your pellets and strand last until
+you reload or restart the app. With reduced motion turned on, the creatures hold still and the
+water ignores taps and drags.
 
 Threads on the stage never cue you while the app is focused. Turn on toasts under **Settings →
 General → Threads** to get a toast with **Bring on stage** when a thread off the stage finishes or

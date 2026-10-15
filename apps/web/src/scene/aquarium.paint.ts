@@ -5,16 +5,20 @@ import {
   type Aquarium,
   type AquariumFish,
   type AquariumResident,
+  type AquariumStash,
   aquariumHash,
   aquariumWeeds,
-  FISH_SPRITES,
+  FULL_TICKS,
   fishSize,
   fishTraits,
+  SPECIES,
 } from "./aquarium.logic";
 
 export type AquariumAppearance = "light" | "dark";
 
 export const CUE_RISE = 13;
+
+const AFTER_MEAL = 15;
 
 const SCENERY = {
   dark: {
@@ -27,6 +31,7 @@ const SCENERY = {
     weed: ["#17493a", "#215e4a"],
     bubble: "rgba(150,200,220,0.55)",
     eye: "#0b0f16",
+    pellet: "#c8955a",
   },
   light: {
     water: ["#f2f8fb", "#eaf3f8", "#e2eef5", "#dae9f1", "#d2e3ed"],
@@ -38,6 +43,7 @@ const SCENERY = {
     weed: ["#4f8a6f", "#62a083"],
     bubble: "rgba(110,160,190,0.6)",
     eye: "#1b2330",
+    pellet: "#9a6a3a",
   },
 } as const;
 
@@ -53,6 +59,7 @@ const FISH_COLORS = [
 const EXCLAIM = ["...#...", "...#...", "...#...", ".......", "...#..."];
 const QUESTION = ["..###..", "....#..", "...#...", ".......", "...#..."];
 const CHECK = ["......#", ".....#.", "#...#..", ".#.#...", "..#...."];
+const HEART = ["#.#", "###", ".#."];
 
 const CUE_BUBBLES: Readonly<
   Record<
@@ -139,6 +146,30 @@ export function paintScenery(width: number, height: number, appearance: Aquarium
   return canvas;
 }
 
+function colorsOf(projectKey: string) {
+  return FISH_COLORS[aquariumHash(projectKey) % FISH_COLORS.length]!;
+}
+
+function paintGlyph(
+  context: CanvasRenderingContext2D,
+  glyph: ReadonlyArray<string>,
+  left: number,
+  top: number,
+) {
+  glyph.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++)
+      if (row[x] === "#") context.fillRect(left + x, top + y, 1, 1);
+  });
+}
+
+function paintPearl(context: CanvasRenderingContext2D, projectKey: string, x: number, y: number) {
+  const colors = colorsOf(projectKey);
+  context.fillStyle = colors.x;
+  context.fillRect(x, y, 2, 2);
+  context.fillStyle = colors.o;
+  context.fillRect(x, y, 1, 1);
+}
+
 function paintCue(context: CanvasRenderingContext2D, cue: AgentCue, left: number, top: number) {
   if (cue === "working") return;
   const { color, glyph } = CUE_BUBBLES[cue];
@@ -148,14 +179,13 @@ function paintCue(context: CanvasRenderingContext2D, cue: AgentCue, left: number
   context.fillRect(left + 4, top + 9, 3, 1);
   context.fillRect(left + 5, top + 10, 1, 1);
   context.fillStyle = "#1a1206";
-  glyph.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++)
-      if (row[x] === "#") context.fillRect(left + 2 + x, top + 2 + y, 1, 1);
-  });
+  paintGlyph(context, glyph, left + 2, top + 2);
 }
 
 export function fishBob(key: string, tick: number) {
-  return Math.round(Math.sin((tick + fishTraits(key).phase) * 0.22));
+  const { phase, species } = fishTraits(key);
+  const { stroke, bob } = SPECIES[species];
+  return Math.round(Math.sin(((tick + phase) * Math.PI) / (stroke * 5)) * bob);
 }
 
 function paintFish(
@@ -166,30 +196,44 @@ function paintFish(
   eye: string,
 ) {
   const traits = fishTraits(fish.key);
-  const sprite = FISH_SPRITES[traits.kind];
-  const colors = FISH_COLORS[aquariumHash(resident?.projectKey ?? fish.key) % FISH_COLORS.length]!;
+  const look = SPECIES[traits.species];
+  const { frames, stroke } = look;
+  const colors = colorsOf(resident?.projectKey ?? fish.key);
   const palette: Readonly<Record<string, string>> = {
     x: colors.x,
     o: colors.o,
     f: colors.f,
-    t: colors.f,
     e: eye,
   };
-  const tail = sprite.tails[Math.floor((tick + traits.phase) / 3) % 2]!;
-  const width = sprite.rows[0].length;
-  const left = Math.round(fish.x);
-  const top = Math.round(fish.y) + fishBob(fish.key, tick);
+  const sinceMeal = FULL_TICKS - fish.full;
+  const savoring = fish.full > 0 && sinceMeal < AFTER_MEAL;
+  const [still] = frames;
+  const rows =
+    savoring && "puffed" in look
+      ? look.puffed
+      : frames[Math.floor((tick + traits.phase) / stroke) % frames.length]!;
+  const width = rows[0].length;
+  const left = Math.round(fish.x) - (width - still[0].length) / 2;
+  const top = Math.round(fish.y) - (rows.length - still.length) / 2 + fishBob(fish.key, tick);
   context.globalAlpha = traits.depth;
-  sprite.rows.forEach((row, y) => {
-    const tailRow = tail[y - sprite.tailRow];
+  rows.forEach((row, y) => {
     for (let x = 0; x < width; x++) {
-      const pixel = x < 2 && tailRow?.[x] === "t" ? "t" : row[x];
-      const color = pixel === undefined ? undefined : palette[pixel];
+      const color = palette[row.charAt(x)];
       if (color === undefined) continue;
       context.fillStyle = color;
       context.fillRect(fish.dir === 1 ? left + x : left + width - 1 - x, top + y, 1, 1);
     }
   });
+  if (savoring) {
+    context.globalAlpha = 1 - sinceMeal / AFTER_MEAL;
+    context.fillStyle = colors.x;
+    paintGlyph(
+      context,
+      HEART,
+      left + Math.round(width / 2) - 1,
+      top - 4 - Math.floor(sinceMeal / 2),
+    );
+  }
   context.globalAlpha = 1;
   if (resident !== undefined)
     paintCue(context, resident.cue, left + Math.round(width / 2) - 5, top - CUE_RISE);
@@ -225,6 +269,7 @@ export function paintAquarium(
     readonly residents: ReadonlyMap<string, AquariumResident>;
     readonly tick: number;
     readonly appearance: AquariumAppearance;
+    readonly stash: AquariumStash | null;
   },
 ) {
   const { aquarium, tick } = input;
@@ -251,9 +296,30 @@ export function paintAquarium(
     context.fillRect(bubble.x + 1, bubble.y, 1, 1);
     context.fillRect(bubble.x, bubble.y + 1, 1, 1);
   }
+  for (const pearl of aquarium.pearls) paintPearl(context, pearl.projectKey, pearl.x, pearl.y);
+  context.fillStyle = look.pellet;
+  for (const pellet of aquarium.pellets)
+    context.fillRect(Math.round(pellet.x), Math.round(pellet.y), 1, 1);
   const byDepth = aquarium.fish.toSorted(
     (left, right) => fishTraits(left.key).depth - fishTraits(right.key).depth,
   );
   for (const fish of byDepth)
     paintFish(context, fish, input.residents.get(fish.key), tick, look.eye);
+  const { ripple, width } = aquarium;
+  if (ripple !== null) {
+    const radius = 1 + Math.floor(ripple.age / 2);
+    context.fillStyle = look.bubble;
+    for (let dx = -radius; dx <= radius; dx++) {
+      const dy = radius - Math.abs(dx);
+      context.fillRect(ripple.x + dx, ripple.y + dy, 1, 1);
+      if (dy !== 0) context.fillRect(ripple.x + dx, ripple.y - dy, 1, 1);
+    }
+  }
+  if (input.stash === null) return;
+  context.fillStyle = look.pellet;
+  for (let dot = 0; dot < Math.floor(input.stash.food); dot++)
+    context.fillRect(width - 3 - dot * 2, 2, 1, 1);
+  input.stash.strand
+    .slice(-Math.floor(width / 8))
+    .forEach((projectKey, index) => paintPearl(context, projectKey, 2 + index * 3, 2));
 }

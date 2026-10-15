@@ -1,49 +1,311 @@
 import type { AgentCue } from "./aquariumAgents";
 
 export const AQUARIUM_PIXEL = 3;
-export const AQUARIUM_FPS = 6;
+export const AQUARIUM_FPS = 10;
 export const AQUARIUM_SAND = 8;
+
+export const FULL_TICKS = 10 * AQUARIUM_FPS;
 
 const PARKING_SPEED = 2;
 const BUBBLE_CHANCE = 0.08;
 const LEAP_REACH = 20;
 const LEAP_FRAMES = 12;
 const LEAP_MAX_TILT = 60;
+const PELLET_SINK = 0.4;
+const PELLET_REST = 30 * AQUARIUM_FPS;
+const PELLET_LIMIT = 8;
+const PEARL_SINK = 1;
+const PEARL_LIMIT = 12;
+const PEARL_REACH = 4;
+const CHASE_RANGE = 48;
+const CHASE_BOOST = 1.6;
+const DART_RANGE = 80;
+const DART_BOOST = 2.2;
+const EAT_REACH = 2;
+const SNAP_REACH = 3;
+const STIR_RADIUS = 24;
+const STIR_PUSH = 1.5;
+const SCHOOL_RADIUS = 16;
+const CURRENT_DECAY = 0.85;
+const CURRENT_REST = 0.05;
+const RIPPLE_TICKS = 6;
+const FEEDER_CAP = 9;
+const ITEMS_PER_PELLET = 4;
+const FINISH_BONUS = 3;
 
-export const FISH_SPRITES = {
-  big: {
-    rows: [
-      "......ff....",
-      "....xxxxx...",
-      "...xxxxxxxx.",
-      "..xxxxxxxexx",
-      "..xxxxxxxxxx",
-      "...oooooooo.",
-      "....ooooo...",
-      "......f.....",
-    ],
-    tails: [
-      ["t.", "tt", ".t", ".t", "tt", "t."],
-      [".t", ".t", "tt", "tt", ".t", ".t"],
-    ],
-    tailRow: 1,
-  },
-  small: {
-    rows: ["...xxx..", "..xxxxex", "..oooooo", "...ooo.."],
-    tails: [
-      ["t.", ".t", ".t", "t."],
-      [".t", "tt", "tt", ".t"],
-    ],
-    tailRow: 0,
-  },
-} as const;
+type Diet = "chase" | "dart" | "snap" | "absorb" | "graze" | "crawl";
 
-export type FishKind = keyof typeof FISH_SPRITES;
+interface SpeciesLook {
+  readonly speed: number;
+  readonly stroke: number;
+  readonly bob: number;
+  readonly diet: Diet;
+  readonly frames: ReadonlyArray<ReadonlyArray<string>>;
+  readonly puffed?: ReadonlyArray<string>;
+}
+
+export const SPECIES = {
+  fish: {
+    speed: 0.45,
+    stroke: 3,
+    bob: 1,
+    diet: "chase",
+    frames: [
+      [
+        "......ff....",
+        "f...xxxxx...",
+        "ff.xxxxxxxx.",
+        ".fxxxxxxxexx",
+        ".fxxxxxxxxxx",
+        "ff.oooooooo.",
+        "f...ooooo...",
+        "......f.....",
+      ],
+      [
+        "......ff....",
+        ".f..xxxxx...",
+        ".f.xxxxxxxx.",
+        "ffxxxxxxxexx",
+        "ffxxxxxxxxxx",
+        ".f.oooooooo.",
+        ".f..ooooo...",
+        "......f.....",
+      ],
+    ],
+  },
+  minnow: {
+    speed: 0.55,
+    stroke: 2,
+    bob: 1,
+    diet: "dart",
+    frames: [
+      ["f..xxx..", ".fxxxxex", ".foooooo", "f..ooo.."],
+      [".f.xxx..", "ffxxxxex", "ffoooooo", ".f.ooo.."],
+    ],
+  },
+  angelfish: {
+    speed: 0.3,
+    stroke: 4,
+    bob: 1,
+    diet: "chase",
+    frames: [
+      [
+        "..f........",
+        "..ff.......",
+        "...fff.....",
+        "....xxfx...",
+        "...fxxfxx..",
+        "f.xfxxfxxx.",
+        "ffxfxxfxxex",
+        "f.ofoofooo.",
+        "...foofoo..",
+        "....oofo...",
+        "...fff.....",
+        "..ff.......",
+        "..f........",
+      ],
+      [
+        "..f........",
+        "..ff.......",
+        "...fff.....",
+        "....xxfx...",
+        "...fxxfxx..",
+        ".fxfxxfxxx.",
+        ".fxfxxfxxex",
+        ".fofoofooo.",
+        "...foofoo..",
+        "....oofo...",
+        "...fff.....",
+        "..ff.......",
+        "..f........",
+      ],
+    ],
+  },
+  puffer: {
+    speed: 0.22,
+    stroke: 3,
+    bob: 1,
+    diet: "chase",
+    frames: [
+      [
+        ".....f.f...",
+        "...f.xxx.f.",
+        "....xxxxxx.",
+        "f..xxxxxxex",
+        "ffxxxxxxxxx",
+        "f..ooooooox",
+        "....oooooo.",
+        "...f.ooo.f.",
+        ".....f.f...",
+      ],
+      [
+        ".....f.f...",
+        "...f.xxx.f.",
+        "....xxxxxx.",
+        ".f.xxxxxxex",
+        ".fxxxxxxxxx",
+        ".f.ooooooox",
+        "....oooooo.",
+        "...f.ooo.f.",
+        ".....f.f...",
+      ],
+    ],
+    puffed: [
+      ".....f.f.f...",
+      "...f..xxx..f.",
+      "....xxxxxxx..",
+      "...xxxxxxxxxf",
+      "f..xxxxxxexx.",
+      "ffxxxxxxxxxx.",
+      "f..ooooooooo.",
+      "...ooooooooof",
+      "....ooooooo..",
+      "...f..ooo..f.",
+      ".....f.f.f...",
+    ],
+  },
+  jellyfish: {
+    speed: 0.12,
+    stroke: 5,
+    bob: 2,
+    diet: "absorb",
+    frames: [
+      [
+        "...xxx...",
+        ".xxxxxxx.",
+        "xooxxxxxx",
+        "xoxxxxxxx",
+        "xxxxxxxxx",
+        "o.oo.oo.o",
+        ".o..o..o.",
+        "o...o...o",
+        "o....o..o",
+        ".o...o.o.",
+        ".o..o....",
+      ],
+      [
+        "...xxx...",
+        ".xxxxxxx.",
+        "xooxxxxxx",
+        "xoxxxxxxx",
+        "xxxxxxxxx",
+        "o.oo.oo.o",
+        ".o..o..o.",
+        ".o.o...o.",
+        "..o.o.o..",
+        "..o..o..o",
+        "...o....o",
+      ],
+    ],
+  },
+  turtle: {
+    speed: 0.18,
+    stroke: 5,
+    bob: 1,
+    diet: "graze",
+    frames: [
+      [
+        "......xxxxx......",
+        "...xxfxxxfxx.....",
+        "..xfxxxfxxxfx.oo.",
+        ".xxxxfxxxfxxxxoeo",
+        "offfffffffffffoo.",
+        "..oo.......oo....",
+        ".oo.........oo...",
+      ],
+      [
+        "......xxxxx......",
+        "...xxfxxxfxx.....",
+        "..xfxxxfxxxfx.oo.",
+        ".xxxxfxxxfxxxxoeo",
+        "offfffffffffffoo.",
+        "...oo.....oo.....",
+        "....oo...oo......",
+      ],
+    ],
+  },
+  seahorse: {
+    speed: 0.12,
+    stroke: 2,
+    bob: 2,
+    diet: "snap",
+    frames: [
+      [
+        "...xf...",
+        "..xxxx..",
+        "..xexxxx",
+        "..xxx...",
+        "...xx...",
+        "..fxxo..",
+        ".ffxxoo.",
+        "..fxxoo.",
+        "...xxo..",
+        "...xx...",
+        "....x...",
+        "..x.x...",
+        "...xx...",
+      ],
+      [
+        "...xf...",
+        "..xxxx..",
+        "..xexxxx",
+        "..xxx...",
+        "...xx...",
+        "...xxo..",
+        "..fxxoo.",
+        "...xxoo.",
+        "...xxo..",
+        "...xx...",
+        "....x...",
+        "..x.x...",
+        "...xx...",
+      ],
+    ],
+  },
+  starfish: {
+    speed: 0.06,
+    stroke: 8,
+    bob: 0,
+    diet: "crawl",
+    frames: [
+      [
+        "....x....",
+        "...xfx...",
+        "xxxxoxxxx",
+        ".xfooofx.",
+        "..xxoxx..",
+        "..xx.xx..",
+        ".xf...fx.",
+        ".x.....x.",
+      ],
+      [
+        "....x....",
+        "...xfx...",
+        ".xxxoxxx.",
+        "xxfooofxx",
+        "..xxoxx..",
+        "..xx.xx..",
+        "..xf.fx..",
+        "..x...x..",
+      ],
+    ],
+  },
+} as const satisfies Record<string, SpeciesLook>;
+
+export type Species = keyof typeof SPECIES;
+
+const SPECIES_NAMES = Object.keys(SPECIES) as ReadonlyArray<Species>;
 
 export interface AquariumResident {
   readonly key: string;
   readonly projectKey: string;
   readonly cue: AgentCue;
+  readonly items: number;
+}
+
+export interface AquariumPoint {
+  readonly x: number;
+  readonly y: number;
 }
 
 export interface AquariumFish {
@@ -52,12 +314,26 @@ export interface AquariumFish {
   readonly y: number;
   readonly dir: 1 | -1;
   readonly wait: number;
+  readonly full: number;
+  readonly drift: AquariumPoint;
 }
 
 export interface AquariumBubble {
   readonly x: number;
   readonly y: number;
   readonly big: boolean;
+}
+
+export interface AquariumPellet {
+  readonly x: number;
+  readonly y: number;
+  readonly rest: number;
+}
+
+export interface AquariumPearl {
+  readonly x: number;
+  readonly y: number;
+  readonly projectKey: string;
 }
 
 export interface AquariumSize {
@@ -69,7 +345,19 @@ export interface AquariumSize {
 export interface Aquarium extends AquariumSize {
   readonly fish: ReadonlyArray<AquariumFish>;
   readonly bubbles: ReadonlyArray<AquariumBubble>;
+  readonly pellets: ReadonlyArray<AquariumPellet>;
+  readonly pearls: ReadonlyArray<AquariumPearl>;
+  readonly ripple: { readonly x: number; readonly y: number; readonly age: number } | null;
 }
+
+export interface AquariumStash {
+  readonly food: number;
+  readonly strand: ReadonlyArray<string>;
+}
+
+export const FRESH_STASH: AquariumStash = { food: 3, strand: [] };
+
+const STILL: AquariumPoint = { x: 0, y: 0 };
 
 type Random = () => number;
 
@@ -82,16 +370,18 @@ export function aquariumHash(value: string): number {
 
 export function fishTraits(key: string) {
   const hash = aquariumHash(key);
+  const species = SPECIES_NAMES[hash % SPECIES_NAMES.length]!;
   return {
-    kind: (hash % 3 === 0 ? "small" : "big") as FishKind,
-    speed: 0.35 + (hash % 7) * 0.06,
-    depth: hash % 2 === 0 ? 1 : 0.72,
-    phase: hash % 24,
+    species,
+    diet: SPECIES[species].diet,
+    speed: SPECIES[species].speed * (0.8 + ((hash >>> 8) % 9) * 0.05),
+    depth: (hash >>> 16) % 2 === 0 ? 1 : 0.72,
+    phase: (hash >>> 20) % 24,
   };
 }
 
 export function fishSize(key: string) {
-  const { rows } = FISH_SPRITES[fishTraits(key).kind];
+  const [rows] = SPECIES[fishTraits(key).species].frames;
   return { width: rows[0].length, height: rows.length };
 }
 
@@ -123,6 +413,8 @@ export function landingSpot(size: AquariumSize, key: string, fromX: number): Aqu
     x: Math.max(0, Math.min(size.width - width, Math.round(fromX - width / 2 + dir * LEAP_REACH))),
     y: size.top,
     wait: 0,
+    full: 0,
+    drift: STILL,
   };
 }
 
@@ -154,8 +446,21 @@ function swimBottom(size: AquariumSize, key: string) {
   return Math.max(size.top, size.height - AQUARIUM_SAND - 2 - fishSize(key).height);
 }
 
+function inBand(size: AquariumSize, key: string, y: number) {
+  return Math.min(swimBottom(size, key), Math.max(size.top, y));
+}
+
+function seabed(size: AquariumSize) {
+  return size.height - AQUARIUM_SAND - 1;
+}
+
 function swimRow(size: AquariumSize, key: string, random: Random) {
+  if (fishTraits(key).diet === "crawl") return swimBottom(size, key);
   return Math.round(size.top + random() * (swimBottom(size, key) - size.top));
+}
+
+function jitter(random: Random) {
+  return random() < 0.15 ? (random() < 0.5 ? -1 : 1) : 0;
 }
 
 function enter(size: AquariumSize, key: string, random: Random): AquariumFish {
@@ -166,6 +471,8 @@ function enter(size: AquariumSize, key: string, random: Random): AquariumFish {
     x: dir === 1 ? -fishSize(key).width : size.width,
     y: swimRow(size, key, random),
     wait: Math.floor(random() * 30),
+    full: 0,
+    drift: STILL,
   };
 }
 
@@ -176,6 +483,8 @@ function scatter(size: AquariumSize, key: string, random: Random): AquariumFish 
     x: Math.round(random() * (size.width - fishSize(key).width)),
     y: swimRow(size, key, random),
     wait: 0,
+    full: 0,
+    drift: STILL,
   };
 }
 
@@ -189,10 +498,20 @@ export function createAquarium(
     ...size,
     fish: residents.map((resident) =>
       resident.key === featuredKey
-        ? { key: resident.key, dir: 1, wait: 0, ...parkingSpot(size, resident.key) }
+        ? {
+            key: resident.key,
+            dir: 1,
+            wait: 0,
+            full: 0,
+            drift: STILL,
+            ...parkingSpot(size, resident.key),
+          }
         : scatter(size, resident.key, random),
     ),
     bubbles: [],
+    pellets: [],
+    pearls: [],
+    ripple: null,
   };
 }
 
@@ -221,6 +540,16 @@ export function resizeAquarium(aquarium: Aquarium, size: AquariumSize): Aquarium
       y: Math.min(fish.y, swimBottom(size, fish.key)),
     })),
     bubbles: aquarium.bubbles.filter((bubble) => bubble.x < size.width && bubble.y < size.height),
+    pellets: aquarium.pellets.map((pellet) => ({
+      ...pellet,
+      x: Math.min(pellet.x, size.width - 1),
+      y: Math.min(pellet.y, seabed(size)),
+    })),
+    pearls: aquarium.pearls.map((pearl) => ({
+      ...pearl,
+      x: Math.min(pearl.x, size.width - 2),
+      y: Math.min(pearl.y, seabed(size)),
+    })),
   };
 }
 
@@ -233,14 +562,101 @@ function park(aquarium: Aquarium, fish: AquariumFish): AquariumFish {
     y: fish.y + Math.sign(spot.y - fish.y),
     dir: dx === 0 ? fish.dir : dx > 0 ? 1 : -1,
     wait: 0,
+    full: fish.full,
+    drift: STILL,
+  };
+}
+
+function free(
+  fish: AquariumFish,
+  input: { readonly featuredKey: string | null; readonly heldKey: string | null },
+) {
+  return fish.key !== input.featuredKey && fish.key !== input.heldKey && fish.wait === 0;
+}
+
+function centerOf(fish: AquariumFish): AquariumPoint {
+  const { width, height } = fishSize(fish.key);
+  return { x: fish.x + width / 2, y: fish.y + height / 2 };
+}
+
+function edible(aquarium: Aquarium, key: string, pellet: AquariumPellet) {
+  const { diet } = fishTraits(key);
+  return (diet !== "graze" && diet !== "crawl") || pellet.y >= seabed(aquarium);
+}
+
+function bites(fish: AquariumFish, pellet: AquariumPellet) {
+  const { width, height } = fishSize(fish.key);
+  const { diet, species } = fishTraits(fish.key);
+  if (diet === "snap") {
+    const snoutX = fish.dir === 1 ? fish.x + width - 1 : fish.x;
+    const snoutY = fish.y + SPECIES[species].frames[0].findIndex((row) => row.includes("e"));
+    return Math.abs(pellet.x - snoutX) <= SNAP_REACH && Math.abs(pellet.y - snoutY) <= SNAP_REACH;
+  }
+  if (diet === "absorb")
+    return (
+      pellet.x >= fish.x &&
+      pellet.x < fish.x + width &&
+      pellet.y >= fish.y &&
+      pellet.y < fish.y + height / 2
+    );
+  return (
+    pellet.x >= fish.x - EAT_REACH &&
+    pellet.x < fish.x + width + EAT_REACH &&
+    pellet.y >= fish.y - EAT_REACH &&
+    pellet.y < fish.y + height + EAT_REACH
+  );
+}
+
+function nearestMeal(aquarium: Aquarium, fish: AquariumFish) {
+  const { diet } = fishTraits(fish.key);
+  const range =
+    diet === "dart" ? DART_RANGE : diet === "chase" || diet === "graze" ? CHASE_RANGE : 0;
+  const center = centerOf(fish);
+  const away = (pellet: AquariumPellet) => Math.hypot(pellet.x - center.x, pellet.y - center.y);
+  return aquarium.pellets
+    .filter((pellet) => away(pellet) < range && edible(aquarium, fish.key, pellet))
+    .toSorted((left, right) => away(left) - away(right))[0];
+}
+
+function chase(aquarium: Aquarium, fish: AquariumFish, pellet: AquariumPellet): AquariumFish {
+  const { width, height } = fishSize(fish.key);
+  const { diet, speed } = fishTraits(fish.key);
+  const dx = pellet.x - (fish.x + width / 2);
+  const dy = inBand(aquarium, fish.key, pellet.y - height / 2) - fish.y;
+  const pull = Math.min(
+    1,
+    (speed * (diet === "dart" ? DART_BOOST : CHASE_BOOST)) / Math.hypot(dx, dy),
+  );
+  return {
+    ...fish,
+    x: fish.x + dx * pull,
+    y: fish.y + dy * pull,
+    dir: Math.abs(dx) < 1 ? fish.dir : dx > 0 ? 1 : -1,
+  };
+}
+
+function drift(aquarium: Aquarium, fish: AquariumFish): AquariumFish {
+  if (fish.drift === STILL) return fish;
+  const decayed = { x: fish.drift.x * CURRENT_DECAY, y: fish.drift.y * CURRENT_DECAY };
+  return {
+    ...fish,
+    x: fish.x + fish.drift.x,
+    y: inBand(aquarium, fish.key, fish.y + fish.drift.y),
+    drift: Math.hypot(decayed.x, decayed.y) < CURRENT_REST ? STILL : decayed,
   };
 }
 
 function swim(aquarium: Aquarium, fish: AquariumFish, random: Random): AquariumFish {
   if (fish.wait > 0) return { ...fish, wait: fish.wait - 1 };
-  const x = fish.x + fish.dir * fishTraits(fish.key).speed;
+  const bottom = swimBottom(aquarium, fish.key);
+  if (fishTraits(fish.key).diet === "crawl" && fish.y < bottom)
+    return { ...fish, y: Math.min(bottom, fish.y + 1) };
+  const drifting = drift(aquarium, fish);
+  const meal = fish.full === 0 ? nearestMeal(aquarium, drifting) : undefined;
+  if (meal !== undefined) return chase(aquarium, drifting, meal);
+  const x = drifting.x + drifting.dir * fishTraits(fish.key).speed;
   if (x > aquarium.width || x < -fishSize(fish.key).width) return enter(aquarium, fish.key, random);
-  return { ...fish, x };
+  return { ...drifting, x };
 }
 
 export function stepAquarium(
@@ -258,28 +674,171 @@ export function stepAquarium(
     random() < BUBBLE_CHANCE
       ? [{ x: weeds[Math.floor(random() * weeds.length)]!.x, y: floor, big: random() < 0.3 }]
       : [];
-  return {
-    ...aquarium,
-    fish: aquarium.fish.map((fish) =>
+  const bottom = seabed(aquarium);
+  let pellets = aquarium.pellets;
+  const fed = aquarium.fish
+    .map((fish) =>
       fish.key === input.featuredKey
         ? park(aquarium, fish)
         : fish.key === input.heldKey
           ? fish
           : swim(aquarium, fish, random),
+    )
+    .map((fish) => {
+      if (fish.full > 0) return { ...fish, full: fish.full - 1 };
+      const meal = free(fish, input)
+        ? pellets.find((pellet) => edible(aquarium, fish.key, pellet) && bites(fish, pellet))
+        : undefined;
+      if (meal === undefined) return fish;
+      pellets = pellets.filter((pellet) => pellet !== meal);
+      return { ...fish, full: FULL_TICKS };
+    });
+  return {
+    ...aquarium,
+    fish: fed,
+    pellets: pellets.flatMap((pellet) =>
+      pellet.y < bottom
+        ? [
+            {
+              ...pellet,
+              x: pellet.x + jitter(random),
+              y: Math.min(bottom, pellet.y + PELLET_SINK),
+            },
+          ]
+        : pellet.rest < PELLET_REST
+          ? [{ ...pellet, rest: pellet.rest + 1 }]
+          : [],
     ),
+    pearls: aquarium.pearls.map((pearl) => ({
+      ...pearl,
+      y: Math.min(bottom, pearl.y + PEARL_SINK),
+    })),
+    ripple:
+      aquarium.ripple === null || aquarium.ripple.age >= RIPPLE_TICKS
+        ? null
+        : { ...aquarium.ripple, age: aquarium.ripple.age + 1 },
     bubbles: [
       ...aquarium.bubbles.flatMap((bubble) =>
-        bubble.y > 2
-          ? [
-              {
-                ...bubble,
-                x: bubble.x + (random() < 0.15 ? (random() < 0.5 ? -1 : 1) : 0),
-                y: bubble.y - 1,
-              },
-            ]
-          : [],
+        bubble.y > 2 ? [{ ...bubble, x: bubble.x + jitter(random), y: bubble.y - 1 }] : [],
       ),
       ...spawned,
     ],
+  };
+}
+
+export function stirAquarium(
+  aquarium: Aquarium,
+  input: {
+    readonly from: AquariumPoint;
+    readonly to: AquariumPoint;
+    readonly residents: ReadonlyArray<AquariumResident>;
+    readonly featuredKey: string | null;
+    readonly heldKey: string | null;
+  },
+): Aquarium {
+  const dx = input.to.x - input.from.x;
+  const dy = input.to.y - input.from.y;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return aquarium;
+  const projects = new Map(input.residents.map((resident) => [resident.key, resident.projectKey]));
+  const stirred = aquarium.fish.flatMap((fish) => {
+    const center = centerOf(fish);
+    const reach = 1 - Math.hypot(center.x - input.to.x, center.y - input.to.y) / STIR_RADIUS;
+    return reach > 0 && free(fish, input) && fishTraits(fish.key).diet !== "crawl"
+      ? [{ fish, center, reach }]
+      : [];
+  });
+  const push = (strength: number) => ({
+    x: (dx / length) * STIR_PUSH * strength,
+    y: (dy / length) * STIR_PUSH * strength,
+  });
+  return {
+    ...aquarium,
+    fish: aquarium.fish.map((fish) => {
+      const stir = stirred.find((candidate) => candidate.fish === fish);
+      if (stir === undefined) return fish;
+      const schooled = stirred.some(
+        (mate) =>
+          mate !== stir &&
+          projects.get(mate.fish.key) === projects.get(fish.key) &&
+          Math.hypot(mate.center.x - stir.center.x, mate.center.y - stir.center.y) <= SCHOOL_RADIUS,
+      );
+      return schooled
+        ? { ...fish, dir: dx === 0 ? fish.dir : dx > 0 ? 1 : -1, drift: push(1) }
+        : { ...fish, drift: push(stir.reach) };
+    }),
+  };
+}
+
+export function finishedResidents(
+  previous: ReadonlyArray<AquariumResident>,
+  next: ReadonlyArray<AquariumResident>,
+) {
+  const before = new Map(previous.map((resident) => [resident.key, resident.cue]));
+  return next.filter(
+    (resident) => resident.cue === "ready" && before.get(resident.key) === "working",
+  );
+}
+
+export function creditStash(
+  stash: AquariumStash,
+  previous: ReadonlyArray<AquariumResident>,
+  next: ReadonlyArray<AquariumResident>,
+): AquariumStash {
+  const before = new Map(previous.map((resident) => [resident.key, resident.items]));
+  const items = next.reduce(
+    (total, resident) =>
+      total + Math.max(0, resident.items - (before.get(resident.key) ?? resident.items)),
+    0,
+  );
+  return {
+    ...stash,
+    food: Math.min(
+      FEEDER_CAP,
+      stash.food +
+        items / ITEMS_PER_PELLET +
+        finishedResidents(previous, next).length * FINISH_BONUS,
+    ),
+  };
+}
+
+export function dropPearls(
+  aquarium: Aquarium,
+  finished: ReadonlyArray<AquariumResident>,
+): Aquarium {
+  const finishers = new Map(finished.map((resident) => [resident.key, resident.projectKey]));
+  const dropped = aquarium.fish.flatMap((fish) => {
+    const projectKey = finishers.get(fish.key);
+    if (projectKey === undefined) return [];
+    const { width, height } = fishSize(fish.key);
+    return [
+      {
+        x: Math.max(0, Math.min(aquarium.width - 2, Math.round(fish.x + width / 2) - 1)),
+        y: Math.min(seabed(aquarium), Math.round(fish.y + height)),
+        projectKey,
+      },
+    ];
+  });
+  return { ...aquarium, pearls: [...aquarium.pearls, ...dropped].slice(-PEARL_LIMIT) };
+}
+
+export function tapAquarium(aquarium: Aquarium, stash: AquariumStash, at: AquariumPoint) {
+  const pearl = aquarium.pearls.find(
+    (candidate) =>
+      Math.abs(candidate.x + 1 - at.x) <= PEARL_REACH &&
+      Math.abs(candidate.y + 1 - at.y) <= PEARL_REACH,
+  );
+  if (pearl !== undefined)
+    return {
+      aquarium: { ...aquarium, pearls: aquarium.pearls.filter((candidate) => candidate !== pearl) },
+      stash: { ...stash, strand: [...stash.strand, pearl.projectKey] },
+    };
+  const x = Math.round(at.x);
+  const y = Math.min(seabed(aquarium), at.y);
+  if (stash.food < 1 || aquarium.pellets.length >= PELLET_LIMIT)
+    return { aquarium: { ...aquarium, ripple: { x, y: Math.round(y), age: 0 } }, stash };
+  return {
+    aquarium: { ...aquarium, pellets: [...aquarium.pellets, { x, y, rest: 0 }] },
+    stash: { ...stash, food: stash.food - 1 },
   };
 }
