@@ -2141,6 +2141,20 @@ describe("Working shelf", () => {
       expect(resolveSidebarDropVerb("active", "working")).toBeNull();
     });
 
+    it("lifts a Working row only to carry it out of the list", () => {
+      for (const overId of ["p1", "a1", "s1"]) {
+        expect(
+          planSidebarThreadDrop({
+            activeKey: "w1",
+            activeSection: "working",
+            target: resolveSidebarDropTarget(items, "w1", overId)!,
+            pinnedOrder: ["p1"],
+            pinnedKeysById: new Map(),
+          }),
+        ).toEqual({ kind: "none" });
+      }
+    });
+
     it("parks a row dropped into the Parked shelf when the thread can be put away", () => {
       const withParked: readonly SidebarListItem[] = [
         ...items.slice(0, -2),
