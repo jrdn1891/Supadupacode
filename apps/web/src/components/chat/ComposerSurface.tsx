@@ -96,7 +96,7 @@ function ContextStrip({
 }: ComponentProps<"div"> & { placement?: "top" | "bottom" }) {
   if (placement === "top") {
     return (
-      <ComposerBanner.Attachment>
+      <ComposerBanner.Attachment data-composer-context-strip>
         <ComposerBanner.Surface
           data-slot="composer-context-strip"
           className={cn(contextStripRowClasses, "pt-1 pb-5", className)}

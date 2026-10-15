@@ -6778,8 +6778,14 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             restingControlsHost,
           )
         : null}
-      <ComposerBanner.Dock className={isComposerResting ? "hidden" : undefined}>
-        <ComposerBanner.Column>
+      <ComposerBanner.Dock
+        className={isComposerResting ? "not-has-data-composer-context-strip:hidden" : undefined}
+      >
+        <ComposerBanner.Column
+          className={
+            isComposerResting ? "[&>:not([data-composer-context-strip])]:hidden" : undefined
+          }
+        >
           <ComposerBannerStack
             key={`stack:${activeThreadId}`}
             className="relative z-0"
@@ -6928,7 +6934,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           {props.attachedContextStrip}
           <Fragment key={`queue:${activeThreadId}`}>{props.queuedRunsControl}</Fragment>
         </ComposerBanner.Column>
-        {!isComposerApprovalState ? (
+        {!isComposerApprovalState && !isComposerResting ? (
           <ComposerStashBadge
             count={stashQueue.length}
             menuOpen={isStashMenuOpen}

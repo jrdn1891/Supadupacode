@@ -10771,6 +10771,7 @@ export default function ChatView(props: ChatViewProps) {
                   parentThreadLink={parentThreadLink}
                   onOpenThread={onOpenRelatedThread}
                   rightPanelOpen={inlineRightPanelOwnsTitleBar}
+                  showsAquarium={showsAquarium}
                   onNewThreadInProject={handleNewThreadInActiveProject}
                   {...(activeDraftLogicalProjectKey
                     ? { onOpenProjectSettings: handleOpenDraftProjectSettings }
