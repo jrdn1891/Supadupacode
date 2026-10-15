@@ -46,10 +46,12 @@ instead.
 
 ### Start in the background
 
-In a desktop browser or the desktop app, press `Cmd+Enter` on macOS or `Ctrl+Enter`
-on Windows and Linux to start a new thread and immediately open another draft. The
-next draft keeps the workspace mode and base branch you selected. With **New
-worktree**, each background submission creates its own worktree.
+Sending a new thread starts it in the background: it joins **Working** in the sidebar
+and another draft opens, so you can start the next conversation right away. Open the
+thread from the sidebar when it needs you. To send and open it instead, press
+`Cmd+Enter` on macOS or `Ctrl+Enter` on Windows and Linux in a desktop browser or the
+desktop app. The next draft keeps the workspace mode and base branch you selected.
+With **New worktree**, each background submission creates its own worktree.
 
 To send the same prompt to several models on web or desktop, **Shift-click** models
 in a new thread's model picker to add or remove them. A regular click returns to a
@@ -252,11 +254,14 @@ thread or pane snaps to a drop zone, and a firmer one when you flick a pane off 
 
 To give one thread the whole stage, choose **Spotlight** in its header or press `mod+alt+s`.
 While in Spotlight, moving to another pane spotlights that one instead; press `mod+alt+s` again
-to bring every pane back. Close a pane with its **×** or `mod+alt+w`. In a pane on a split
-stage, `mod+alt+enter` sends your message and closes the pane in one step; with a single thread
-it starts a new thread. The stage is remembered when you reload.
+to bring every pane back. Close a pane with its **×** or `mod+alt+w`. On a split stage,
+`mod+alt+enter` in a thread's pane sends your message and closes the pane in one step, and
+sending from a new thread's pane swaps that pane for a fresh new thread. With a single thread,
+both start a new thread. The stage is remembered when you reload.
 
 When a new thread is alone on the stage, a quiet aquarium fills the space behind its composer.
+The composer rests there as a bare text field; point at it, or press a composer shortcut such as
+the model picker's, to bring back its project, branch, model, and access controls.
 Each agent that is working, needs you, or has finished since you last looked swims there as a
 fish, colored by its project. Point at a fish to see which agent it is, and click it to open that
 thread in place of the new one. When an agent needs you or finishes, its fish swims to the middle

@@ -84,6 +84,7 @@ import {
   clampCollapsedComposerCursor,
   type ComposerSubmissionIntent,
   collapseExpandedComposerCursor,
+  composerDefaultSubmissionIntent,
   composerSubmissionIntentForKey,
   composerStateAtPromptEnd,
   expandCollapsedComposerCursor,
@@ -587,7 +588,7 @@ function useComposerRestingTransition(
       // inset, the scroll-to-end pill, and the mini player. Publishing the
       // destination height here turns that feedback into one update instead
       // of a ChatView re-render on every animation frame.
-      const overlay = element.closest<HTMLElement>('[data-chat-composer-overlay="true"]');
+      const overlay = element.closest<HTMLElement>("[data-chat-composer-overlay]");
       const overlayRect = overlay?.getBoundingClientRect();
       const overlayHeight = overlayRect?.height ?? null;
       if (overlayHeight !== null) {
@@ -632,12 +633,13 @@ function useComposerRestingTransition(
         }
         surface.style.height = "100%";
 
-        // Pinning the overlay at the destination height keeps the resize
+        // Pinning a docked overlay at the destination height keeps the resize
         // observer quiet for the tween; bottom alignment keeps the animating
         // surface glued to the overlay's stable bottom edge. The pin lasts
         // only for the tween so later attachment, thread, font, and viewport
-        // changes remain natural.
-        if (overlay && overlayHeight !== null) {
+        // changes remain natural. A centered overlay fills the pane, so the
+        // surface already grows about its middle.
+        if (overlay?.dataset.chatComposerOverlay === "docked" && overlayHeight !== null) {
           overlay.style.height = `${String(overlayHeight)}px`;
           overlay.style.display = "flex";
           overlay.style.flexDirection = "column";
@@ -924,7 +926,7 @@ function useComposerRestingTransition(
     if (previousRestingRef.current === isResting) return;
     previousRestingRef.current = isResting;
     if (animationRef.current) return;
-    const overlay = elementRef.current?.closest<HTMLElement>('[data-chat-composer-overlay="true"]');
+    const overlay = elementRef.current?.closest<HTMLElement>("[data-chat-composer-overlay]");
     if (overlay) onOverlayHeightChange(overlay.getBoundingClientRect().height);
   }, [isResting, onOverlayHeightChange]);
 
@@ -934,7 +936,7 @@ function useComposerRestingTransition(
 
     const body = element.querySelector<HTMLElement>('[data-chat-composer-body="true"]');
     // Rows beside the composer in the overlay, such as the usage row, move it without resizing it.
-    const overlay = element.closest<HTMLElement>('[data-chat-composer-overlay="true"]');
+    const overlay = element.closest<HTMLElement>("[data-chat-composer-overlay]");
     const observed = [element, body, overlay].filter((target) => target !== null);
     return observeResize(observed, (entries) => {
       if (animationRef.current) {
@@ -973,9 +975,8 @@ function useComposerRestingTransition(
           controlsRect === undefined ? null : elementRect.bottom - controlsRect.top,
         controlsFromLeft: controlsRect === undefined ? null : controlsRect.left - elementRect.left,
         surfaceBottomInset:
-          (element
-            .closest<HTMLElement>('[data-chat-composer-overlay="true"]')
-            ?.getBoundingClientRect().bottom ?? elementRect.bottom) - elementRect.bottom,
+          (element.closest<HTMLElement>("[data-chat-composer-overlay]")?.getBoundingClientRect()
+            .bottom ?? elementRect.bottom) - elementRect.bottom,
       };
     });
   }, [restingControlsRef, transitionToCurrentGeometry]);
@@ -1618,6 +1619,8 @@ export interface ChatComposerProps {
   isTimelineAtLogicalEnd: () => boolean;
   /** Whether the timeline has more content than fits above the composer. */
   timelineOverflows: boolean;
+  /** Rest as a bare input unless the draft or an open menu needs the full composer. */
+  restRequested: boolean;
   onComposerOverlayHeightChange: (height: number) => void;
   /**
    * Whether the desktop resting layout is active. Reported from a layout
@@ -1759,6 +1762,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     getTimelineScrollableNode,
     isTimelineAtLogicalEnd,
     timelineOverflows,
+    restRequested,
     onComposerOverlayHeightChange,
     onRestingChange,
     promptRef,
@@ -4249,7 +4253,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 alternateModifier: false,
                 activeTurnDefault: settings.followUpBehavior,
               }),
-            submissionIntent,
+            submissionIntent ?? composerDefaultSubmissionIntent(routeKind === "draft"),
           );
           return !providerInputRejectedRef.current;
         },
@@ -4274,6 +4278,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       settings.followUpBehavior,
       phase,
       promptRef,
+      routeKind,
       shouldBlurMobileComposerOnSubmit,
     ],
   );
@@ -4461,7 +4466,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       composerMenuOpenRef.current = false;
       return true;
     }
-    if (menuIsActive && (submissionIntent === null || submissionIntent === "foreground")) {
+    if (
+      menuIsActive &&
+      (submissionIntent === null ||
+        submissionIntent === composerDefaultSubmissionIntent(routeKind === "draft"))
+    ) {
       const currentItems = composerMenuItemsRef.current;
       const selectedItem =
         activeComposerMenuItemRef.current ?? (key === "Tab" ? currentItems[0] : null);
@@ -5178,6 +5187,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     hasExpandedChrome: composerHasExpandedChrome,
     hasMultilinePrompt,
     timelineOverflows,
+    restRequested,
   });
   const isTasksDrawerOpen = canShowTasks && tasksExpandedPreference && !isComposerResting;
   const toggleTasksDrawer = useCallback(() => {

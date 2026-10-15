@@ -22,7 +22,7 @@ describe("KeybindingsSettings.logic", () => {
     const rows = buildKeybindingRows(DEFAULT_RESOLVED_KEYBINDINGS, "");
     for (const command of [
       "composer.sendAlternate",
-      "composer.sendBackground",
+      "composer.sendAndOpen",
       "thread.steerQueuedMessage",
       "thread.editQueuedMessage",
       "composer.host",

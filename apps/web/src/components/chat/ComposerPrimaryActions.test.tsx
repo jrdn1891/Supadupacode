@@ -140,10 +140,11 @@ describe("ComposerPrimaryActions", () => {
     expect(markup).not.toContain("stage-nightly");
   });
 
-  it("lists the background send for a new thread", () => {
+  it("leads with the background send for a new thread and offers to open it", () => {
     const markup = renderSendButton(null, { isDraftThread: true });
 
     expect(markup).toContain("Send in background");
+    expect(markup.indexOf("Send in background")).toBeLessThan(markup.indexOf("Send and open"));
     expect(markup).toContain("New line");
   });
 

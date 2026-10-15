@@ -31,6 +31,8 @@ export function shouldUseRestingComposerLayout(input: {
   hasMultilinePrompt: boolean;
   /** Whether the timeline has more content than fits above the composer. */
   timelineOverflows: boolean;
+  /** The parent asks for a bare input, as a new thread over the aquarium does until reached for. */
+  restRequested: boolean;
 }): boolean {
   // Multiline drafts stay readable. Resting only clamps a single prompt
   // line and overlays its actions; non-image attachment and context
@@ -39,19 +41,19 @@ export function shouldUseRestingComposerLayout(input: {
   // too, and resting hides them along with the model controls and the strip
   // below.
   //
-  // Only a timeline scroll rests the composer: the user asked for it with the
-  // gesture, and it lifts on the next composer interaction. Losing focus never
-  // rests it, so clicking a message, copying output, or selecting text for a
-  // citation leaves the composer where it was.
+  // In a thread, only a timeline scroll rests the composer: the user asked for
+  // it with the gesture, and it lifts on the next composer interaction. Losing
+  // focus never rests it, so clicking a message, copying output, or selecting
+  // text for a citation leaves the composer where it was.
   //
   // Resting exists to give reading space back to the timeline. A thread that
   // fits above the composer has nothing to reclaim, so it stays expanded and
   // never shows the collapsed row that a fresh thread would otherwise open on.
+  const scrolledToRest =
+    input.isExistingThread && input.timelineOverflows && input.isScrollCollapsed;
   return (
-    input.isExistingThread &&
+    (input.restRequested || scrolledToRest) &&
     !input.isMobileViewport &&
-    input.timelineOverflows &&
-    input.isScrollCollapsed &&
     !input.hasMultilinePrompt &&
     !input.hasExpandedChrome
   );

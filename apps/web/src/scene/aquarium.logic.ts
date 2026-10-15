@@ -6,6 +6,9 @@ export const AQUARIUM_SAND = 8;
 
 const PARKING_SPEED = 2;
 const BUBBLE_CHANCE = 0.08;
+const LEAP_REACH = 20;
+const LEAP_FRAMES = 12;
+const LEAP_MAX_TILT = 60;
 
 export const FISH_SPRITES = {
   big: {
@@ -109,6 +112,42 @@ export function featuredResident<T extends { readonly cue: AgentCue }>(
 
 export function parkingSpot(size: AquariumSize, key: string) {
   return { x: Math.round(size.width / 2 - fishSize(key).width / 2), y: size.top };
+}
+
+export function landingSpot(size: AquariumSize, key: string, fromX: number): AquariumFish {
+  const { width } = fishSize(key);
+  const dir = fromX < size.width / 2 ? 1 : -1;
+  return {
+    key,
+    dir,
+    x: Math.max(0, Math.min(size.width - width, Math.round(fromX - width / 2 + dir * LEAP_REACH))),
+    y: size.top,
+    wait: 0,
+  };
+}
+
+export function leapKeyframes(
+  from: { readonly x: number; readonly y: number },
+  to: { readonly x: number; readonly y: number },
+  dir: 1 | -1,
+): Keyframe[] {
+  const bend = { x: from.x, y: to.y };
+  return Array.from({ length: LEAP_FRAMES + 1 }, (_, index) => {
+    const t = index / LEAP_FRAMES;
+    const along = (start: number, middle: number, end: number) =>
+      (1 - t) ** 2 * start + 2 * (1 - t) * t * middle + t ** 2 * end;
+    const heading = (start: number, middle: number, end: number) =>
+      (1 - t) * (middle - start) + t * (end - middle);
+    const x = along(from.x, bend.x, to.x);
+    const y = along(from.y, bend.y, to.y);
+    const angle = Math.atan2(heading(from.y, bend.y, to.y), heading(from.x, bend.x, to.x) * dir);
+    const tilt = Math.max(-LEAP_MAX_TILT, Math.min(LEAP_MAX_TILT, ((angle * 180) / Math.PI) * dir));
+    const scale = 0.6 + 0.4 * Math.min(1, t * 2.5);
+    return {
+      transform: `translate(${x}px, ${y}px) rotate(${tilt}deg) scale(${scale})`,
+      opacity: Math.min(1, t * 5),
+    };
+  });
 }
 
 function swimBottom(size: AquariumSize, key: string) {

@@ -8,6 +8,7 @@ import {
   aquariumHash,
   aquariumWeeds,
   FISH_SPRITES,
+  fishSize,
   fishTraits,
 } from "./aquarium.logic";
 
@@ -153,6 +154,10 @@ function paintCue(context: CanvasRenderingContext2D, cue: AgentCue, left: number
   });
 }
 
+export function fishBob(key: string, tick: number) {
+  return Math.round(Math.sin((tick + fishTraits(key).phase) * 0.22));
+}
+
 function paintFish(
   context: CanvasRenderingContext2D,
   fish: AquariumFish,
@@ -173,7 +178,7 @@ function paintFish(
   const tail = sprite.tails[Math.floor((tick + traits.phase) / 3) % 2]!;
   const width = sprite.rows[0].length;
   const left = Math.round(fish.x);
-  const top = Math.round(fish.y) + Math.round(Math.sin((tick + traits.phase) * 0.22));
+  const top = Math.round(fish.y) + fishBob(fish.key, tick);
   context.globalAlpha = traits.depth;
   sprite.rows.forEach((row, y) => {
     const tailRow = tail[y - sprite.tailRow];
@@ -188,6 +193,28 @@ function paintFish(
   context.globalAlpha = 1;
   if (resident !== undefined)
     paintCue(context, resident.cue, left + Math.round(width / 2) - 5, top - CUE_RISE);
+}
+
+export function paintFishSprite(
+  fish: AquariumFish,
+  resident: AquariumResident,
+  tick: number,
+  appearance: AquariumAppearance,
+) {
+  const { width, height } = fishSize(fish.key);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (context !== null)
+    paintFish(
+      context,
+      { ...fish, x: 0, y: -fishBob(fish.key, tick) },
+      resident,
+      tick,
+      SCENERY[appearance].eye,
+    );
+  return canvas;
 }
 
 export function paintAquarium(
