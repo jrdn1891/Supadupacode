@@ -561,10 +561,10 @@ export function stepAquarium(
   let pellets = aquarium.pellets;
   const fed = aquarium.fish
     .map((fish) =>
-      fish.key === input.featuredKey
-        ? park(aquarium, fish)
-        : fish.key === input.heldKey || fish.key === pet?.prey
-          ? fish
+      fish.key === input.heldKey || fish.key === pet?.prey
+        ? fish
+        : fish.key === input.featuredKey
+          ? park(aquarium, fish)
           : swim(aquarium, pet === null ? fish : flee(fish, pet), random),
     )
     .map((fish) => {

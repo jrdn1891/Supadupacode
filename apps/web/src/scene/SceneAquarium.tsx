@@ -14,9 +14,11 @@ import {
   resolveSidebarThreadStatus,
   resolveThreadLastVisitedAt,
 } from "../components/Sidebar.logic";
+import { Popover } from "../components/ui/popover";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useNowMinute } from "../hooks/useNowMinute";
 import { useTheme } from "../hooks/useTheme";
+import { useVisitThread } from "../hooks/useThreadActions";
 import { observeResize } from "../lib/observeResize";
 import { cn } from "../lib/utils";
 import { useThreadShells } from "../state/entities";
@@ -56,10 +58,12 @@ import {
 } from "./aquarium.paint";
 import { AquariumEffortMenu } from "./AquariumEffortMenu";
 import {
+  type AquariumAgent,
   agentCueDetail,
   aquariumAgents,
   aquariumCaption,
 } from "@supacode/client-runtime/aquarium/agents";
+import { AquariumChat } from "./AquariumChat";
 import { takeRelease } from "./aquariumReleases";
 
 const CEILING_GAP = 12;
@@ -84,6 +88,12 @@ interface HoveredFish {
   readonly top: number;
 }
 
+interface Chat {
+  readonly key: string;
+  readonly open: boolean;
+  readonly side: "top" | "bottom";
+}
+
 interface Press extends AquariumPoint {
   readonly dragging: boolean;
   readonly since: number;
@@ -100,6 +110,7 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
   let aquarium: Aquarium | null = null;
   let scenery: HTMLCanvasElement | null = null;
   let held: string | null = null;
+  let pinned: string | null = null;
   let prey: string | null = null;
   let tick = resting?.tick ?? 0;
   let timer: number | undefined;
@@ -129,7 +140,7 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
     if (document.hidden || input === null || aquarium === null) return;
     aquarium = stepAquarium(aquarium, {
       featuredKey: input.featuredKey,
-      heldKey: held,
+      heldKey: pinned ?? held,
       random: Math.random,
     });
     tick += 1;
@@ -221,6 +232,9 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
     hold(key: string | null) {
       held = key;
     },
+    pin(key: string | null) {
+      pinned = key;
+    },
     release() {
       if (aquarium === null) return;
       aquarium = releasePrey(aquarium);
@@ -240,9 +254,12 @@ function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null
               to,
               residents: input.residents,
               featuredKey: input.featuredKey,
-              heldKey: held,
+              heldKey: pinned ?? held,
             })
           : { ...aquarium, pet: { ...aquarium.pet, goal: to } };
+    },
+    findFish(key: string) {
+      return aquarium?.fish.find((fish) => fish.key === key) ?? null;
     },
     fishAt(x: number, y: number) {
       return (
@@ -286,12 +303,14 @@ export function SceneAquarium() {
     [localVisits, nowMinute, threads],
   );
   const navigate = useNavigate();
+  const visitThread = useVisitThread();
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const appearance = useTheme().resolvedTheme;
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [ceiling, setCeiling] = useState<HTMLDivElement | null>(null);
   const [size, setSize] = useState<AquariumSize | null>(null);
   const [hovered, setHovered] = useState<HoveredFish | null>(null);
+  const [chat, setChat] = useState<Chat | null>(null);
   const [prey, setPrey] = useState<AquariumFish | null>(null);
   const tankRef = useRef<ReturnType<typeof startTank> | null>(null);
   const pressRef = useRef<Press | null>(null);
@@ -340,6 +359,48 @@ export function SceneAquarium() {
   useLayoutEffect(() => {
     tankRef.current?.update({ size, residents, featuredKey, appearance, reducedMotion });
   }, [appearance, featuredKey, reducedMotion, residents, size]);
+
+  const chatAgent = chat === null ? undefined : entries.find((entry) => entry.key === chat.key);
+  if (chat !== null && chatAgent === undefined) setChat(null);
+  const chatKey = chatAgent?.key ?? null;
+  const chatCued = chatAgent !== undefined && chatAgent.cue !== "working";
+  const chatAnchor = useMemo(() => {
+    if (root === null || chatKey === null) return undefined;
+    let last = new DOMRect();
+    return {
+      getBoundingClientRect: () => {
+        const fish = tankRef.current?.findFish(chatKey);
+        if (fish) {
+          const bounds = root.getBoundingClientRect();
+          const { width, height } = fishSize(fish.key);
+          const rise = chatCued ? CUE_RISE : 0;
+          last = new DOMRect(
+            bounds.left + fish.x * AQUARIUM_PIXEL,
+            bounds.top + (fish.y - rise) * AQUARIUM_PIXEL,
+            width * AQUARIUM_PIXEL,
+            (height + rise) * AQUARIUM_PIXEL,
+          );
+        }
+        return last;
+      },
+    };
+  }, [chatCued, chatKey, root]);
+
+  useLayoutEffect(() => {
+    tankRef.current?.pin(chat?.open ? chat.key : null);
+  }, [chat]);
+
+  const visit = ({ thread }: AquariumAgent) =>
+    visitThread(scopeThreadRef(thread.environmentId, thread.id), thread.updatedAt);
+
+  const showChat = (key: string, at: AquariumPoint) => {
+    if (chat?.open && chat.key === key) {
+      setChat({ ...chat, open: false });
+      return;
+    }
+    if (chat?.open && chatAgent) visit(chatAgent);
+    setChat({ key, open: true, side: at.y < (size?.height ?? 0) / 2 ? "bottom" : "top" });
+  };
 
   const tankPoint = (event: ReactPointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -408,15 +469,9 @@ export function SceneAquarium() {
           const at = tankPoint(event);
           const fish = tankRef.current?.fishAt(at.x, at.y);
           const entry = entries.find((candidate) => candidate.key === fish?.key);
-          if (entry === undefined) {
-            tankRef.current?.tap(at, event.timeStamp - press.since);
-            return;
-          }
-          const { environmentId, id } = entry.thread;
-          void navigate({
-            to: "/$environmentId/$threadId",
-            params: buildThreadRouteParams(scopeThreadRef(environmentId, id)),
-          });
+          if (entry !== undefined) showChat(entry.key, at);
+          else if (chat?.open) setChat({ ...chat, open: false });
+          else tankRef.current?.tap(at, event.timeStamp - press.since);
         }}
         onPointerCancel={() => {
           pressRef.current = null;
@@ -441,7 +496,7 @@ export function SceneAquarium() {
             <p className="max-w-md truncate text-xs text-muted-foreground">{caption}</p>
           )}
         </div>
-        {hovered && hoveredEntry ? (
+        {hovered && hoveredEntry && !chat?.open ? (
           <div
             className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md border bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-md"
             style={{ left: hovered.left, top: hovered.top - 6 }}
@@ -453,6 +508,42 @@ export function SceneAquarium() {
           </div>
         ) : null}
       </div>
+      <Popover
+        open={chat?.open === true && chatAgent !== undefined}
+        onOpenChange={(open, details) => {
+          if (open || chat === null) return;
+          const { target } = details.event;
+          if (
+            details.reason === "outside-press" &&
+            target instanceof Node &&
+            root?.contains(target)
+          )
+            return;
+          setChat({ ...chat, open: false });
+        }}
+        onOpenChangeComplete={(open) => {
+          if (open || chat?.open !== false) return;
+          if (chatAgent) visit(chatAgent);
+          setChat(null);
+        }}
+      >
+        {chat !== null && chatAgent ? (
+          <AquariumChat
+            agent={chatAgent}
+            anchor={chatAnchor}
+            side={chat.side}
+            nowMs={nowMs}
+            onOpenThread={() =>
+              void navigate({
+                to: "/$environmentId/$threadId",
+                params: buildThreadRouteParams(
+                  scopeThreadRef(chatAgent.thread.environmentId, chatAgent.thread.id),
+                ),
+              })
+            }
+          />
+        ) : null}
+      </Popover>
       {prey && preyEntry ? (
         <AquariumEffortMenu
           thread={preyEntry.thread}

@@ -11,7 +11,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { type EnvironmentThreadShell, presentThreadShell } from "../state/models.ts";
 
-import { type AgentThreadStatus, aquariumAgents, aquariumCaption } from "./agents.ts";
+import { type AgentThreadStatus, aquariumAgents, aquariumCaption, chatTail } from "./agents.ts";
 
 const now = DateTime.makeUnsafe("2026-10-14T12:00:00.000Z");
 const environmentId = "env" as EnvironmentId;
@@ -201,5 +201,28 @@ describe("aquariumCaption", () => {
         nowMs,
       ),
     ).toBe("Ship it · Needs approval");
+  });
+});
+
+describe("chatTail", () => {
+  it("keeps the latest spoken messages, oldest first, and skips system notes and blank turns", () => {
+    const said = (role: "user" | "assistant" | "system", text: string) => ({ role, text });
+    expect(
+      chatTail(
+        [
+          said("user", "Fix the flicker"),
+          said("assistant", "Looking"),
+          said("assistant", "Found it"),
+          said("system", "Context compacted"),
+          said("user", "Ship it"),
+          said("assistant", "  "),
+        ],
+        3,
+      ),
+    ).toEqual([
+      said("assistant", "Looking"),
+      said("assistant", "Found it"),
+      said("user", "Ship it"),
+    ]);
   });
 });

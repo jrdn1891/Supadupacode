@@ -134,6 +134,12 @@ describe("stepAquarium", () => {
     expect(run(tank, 30, "b").fish.find((fish) => fish.key === "b")).toEqual(parked);
   });
 
+  it("keeps a held fish still even while it is on its way under the caption", () => {
+    const key = keyOf("fish");
+    const tank = tankOf([swimmer(key, 20, 80)]);
+    expect(run(tank, 30, key, key).fish[0]).toEqual(tank.fish[0]);
+  });
+
   it("sinks a starfish that is no longer featured back to the floor", () => {
     const key = keyOf("starfish");
     const climbed = run(createAquarium(SIZE, [resident(key, "ready")], key, seeded(6)), 10, key);
