@@ -19,6 +19,7 @@ import {
   parkingSpot,
   type PetKind,
   PETS,
+  releasePrey,
   type Species,
   SPECIES,
   stepAquarium,
@@ -296,7 +297,15 @@ describe("your fish", () => {
     width: PETS[kind].frames[0][0].length,
     height: PETS[kind].frames[0].length,
   });
-  const clownfish = { kind: "clownfish" as const, x: 70, y: 60, dir: 1 as const };
+  const clownfish = {
+    kind: "clownfish" as const,
+    x: 70,
+    y: 60,
+    dir: 1 as const,
+    prey: null,
+    sated: false,
+  };
+  const shark = { ...clownfish, kind: "shark" as const, x: 62, y: 59, goal: { x: 72, y: 64 } };
 
   it("hatches where you hold the water, swims where you steer it, and leaves when tapped", () => {
     const at = { x: 100, y: 60 };
@@ -349,7 +358,6 @@ describe("your fish", () => {
 
   it("frightens creatures from farther away as a shark than as a clownfish", () => {
     const prey = swimmer(keyOf("fish"), 117, 60, -1);
-    const shark = { kind: "shark" as const, x: 62, y: 59, dir: 1 as const, goal: { x: 72, y: 64 } };
     const [calm] = run(
       { ...tankOf([prey]), pet: { ...clownfish, goal: { x: 76, y: 64 } } },
       1,
@@ -371,6 +379,37 @@ describe("your fish", () => {
     expect(caught!.x <= -fishSize(prey).width || caught!.x >= SIZE.width).toBe(true);
     expect(spared!.x).toBeGreaterThan(76);
     expect(after.bubbles).toContainEqual(expect.objectContaining({ y: 64, big: true }));
+  });
+
+  it("holds a creature it catches as a shark and bites again only once its jaws are clear", () => {
+    const [prey, mate] = [keyOf("fish", 0), keyOf("fish", 1)];
+    const caught = run(
+      { ...tankOf([swimmer(prey, 76, 60), swimmer(mate, 76, 60)]), pet: shark },
+      1,
+    );
+    expect(caught.pet).toMatchObject({ prey, sated: false });
+    expect(caught.fish[1]!.x).toBeGreaterThan(76);
+    expect(caught.bubbles).not.toContainEqual(expect.objectContaining({ big: true }));
+
+    const held = run(caught, 20);
+    expect(held.fish[0]).toEqual(caught.fish[0]);
+    expect(held.pet!.prey).toBe(prey);
+    const steered = { ...caught, pet: { ...caught.pet!, goal: { x: 0, y: 0 } } };
+    expect(run(steered, 5).pet).toMatchObject({ prey, x: shark.x, y: shark.y });
+    expect(run({ ...held, fish: [held.fish[1]!] }, 1).pet!.prey).toBeNull();
+
+    const released = releasePrey(held);
+    expect(released.pet).toMatchObject({ prey: null, sated: true });
+    const escaping = run(released, 1);
+    expect(escaping.pet).toMatchObject({ prey: null, sated: true });
+    expect(escaping.fish[0]!.x).toBeGreaterThan(held.fish[0]!.x);
+    expect(run(released, 30).pet).toMatchObject({ prey: null, sated: false });
+  });
+
+  it("lets a shark catch only creatures inside the tank", () => {
+    const edge = { ...shark, x: 0, dir: -1 as const, goal: { x: 10, y: 64 } };
+    const after = run({ ...tankOf([swimmer(keyOf("fish"), -8, 60)]), pet: edge }, 1);
+    expect(after.pet!.prey).toBeNull();
   });
 });
 

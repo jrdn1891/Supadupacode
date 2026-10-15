@@ -26,6 +26,7 @@ import {
   AQUARIUM_FPS,
   AQUARIUM_PIXEL,
   type Aquarium,
+  type AquariumFish,
   type AquariumPoint,
   type AquariumResident,
   type AquariumSize,
@@ -38,6 +39,7 @@ import {
   FRESH_STASH,
   landingSpot,
   leapKeyframes,
+  releasePrey,
   resizeAquarium,
   stepAquarium,
   stirAquarium,
@@ -52,6 +54,7 @@ import {
   paintFishSprite,
   paintScenery,
 } from "./aquarium.paint";
+import { AquariumEffortMenu } from "./AquariumEffortMenu";
 import { agentCueDetail, aquariumAgents } from "./aquariumAgents";
 import { takeRelease } from "./aquariumReleases";
 
@@ -87,12 +90,13 @@ const castOf = (residents: ReadonlyArray<AquariumResident>) =>
 
 let resting: { readonly aquarium: Aquarium; readonly tick: number } | null = null;
 
-function startTank(canvas: HTMLCanvasElement) {
+function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null) => void) {
   const context = canvas.getContext("2d");
   let input: TankInput | null = null;
   let aquarium: Aquarium | null = null;
   let scenery: HTMLCanvasElement | null = null;
   let held: string | null = null;
+  let prey: string | null = null;
   let tick = resting?.tick ?? 0;
   let timer: number | undefined;
   const leaps = new Map<string, Animation>();
@@ -109,6 +113,13 @@ function startTank(canvas: HTMLCanvasElement) {
     });
   };
 
+  const notice = () => {
+    const next = aquarium?.pet?.prey ?? null;
+    if (next === prey) return;
+    prey = next;
+    onPrey(aquarium?.fish.find((fish) => fish.key === next) ?? null);
+  };
+
   const step = () => {
     timer = window.setTimeout(step, 1000 / AQUARIUM_FPS);
     if (document.hidden || input === null || aquarium === null) return;
@@ -119,6 +130,7 @@ function startTank(canvas: HTMLCanvasElement) {
     });
     tick += 1;
     paint();
+    notice();
   };
 
   const leap = (
@@ -205,6 +217,11 @@ function startTank(canvas: HTMLCanvasElement) {
     hold(key: string | null) {
       held = key;
     },
+    release() {
+      if (aquarium === null) return;
+      aquarium = releasePrey(aquarium);
+      notice();
+    },
     tap(at: AquariumPoint, heldMs: number) {
       if (input === null || input.reducedMotion || aquarium === null) return;
       ({ aquarium, stash } = tapAquarium(aquarium, stash, at, heldMs));
@@ -240,7 +257,7 @@ function startTank(canvas: HTMLCanvasElement) {
     stop() {
       window.clearTimeout(timer);
       for (const flight of leaps.values()) flight.cancel();
-      if (aquarium !== null) resting = { aquarium, tick };
+      if (aquarium !== null) resting = { aquarium: releasePrey(aquarium), tick };
     },
   };
 }
@@ -271,11 +288,12 @@ export function SceneAquarium() {
   const [ceiling, setCeiling] = useState<HTMLDivElement | null>(null);
   const [size, setSize] = useState<AquariumSize | null>(null);
   const [hovered, setHovered] = useState<HoveredFish | null>(null);
+  const [prey, setPrey] = useState<AquariumFish | null>(null);
   const tankRef = useRef<ReturnType<typeof startTank> | null>(null);
   const pressRef = useRef<Press | null>(null);
   const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     if (canvas === null) return;
-    const tank = startTank(canvas);
+    const tank = startTank(canvas, setPrey);
     tankRef.current = tank;
     return () => {
       tank.stop();
@@ -343,93 +361,109 @@ export function SceneAquarium() {
 
   const hoveredEntry =
     hovered === null ? null : (entries.find((entry) => entry.key === hovered.key) ?? null);
+  const preyEntry =
+    prey === null ? null : (entries.find((entry) => entry.key === prey.key) ?? null);
 
   return (
-    <div
-      ref={setRoot}
-      className={cn(
-        "absolute inset-0 touch-none overflow-hidden select-none",
-        hoveredEntry && "cursor-pointer",
-      )}
-      onMouseDown={(event) => event.preventDefault()}
-      onPointerDown={(event) => {
-        if (!event.isPrimary || event.button !== 0) return;
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        pressRef.current = { ...tankPoint(event), dragging: false, since: event.timeStamp };
-      }}
-      onPointerMove={(event) => {
-        if (!event.isPrimary) return;
-        const at = tankPoint(event);
-        const press = pressRef.current;
-        if (press === null) {
-          hover(at);
-          return;
-        }
-        if (Math.hypot(at.x - press.x, at.y - press.y) * AQUARIUM_PIXEL < TAP_SLOP) return;
-        if (!press.dragging) {
+    <>
+      <div
+        ref={setRoot}
+        className={cn(
+          "absolute inset-0 touch-none overflow-hidden select-none",
+          hoveredEntry && "cursor-pointer",
+        )}
+        onMouseDown={(event) => event.preventDefault()}
+        onPointerDown={(event) => {
+          if (!event.isPrimary || event.button !== 0) return;
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          pressRef.current = { ...tankPoint(event), dragging: false, since: event.timeStamp };
+        }}
+        onPointerMove={(event) => {
+          if (!event.isPrimary) return;
+          const at = tankPoint(event);
+          const press = pressRef.current;
+          if (press === null) {
+            hover(at);
+            return;
+          }
+          if (Math.hypot(at.x - press.x, at.y - press.y) * AQUARIUM_PIXEL < TAP_SLOP) return;
+          if (!press.dragging) {
+            tankRef.current?.hold(null);
+            setHovered(null);
+          }
+          pressRef.current = { ...press, ...at, dragging: true };
+          tankRef.current?.drag(press, at);
+        }}
+        onPointerUp={(event) => {
+          if (!event.isPrimary) return;
+          const press = pressRef.current;
+          pressRef.current = null;
+          if (press === null || press.dragging) return;
+          const at = tankPoint(event);
+          const fish = tankRef.current?.fishAt(at.x, at.y);
+          const entry = entries.find((candidate) => candidate.key === fish?.key);
+          if (entry === undefined) {
+            tankRef.current?.tap(at, event.timeStamp - press.since);
+            return;
+          }
+          const { environmentId, id } = entry.thread;
+          void navigate({
+            to: "/$environmentId/$threadId",
+            params: buildThreadRouteParams(scopeThreadRef(environmentId, id)),
+          });
+        }}
+        onPointerCancel={() => {
+          pressRef.current = null;
+        }}
+        onPointerLeave={() => {
           tankRef.current?.hold(null);
           setHovered(null);
-        }
-        pressRef.current = { ...press, ...at, dragging: true };
-        tankRef.current?.drag(press, at);
-      }}
-      onPointerUp={(event) => {
-        if (!event.isPrimary) return;
-        const press = pressRef.current;
-        pressRef.current = null;
-        if (press === null || press.dragging) return;
-        const at = tankPoint(event);
-        const fish = tankRef.current?.fishAt(at.x, at.y);
-        const entry = entries.find((candidate) => candidate.key === fish?.key);
-        if (entry === undefined) {
-          tankRef.current?.tap(at, event.timeStamp - press.since);
-          return;
-        }
-        const { environmentId, id } = entry.thread;
-        void navigate({
-          to: "/$environmentId/$threadId",
-          params: buildThreadRouteParams(scopeThreadRef(environmentId, id)),
-        });
-      }}
-      onPointerCancel={() => {
-        pressRef.current = null;
-      }}
-      onPointerLeave={() => {
-        tankRef.current?.hold(null);
-        setHovered(null);
-      }}
-    >
-      <canvas
-        ref={attachCanvas}
-        aria-hidden
-        className="pointer-events-none absolute top-0 left-0 [image-rendering:pixelated]"
-        style={
-          size === null
-            ? undefined
-            : { width: size.width * AQUARIUM_PIXEL, height: size.height * AQUARIUM_PIXEL }
-        }
-      />
-      <div ref={setCeiling} className="absolute inset-x-0 top-0 flex justify-center px-6 pt-10">
-        {entries.length > 0 ? (
-          <p className="max-w-md truncate text-xs text-muted-foreground">
-            {featured === null
-              ? `${entries.length} ${entries.length === 1 ? "agent" : "agents"} working · nothing needs you`
-              : `${featured.thread.title} · ${agentCueDetail(featured.thread, featured.cue, nowMs)}`}
-          </p>
+        }}
+      >
+        <canvas
+          ref={attachCanvas}
+          aria-hidden
+          className="pointer-events-none absolute top-0 left-0 [image-rendering:pixelated]"
+          style={
+            size === null
+              ? undefined
+              : { width: size.width * AQUARIUM_PIXEL, height: size.height * AQUARIUM_PIXEL }
+          }
+        />
+        <div ref={setCeiling} className="absolute inset-x-0 top-0 flex justify-center px-6 pt-10">
+          {entries.length > 0 ? (
+            <p className="max-w-md truncate text-xs text-muted-foreground">
+              {featured === null
+                ? `${entries.length} ${entries.length === 1 ? "agent" : "agents"} working · nothing needs you`
+                : `${featured.thread.title} · ${agentCueDetail(featured.thread, featured.cue, nowMs)}`}
+            </p>
+          ) : null}
+        </div>
+        {hovered && hoveredEntry ? (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md border bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-md"
+            style={{ left: hovered.left, top: hovered.top - 6 }}
+          >
+            {hoveredEntry.thread.title}
+            <span className="ml-1.5 text-muted-foreground tabular-nums">
+              {agentCueDetail(hoveredEntry.thread, hoveredEntry.cue, nowMs)}
+            </span>
+          </div>
         ) : null}
       </div>
-      {hovered && hoveredEntry ? (
-        <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md border bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-md"
-          style={{ left: hovered.left, top: hovered.top - 6 }}
-        >
-          {hoveredEntry.thread.title}
-          <span className="ml-1.5 text-muted-foreground tabular-nums">
-            {agentCueDetail(hoveredEntry.thread, hoveredEntry.cue, nowMs)}
-          </span>
-        </div>
+      {prey && preyEntry ? (
+        <AquariumEffortMenu
+          thread={preyEntry.thread}
+          box={{
+            left: prey.x * AQUARIUM_PIXEL,
+            top: prey.y * AQUARIUM_PIXEL,
+            width: fishSize(prey.key).width * AQUARIUM_PIXEL,
+            height: fishSize(prey.key).height * AQUARIUM_PIXEL,
+          }}
+          onClose={() => tankRef.current?.release()}
+        />
       ) : null}
-    </div>
+    </>
   );
 }
