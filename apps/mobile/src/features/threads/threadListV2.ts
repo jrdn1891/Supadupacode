@@ -548,6 +548,48 @@ export function buildThreadListV2ListItems(input: {
   const activeCount = input.activeCount ?? activeEnd - pinnedEnd;
   const shelfDisabled = input.shelfPreferencesLoading === true;
   const result: ThreadListV2ListItem[] = [];
+  if (pinnedCount > 0) {
+    result.push({
+      type: "v2-pinned-shelf",
+      key: "v2-pinned-shelf", // gitleaks:allow -- static list item identity
+      count: pinnedCount,
+      expanded: input.pinnedShelfExpanded !== false,
+      disabled: shelfDisabled,
+    });
+    result.push(...threadItems.slice(0, pinnedEnd));
+  }
+  result.push(...draftItems);
+  if (activeCount > 0 || pendingItems.length > 0) {
+    result.push({
+      type: "v2-active-header",
+      key: "v2-active-header",
+      count: activeCount + pendingItems.length,
+      expanded: input.activeShelfExpanded !== false,
+      disabled: shelfDisabled,
+    });
+    result.push(...threadItems.slice(pinnedEnd, activeEnd));
+    if (input.activeShelfExpanded !== false) result.push(...pendingItems);
+  }
+  if (workingShelfHeaderIndex !== null && workingCount > 0) {
+    result.push({
+      type: "v2-working-shelf",
+      key: "v2-working-shelf",
+      count: workingCount,
+      expanded: input.workingShelfExpanded === true,
+      disabled: shelfDisabled,
+    });
+    result.push(...threadItems.slice(workingShelfHeaderIndex, workingEnd));
+  }
+  if (snoozedShelfHeaderIndex !== null && snoozedCount > 0) {
+    result.push({
+      type: "v2-snoozed-shelf",
+      key: "v2-snoozed-shelf",
+      count: snoozedCount,
+      expanded: input.snoozedShelfExpanded === true,
+      disabled: shelfDisabled,
+    });
+    result.push(...threadItems.slice(snoozedShelfHeaderIndex, snoozedEnd));
+  }
   if (settledShelfHeaderIndex !== null && settledCount > 0) {
     result.push({
       type: "v2-settled-shelf",
@@ -565,48 +607,6 @@ export function buildThreadListV2ListItems(input: {
     }
     result.push(...threadItems.slice(settledShelfHeaderIndex));
   }
-  if (snoozedShelfHeaderIndex !== null && snoozedCount > 0) {
-    result.push({
-      type: "v2-snoozed-shelf",
-      key: "v2-snoozed-shelf",
-      count: snoozedCount,
-      expanded: input.snoozedShelfExpanded === true,
-      disabled: shelfDisabled,
-    });
-    result.push(...threadItems.slice(snoozedShelfHeaderIndex, snoozedEnd));
-  }
-  if (workingShelfHeaderIndex !== null && workingCount > 0) {
-    result.push({
-      type: "v2-working-shelf",
-      key: "v2-working-shelf",
-      count: workingCount,
-      expanded: input.workingShelfExpanded === true,
-      disabled: shelfDisabled,
-    });
-    result.push(...threadItems.slice(workingShelfHeaderIndex, workingEnd));
-  }
-  if (activeCount > 0 || pendingItems.length > 0) {
-    result.push({
-      type: "v2-active-header",
-      key: "v2-active-header",
-      count: activeCount + pendingItems.length,
-      expanded: input.activeShelfExpanded !== false,
-      disabled: shelfDisabled,
-    });
-    result.push(...threadItems.slice(pinnedEnd, activeEnd));
-    if (input.activeShelfExpanded !== false) result.push(...pendingItems);
-  }
-  if (pinnedCount > 0) {
-    result.push({
-      type: "v2-pinned-shelf",
-      key: "v2-pinned-shelf", // gitleaks:allow -- static list item identity
-      count: pinnedCount,
-      expanded: input.pinnedShelfExpanded !== false,
-      disabled: shelfDisabled,
-    });
-    result.push(...threadItems.slice(0, pinnedEnd));
-  }
-  result.push(...draftItems);
   // Hairlines depend on the final neighbour, so they are stamped after the
   // splice: a recycled cell only re-renders when its divider actually flips.
   return result.map((entry, index) => {
