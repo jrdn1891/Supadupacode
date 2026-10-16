@@ -5,7 +5,7 @@ import type {
   ProjectId,
   ScopedProjectRef,
 } from "@supacode/contracts";
-import type { ComposerThreadDraftState, DraftThreadEnvMode } from "../composerDraftStore";
+import type { ComposerThreadDraftState, DraftId, DraftThreadEnvMode } from "../composerDraftStore";
 
 type ComposerModelSelectionState = Pick<
   ComposerThreadDraftState,
@@ -27,7 +27,7 @@ interface NewThreadHandler {
       startFromOrigin?: boolean;
     },
     // The opened draft's identity, which most callers have no use for.
-  ): Promise<unknown>;
+  ): Promise<{ readonly draftId: DraftId } | null>;
 }
 
 export interface ChatThreadActionContext {

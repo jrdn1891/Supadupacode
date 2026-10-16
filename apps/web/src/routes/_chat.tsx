@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { ThreadLinkPrompt } from "../components/promptLinks/ThreadLinkPrompt";
+import { openAquarium } from "../scene/openAquarium";
 import { SceneStage } from "../scene/SceneStage";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { isPreviewAvailableFor } from "../browser/previewRuntime";
@@ -88,6 +89,19 @@ function ChatRouteGlobalShortcuts() {
         event.preventDefault();
         event.stopPropagation();
         void startNewThreadFromContext({
+          activeDraftThread,
+          activeThread: activeThread ?? undefined,
+          defaultProjectRef,
+          handleNewThread,
+        });
+        return;
+      }
+
+      if (command === "aquarium.open") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.repeat) return;
+        void openAquarium({
           activeDraftThread,
           activeThread: activeThread ?? undefined,
           defaultProjectRef,

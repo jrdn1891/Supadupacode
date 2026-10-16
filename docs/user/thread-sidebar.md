@@ -274,7 +274,9 @@ answer an approval, or send a message, which waits until the agent's current wor
 an agent's question in its thread, which **Open** shows in place of the new one. Closing the chat
 counts as seeing the agent's finished work, so a creature that was only waiting to be seen swims
 off. When an agent needs you or finishes, its creature swims to the middle under a colored bubble.
-Closing the last pane starts a new thread, so you land in the aquarium.
+Closing the last pane starts a new thread, so you land in the aquarium. To get back from anywhere,
+press `mod+shift+a` or choose **Go to the aquarium** in the command palette: the stage keeps only
+the focused pane, which shows a new thread with its right panel and terminal closed.
 
 Click or tap empty water to drop a pellet, and hungry creatures nearby come to eat it. The dots at
 the top right show how many pellets you have left, up to nine. Your agents earn more as they work,
