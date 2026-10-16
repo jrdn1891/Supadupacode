@@ -70,6 +70,7 @@ import {
   ChevronRightIcon,
   CornerLeftUpIcon,
   FileSearchIcon,
+  FishIcon,
   FolderGit2Icon,
   FolderIcon,
   FolderPlusIcon,
@@ -259,6 +260,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { ComposerHandleContext, useComposerHandleContext } from "../composerHandleContext";
 import type { ChatComposerHandle } from "./chat/ChatComposer";
 import { getProjectOrderKey, selectProjectGroupingSettings } from "../logicalProject";
+import { openAquarium } from "../scene/openAquarium";
 import { scenePanes } from "../scene/scene.logic";
 import { useSceneStore } from "../scene/sceneStore";
 import { useSceneActions } from "../scene/useSceneActions";
@@ -1975,6 +1977,21 @@ function OpenCommandPaletteDialog(props: {
             handleNewThread,
           });
         },
+      });
+      actionItems.push({
+        kind: "action",
+        value: "action:open-aquarium",
+        searchTerms: ["aquarium", "home", "fish", "clear", "dismiss", "panels"],
+        title: "Go to the aquarium",
+        icon: <FishIcon className={ITEM_ICON_CLASS} />,
+        shortcutCommand: "aquarium.open",
+        run: () =>
+          openAquarium({
+            activeDraftThread,
+            activeThread: activeThread ?? undefined,
+            defaultProjectRef,
+            handleNewThread,
+          }),
       });
     }
 

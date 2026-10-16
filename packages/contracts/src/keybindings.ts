@@ -151,6 +151,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "chat.new",
   "chat.newLocal",
   "chat.newWithoutProject",
+  "aquarium.open",
   "chat.find",
   "editor.openFavorite",
   "usage.cost",
