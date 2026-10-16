@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { type AgentCue, aquariumAgents } from "@supacode/client-runtime/aquarium/agents";
+import type { AgentCue } from "@supacode/client-runtime/aquarium/agents";
 import { Atom } from "effect/reactivity";
 import * as Haptics from "expo-haptics";
 import * as Linking from "expo-linking";
@@ -8,24 +8,14 @@ import { AppState } from "react-native";
 
 import { environmentCatalog } from "../../connection/catalog";
 import { onScreenThreadKey } from "../../lib/navigationRef";
-import { environmentThreadShells } from "../../state/threads";
 import { buildAquariumSnapshot } from "../../widgets/aquariumSnapshot";
 import { publishAquarium } from "../../widgets/publishAquarium";
-import { resolveThreadListV2Status, threadHasUnseenCompletion } from "../threads/threadListV2";
 import { arrivedCue } from "./agentArrival";
-
-const agentsAtom = Atom.make((get) =>
-  aquariumAgents({
-    threads: get(environmentThreadShells.navigationThreadShellsAtom),
-    status: resolveThreadListV2Status,
-    unseen: threadHasUnseenCompletion,
-    now: new Date().toISOString(),
-  }),
-);
+import { aquariumAgentsAtom } from "./agents";
 
 const snapshotAtom = Atom.make((get) =>
   buildAquariumSnapshot({
-    agents: get(agentsAtom),
+    agents: get(aquariumAgentsAtom),
     nowMs: Date.now(),
     homeUrl: Linking.createURL("/"),
     threadUrl: (agent) =>
@@ -35,7 +25,7 @@ const snapshotAtom = Atom.make((get) =>
 
 export function AquariumCoordinator() {
   const catalog = useAtomValue(environmentCatalog.catalogValueAtom);
-  const agents = useAtomValue(agentsAtom);
+  const agents = useAtomValue(aquariumAgentsAtom);
   const snapshot = useAtomValue(snapshotAtom);
   const previous = useRef<ReadonlyMap<string, AgentCue> | null>(null);
 

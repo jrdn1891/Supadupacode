@@ -15,6 +15,26 @@
       "types": "./src/aquarium/creatures.ts",
       "default": "./src/aquarium/creatures.ts"
     },
+    "./aquarium/paint": {
+      "types": "./src/aquarium/paint.ts",
+      "default": "./src/aquarium/paint.ts"
+    },
+    "./aquarium/releases": {
+      "types": "./src/aquarium/releases.ts",
+      "default": "./src/aquarium/releases.ts"
+    },
+    "./aquarium/seabed": {
+      "types": "./src/aquarium/seabed.ts",
+      "default": "./src/aquarium/seabed.ts"
+    },
+    "./aquarium/simulation": {
+      "types": "./src/aquarium/simulation.ts",
+      "default": "./src/aquarium/simulation.ts"
+    },
+    "./aquarium/tank": {
+      "types": "./src/aquarium/tank.ts",
+      "default": "./src/aquarium/tank.ts"
+    },
     "./thread-history-prefetch": {
       "types": "./src/threadHistoryPrefetch.ts",
       "default": "./src/threadHistoryPrefetch.ts"

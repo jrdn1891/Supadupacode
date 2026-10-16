@@ -555,7 +555,7 @@ import {
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
 import { SceneAquarium } from "../scene/SceneAquarium";
-import { releaseFish } from "../scene/aquariumReleases";
+import { releaseFish } from "@supacode/client-runtime/aquarium/releases";
 import { useScenePane } from "../scene/ScenePaneContext";
 import { useSceneActions } from "../scene/useSceneActions";
 import {
@@ -9644,13 +9644,15 @@ export default function ChatView(props: ChatViewProps) {
           const sendButton = composerOverlayElement?.querySelector(
             '[data-chat-composer-send="true"]',
           );
-          if (sendButton)
+          if (sendButton) {
+            const from = sendButton.getBoundingClientRect();
             releaseFish(
               targets.map((target) =>
                 scopedThreadKey(scopeThreadRef(environmentId, target.threadId)),
               ),
-              sendButton.getBoundingClientRect(),
+              { x: from.left + from.width / 2, y: from.top + from.height / 2 },
             );
+          }
           handleNewThreadInActiveProject();
         }
       } else if (isLocalDraftThread && targets[0]) {

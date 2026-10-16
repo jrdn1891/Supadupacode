@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { type Species, SPECIES } from "@supacode/client-runtime/aquarium/creatures";
+import { type Species, SPECIES } from "./creatures.ts";
 
 import {
   AQUARIUM_FPS,
@@ -17,7 +17,7 @@ import {
   FRESH_STASH,
   HATCH_MS,
   landingSpot,
-  leapKeyframes,
+  leapPath,
   parkingSpot,
   type PetKind,
   PETS,
@@ -26,7 +26,7 @@ import {
   stirAquarium,
   stockAquarium,
   tapAquarium,
-} from "./aquarium.logic";
+} from "./simulation.ts";
 
 const resident = (
   key: string,
@@ -434,14 +434,11 @@ describe("landingSpot", () => {
   });
 });
 
-describe("leapKeyframes", () => {
+describe("leapPath", () => {
   it("leaves the send button unseen and lands level and full size where the tank takes over", () => {
-    const frames = leapKeyframes({ x: 300, y: 600 }, { x: 250, y: 100 }, -1);
-    expect(frames[0]).toMatchObject({ opacity: 0 });
-    expect(frames[0]!.transform).toMatch(/^translate\(300px, 600px\) rotate\(60deg\)/);
-    expect(frames.at(-1)).toEqual({
-      transform: "translate(250px, 100px) rotate(0deg) scale(1)",
-      opacity: 1,
-    });
+    const frames = leapPath({ x: 300, y: 600 }, { x: 250, y: 100 }, -1);
+    expect(frames[0]).toMatchObject({ x: 300, y: 600, tilt: 60, opacity: 0 });
+    expect(frames.at(-1)).toMatchObject({ x: 250, y: 100, scale: 1, opacity: 1 });
+    expect(frames.at(-1)!.tilt).toBeCloseTo(0);
   });
 });

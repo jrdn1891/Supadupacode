@@ -298,6 +298,13 @@ your Git `user.email`, on any local or remote branch. The seabed starts bare at 
 arrows on the sand to look back at earlier days. Supacode keeps each day's record, so a seabed
 stays as it grew even after its branches are merged or deleted.
 
+In the iOS and Android app, the same aquarium fills the **New thread** screen above the composer.
+Tap a creature to open its agent's thread, or tap the water to drop a pellet or pick up a pearl.
+While you are typing, a tap closes the keyboard instead. When you long-press **Send** to start a
+thread in the background, its creature leaps out of the button into the tank. The seabed and its
+day arrows work as they do on the web. Hatching your own fish, stirring a current, and chatting
+with a creature in place are only on the web and desktop.
+
 On iOS and Android, the phone taps when an agent finishes or needs you while the app is open,
 except for the thread you are reading. Add the **Aquarium** widget from your widget gallery to see
 your agents as the same creatures on your home screen, with the thread that needs you named

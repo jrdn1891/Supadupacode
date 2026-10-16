@@ -28,39 +28,24 @@ import { useThreadShells } from "../state/entities";
 import { buildThreadRouteParams } from "../threadRoutes";
 import { useUiStateStore } from "../uiStateStore";
 import {
-  AQUARIUM_FPS,
-  AQUARIUM_PIXEL,
-  type Aquarium,
-  type AquariumFish,
-  type AquariumPoint,
-  type AquariumResident,
-  type AquariumSize,
-  createAquarium,
-  creditStash,
-  dropPearls,
-  featuredResident,
-  finishedResidents,
-  fishSize,
-  FRESH_STASH,
-  landingSpot,
-  leapKeyframes,
-  releasePrey,
-  resizeAquarium,
-  stepAquarium,
-  stirAquarium,
-  stockAquarium,
-  tapAquarium,
-} from "./aquarium.logic";
-import {
   type AquariumAppearance,
   CUE_RISE,
-  fishBob,
   paintAquarium,
-  paintFishSprite,
-  paintScenery,
-} from "./aquarium.paint";
+} from "@supacode/client-runtime/aquarium/paint";
+import { seabedDay, seabedPlants, seabedTally } from "@supacode/client-runtime/aquarium/seabed";
+import {
+  AQUARIUM_PIXEL,
+  type AquariumFish,
+  type AquariumPoint,
+  type AquariumSize,
+  featuredResident,
+  fishSize,
+  landingSpot,
+  leapPath,
+} from "@supacode/client-runtime/aquarium/simulation";
+import { startTank, tankResidents, type TankInput } from "@supacode/client-runtime/aquarium/tank";
+import { canvasPen, paintFishSprite, paintScenery } from "./aquarium.paint";
 import { AquariumEffortMenu } from "./AquariumEffortMenu";
-import { type AquariumPlant, seabedDay, seabedPlants, seabedTally } from "./aquariumSeabed";
 import {
   type AquariumAgent,
   agentCueDetail,
@@ -68,29 +53,11 @@ import {
   aquariumCaption,
 } from "@supacode/client-runtime/aquarium/agents";
 import { AquariumChat } from "./AquariumChat";
-import { takeRelease } from "./aquariumReleases";
 
 const CEILING_GAP = 12;
 const LEAP_MS = 600;
 const LEAP_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const TAP_SLOP = 5;
-
-let stash = FRESH_STASH;
-let seen: ReadonlyArray<AquariumResident> = [];
-
-interface TankInput {
-  readonly size: AquariumSize | null;
-  readonly residents: ReadonlyArray<AquariumResident>;
-  readonly featuredKey: string | null;
-  readonly appearance: AquariumAppearance;
-  readonly reducedMotion: boolean;
-  readonly seabed: Seabed | null;
-}
-
-interface Seabed {
-  readonly since: string;
-  readonly plants: ReadonlyArray<AquariumPlant>;
-}
 
 interface HoveredFish {
   readonly key: string;
@@ -109,199 +76,57 @@ interface Press extends AquariumPoint {
   readonly since: number;
 }
 
-const castOf = (residents: ReadonlyArray<AquariumResident>) =>
-  residents.map((resident) => `${resident.key}:${resident.cue}`).join("|");
-
-let resting: { readonly aquarium: Aquarium; readonly tick: number } | null = null;
-
-function startTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null) => void) {
+function startCanvasTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null) => void) {
   const context = canvas.getContext("2d");
-  let input: TankInput | null = null;
-  let aquarium: Aquarium | null = null;
+  let size: AquariumSize | null = null;
+  let appearance: AquariumAppearance = "light";
   let scenery: HTMLCanvasElement | null = null;
-  let held: string | null = null;
-  let pinned: string | null = null;
-  let prey: string | null = null;
-  let tick = resting?.tick ?? 0;
-  let timer: number | undefined;
-  let vents: ReadonlyArray<number> = [];
-  const leaps = new Map<string, Animation>();
-  const sprouts = new Map<string, number>();
-
-  const paint = () => {
-    if (context === null || input === null || aquarium === null || scenery === null) return;
-    paintAquarium(context, {
-      aquarium,
-      scenery,
-      residents: new Map(input.residents.map((resident) => [resident.key, resident])),
-      tick,
-      appearance: input.appearance,
-      stash: input.reducedMotion ? null : stash,
-      plants: input.seabed?.plants ?? [],
-      sprouts,
-    });
-  };
-
-  const notice = () => {
-    const next = aquarium?.pet?.prey ?? null;
-    if (next === prey) return;
-    prey = next;
-    onPrey(aquarium?.fish.find((fish) => fish.key === next) ?? null);
-  };
-
-  const step = () => {
-    timer = window.setTimeout(step, 1000 / AQUARIUM_FPS);
-    if (document.hidden || input === null || aquarium === null) return;
-    aquarium = stepAquarium(aquarium, {
-      featuredKey: input.featuredKey,
-      heldKey: pinned ?? held,
-      vents,
-      random: Math.random,
-    });
-    tick += 1;
-    paint();
-    notice();
-  };
-
-  const leap = (
-    resident: AquariumResident,
-    from: { readonly x: number; readonly y: number },
-    size: AquariumSize,
-    appearance: AquariumAppearance,
-  ) => {
-    const bounds = canvas.getBoundingClientRect();
-    const spot = landingSpot(size, resident.key, (from.x - bounds.left) / AQUARIUM_PIXEL);
-    const { width, height } = fishSize(resident.key);
-    const sprite = paintFishSprite(spot, resident, tick, appearance);
-    sprite.className = "pointer-events-none fixed top-0 left-0 z-30 [image-rendering:pixelated]";
-    sprite.style.width = `${width * AQUARIUM_PIXEL}px`;
-    sprite.style.height = `${height * AQUARIUM_PIXEL}px`;
-    document.body.append(sprite);
-    const flight = sprite.animate(
-      leapKeyframes(
-        { x: from.x - (width * AQUARIUM_PIXEL) / 2, y: from.y - (height * AQUARIUM_PIXEL) / 2 },
-        { x: bounds.left + spot.x * AQUARIUM_PIXEL, y: bounds.top + spot.y * AQUARIUM_PIXEL },
-        spot.dir,
-      ),
-      { duration: LEAP_MS, easing: LEAP_EASING, fill: "forwards" },
-    );
-    leaps.set(resident.key, flight);
-    void flight.finished.then(
-      () => {
-        leaps.delete(resident.key);
-        if (
-          aquarium !== null &&
-          input?.residents.some((current) => current.key === resident.key) &&
-          !aquarium.fish.some((fish) => fish.key === resident.key)
-        )
-          aquarium = {
-            ...aquarium,
-            fish: [...aquarium.fish, { ...spot, y: spot.y - fishBob(spot.key, tick) }],
-          };
-        paint();
-        sprite.remove();
-      },
-      () => sprite.remove(),
-    );
-  };
-
+  const tank = startTank({
+    paint: (frame) => {
+      if (context === null || scenery === null) return;
+      context.drawImage(scenery, 0, 0);
+      paintAquarium(canvasPen(context), { ...frame, appearance });
+    },
+    hidden: () => document.hidden,
+    leap: (resident, from, tankSize, tick) => {
+      const bounds = canvas.getBoundingClientRect();
+      const spot = landingSpot(tankSize, resident.key, (from.x - bounds.left) / AQUARIUM_PIXEL);
+      const { width, height } = fishSize(resident.key);
+      const sprite = paintFishSprite(spot, resident, tick, appearance);
+      sprite.className = "pointer-events-none fixed top-0 left-0 z-30 [image-rendering:pixelated]";
+      sprite.style.width = `${width * AQUARIUM_PIXEL}px`;
+      sprite.style.height = `${height * AQUARIUM_PIXEL}px`;
+      document.body.append(sprite);
+      const flight = sprite.animate(
+        leapPath(
+          { x: from.x - (width * AQUARIUM_PIXEL) / 2, y: from.y - (height * AQUARIUM_PIXEL) / 2 },
+          { x: bounds.left + spot.x * AQUARIUM_PIXEL, y: bounds.top + spot.y * AQUARIUM_PIXEL },
+          spot.dir,
+        ).map(({ x, y, tilt, scale, opacity }) => ({
+          transform: `translate(${x}px, ${y}px) rotate(${tilt}deg) scale(${scale})`,
+          opacity,
+        })),
+        { duration: LEAP_MS, easing: LEAP_EASING, fill: "forwards" },
+      );
+      return {
+        spot,
+        landed: flight.finished.finally(() => sprite.remove()),
+        cancel: () => flight.cancel(),
+      };
+    },
+    onPrey,
+  });
   return {
-    update(next: TankInput) {
-      const previous = input;
-      input = next;
-      const before = previous?.seabed ?? null;
-      if (next.seabed?.since !== before?.since) sprouts.clear();
-      else if (next.seabed !== null && before !== null && !next.reducedMotion) {
-        const known = new Set(before.plants.map((plant) => plant.key));
-        for (const plant of next.seabed.plants)
-          if (!known.has(plant.key)) sprouts.set(plant.key, tick);
-      }
-      vents = next.seabed?.plants.map((plant) => plant.x) ?? [];
-      if (next.reducedMotion) {
-        window.clearTimeout(timer);
-        timer = undefined;
-      } else if (timer === undefined) timer = window.setTimeout(step, 1000 / AQUARIUM_FPS);
-      if (next.size === null) return;
-      if (!next.reducedMotion)
-        for (const resident of next.residents) {
-          if (leaps.has(resident.key) || aquarium?.fish.some((fish) => fish.key === resident.key))
-            continue;
-          const from = takeRelease(resident.key);
-          if (from !== null) leap(resident, from, next.size, next.appearance);
-        }
-      const residents = next.residents.filter((resident) => !leaps.has(resident.key));
-      const resized = previous?.size !== next.size;
-      if (aquarium === null)
-        aquarium =
-          resting === null
-            ? createAquarium(next.size, residents, next.featuredKey, Math.random)
-            : stockAquarium(resizeAquarium(resting.aquarium, next.size), residents, Math.random);
-      else if (resized) aquarium = resizeAquarium(aquarium, next.size);
-      if (resized || previous?.appearance !== next.appearance) {
+    ...tank,
+    update(next: TankInput & { readonly appearance: AquariumAppearance }) {
+      if (next.size !== null && (next.size !== size || next.appearance !== appearance)) {
         canvas.width = next.size.width;
         canvas.height = next.size.height;
         scenery = paintScenery(next.size.width, next.size.height, next.appearance);
       }
-      if (previous !== null && castOf(previous.residents) !== castOf(next.residents))
-        aquarium = next.reducedMotion
-          ? createAquarium(aquarium, residents, next.featuredKey, Math.random)
-          : stockAquarium(aquarium, residents, Math.random);
-      if (!next.reducedMotion)
-        aquarium = dropPearls(aquarium, finishedResidents(seen, next.residents));
-      stash = creditStash(stash, seen, next.residents);
-      seen = next.residents;
-      paint();
-    },
-    hold(key: string | null) {
-      held = key;
-    },
-    pin(key: string | null) {
-      pinned = key;
-    },
-    release() {
-      if (aquarium === null) return;
-      aquarium = releasePrey(aquarium);
-      notice();
-    },
-    tap(at: AquariumPoint, heldMs: number) {
-      if (input === null || input.reducedMotion || aquarium === null) return;
-      ({ aquarium, stash } = tapAquarium(aquarium, stash, at, heldMs));
-      paint();
-    },
-    drag(from: AquariumPoint, to: AquariumPoint) {
-      if (input === null || input.reducedMotion || aquarium === null) return;
-      aquarium =
-        aquarium.pet === null
-          ? stirAquarium(aquarium, {
-              from,
-              to,
-              residents: input.residents,
-              featuredKey: input.featuredKey,
-              heldKey: pinned ?? held,
-            })
-          : { ...aquarium, pet: { ...aquarium.pet, goal: to } };
-    },
-    findFish(key: string) {
-      return aquarium?.fish.find((fish) => fish.key === key) ?? null;
-    },
-    fishAt(x: number, y: number) {
-      return (
-        aquarium?.fish.find((fish) => {
-          const { width, height } = fishSize(fish.key);
-          return (
-            fish.wait === 0 &&
-            x >= fish.x - 2 &&
-            x < fish.x + width + 2 &&
-            y >= fish.y - 2 &&
-            y < fish.y + height + 2
-          );
-        }) ?? null
-      );
-    },
-    stop() {
-      window.clearTimeout(timer);
-      for (const flight of leaps.values()) flight.cancel();
-      if (aquarium !== null) resting = { aquarium: releasePrey(aquarium), tick };
+      size = next.size;
+      appearance = next.appearance;
+      tank.update(next);
     },
   };
 }
@@ -336,11 +161,11 @@ export function SceneAquarium() {
   const [chat, setChat] = useState<Chat | null>(null);
   const [prey, setPrey] = useState<AquariumFish | null>(null);
   const [daysBack, setDaysBack] = useState(0);
-  const tankRef = useRef<ReturnType<typeof startTank> | null>(null);
+  const tankRef = useRef<ReturnType<typeof startCanvasTank> | null>(null);
   const pressRef = useRef<Press | null>(null);
   const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     if (canvas === null) return;
-    const tank = startTank(canvas, setPrey);
+    const tank = startCanvasTank(canvas, setPrey);
     tankRef.current = tank;
     return () => {
       tank.stop();
@@ -348,16 +173,7 @@ export function SceneAquarium() {
     };
   }, []);
 
-  const residents = useMemo(
-    () =>
-      entries.map((entry): AquariumResident => ({
-        key: entry.key,
-        projectKey: entry.thread.projectId,
-        cue: entry.cue,
-        items: entry.thread.itemCount,
-      })),
-    [entries],
-  );
+  const residents = useMemo(() => tankResidents(entries), [entries]);
   const featured = featuredResident(entries);
   const caption = aquariumCaption(entries, nowMs);
   const featuredKey = featured?.key ?? null;
