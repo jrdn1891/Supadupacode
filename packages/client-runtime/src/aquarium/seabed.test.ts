@@ -1,7 +1,8 @@
+// @effect-diagnostics globalDate:off -- Tests exercise local calendar days.
 import { type Contribution, ProjectId } from "@supacode/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { seabedDay, seabedPlants, seabedTally } from "./aquariumSeabed";
+import { seabedDay, seabedPlants, seabedTally } from "./seabed.ts";
 
 const contribution = (kind: Contribution["kind"], key: string): Contribution => ({
   kind,

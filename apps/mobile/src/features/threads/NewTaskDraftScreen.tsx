@@ -30,7 +30,8 @@ import {
 } from "react";
 import * as Haptics from "expo-haptics";
 import { ControlPillMenu } from "../../components/ControlPill";
-import { FishLeap } from "../aquarium/FishLeap";
+import { releaseFish } from "@supacode/client-runtime/aquarium/releases";
+import { Tank, TankLeaps } from "../aquarium/Tank";
 import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import {
   KeyboardController,
@@ -450,11 +451,9 @@ export function NewTaskDraftScreen(props: {
   const [isCancellingShareImport, setIsCancellingShareImport] = useState(false);
   const [cancelledIncomingShareId, setCancelledIncomingShareId] = useState<string | null>(null);
   const [isReturningToProjectPicker, setIsReturningToProjectPicker] = useState(false);
-  const [leapingFish, setLeapingFish] = useState<{
-    readonly key: string;
-    readonly projectKey: string;
-  } | null>(null);
-  const endLeap = useCallback(() => setLeapingFish(null), []);
+  const rootRef = useRef<ComponentRef<typeof View>>(null);
+  const sendAnchorRef = useRef<ComponentRef<typeof View>>(null);
+  const [dockHeight, setDockHeight] = useState(0);
   const [submitNavigationAction, setSubmitNavigationAction] = useState<NavigationAction | null>(
     null,
   );
@@ -1434,10 +1433,14 @@ export function NewTaskDraftScreen(props: {
         deferAttachmentCleanup: true,
       });
       flow.startNextDraft();
-      setLeapingFish({
-        key: `${message.environmentId}:${message.threadId}`,
-        projectKey: selectedProject.id,
-      });
+      const root = rootRef.current;
+      if (root !== null)
+        sendAnchorRef.current?.measureLayout(root, (x, y, width, height) =>
+          releaseFish([`${message.environmentId}:${message.threadId}`], {
+            x: x + width / 2,
+            y: y + height / 2,
+          }),
+        );
       scheduleUnusedComposerAttachmentCleanup(draftSnapshot.attachments);
       return;
     }
@@ -1592,14 +1595,26 @@ export function NewTaskDraftScreen(props: {
     void KeyboardController.dismiss({ animated: true });
     navigation.dispatch(StackActions.push(routeName));
   };
-  const keyboardDismissArea = (
-    <Pressable
-      accessible={false}
-      className="flex-1"
-      onPress={() => {
-        promptInputRef.current?.blur();
-        void KeyboardController.dismiss({ animated: true });
-      }}
+  const tank = (
+    <Tank
+      topInset={headerOverlap}
+      bottomInset={dockHeight}
+      interceptTap={
+        isKeyboardVisible
+          ? () => {
+              promptInputRef.current?.blur();
+              void KeyboardController.dismiss({ animated: true });
+            }
+          : null
+      }
+      onOpenAgent={(agent) =>
+        setSubmitNavigationAction(
+          StackActions.replace("Thread", {
+            environmentId: String(agent.thread.environmentId),
+            threadId: String(agent.thread.id),
+          }),
+        )
+      }
     />
   );
 
@@ -1714,7 +1729,10 @@ export function NewTaskDraftScreen(props: {
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
       onContentSizeChange={keepFocusedComposerVisible}
-      onLayout={keepFocusedComposerVisible}
+      onLayout={(event) => {
+        setDockHeight(event.nativeEvent.layout.height);
+        keepFocusedComposerVisible();
+      }}
       showsVerticalScrollIndicator={false}
       style={{ flexGrow: 0, maxHeight: availableDockHeight }}
     >
@@ -1876,15 +1894,7 @@ export function NewTaskDraftScreen(props: {
                   />
                 </>
               )}
-              <View>
-                {leapingFish === null ? null : (
-                  <FishLeap
-                    key={leapingFish.key}
-                    fishKey={leapingFish.key}
-                    projectKey={leapingFish.projectKey}
-                    onLanded={endLeap}
-                  />
-                )}
+              <View ref={sendAnchorRef}>
                 {voicePresentation.showsSend && (hasContent || !voiceInput.isAvailable) ? (
                   <StartTaskButton
                     accessibilityLabel={
@@ -1945,10 +1955,11 @@ export function NewTaskDraftScreen(props: {
         <AndroidScreenHeader title="New thread" hideBottomBorder onBack={closeNewTask} />
         <MaterialScreenContent>
           <View
+            ref={rootRef}
             className="flex-1"
             onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
           >
-            {keyboardDismissArea}
+            {tank}
 
             <KeyboardStickyView
               style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}
@@ -1956,6 +1967,7 @@ export function NewTaskDraftScreen(props: {
             >
               {composerDock}
             </KeyboardStickyView>
+            <TankLeaps />
           </View>
         </MaterialScreenContent>
       </View>
@@ -1964,6 +1976,7 @@ export function NewTaskDraftScreen(props: {
 
   return (
     <View
+      ref={rootRef}
       className="flex-1 bg-sheet"
       collapsable={false}
       onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
@@ -1983,7 +1996,7 @@ export function NewTaskDraftScreen(props: {
         />
       </NativeHeaderToolbar>
 
-      {keyboardDismissArea}
+      {tank}
       <KeyboardStickyView
         pointerEvents="box-none"
         style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }}
@@ -1997,6 +2010,7 @@ export function NewTaskDraftScreen(props: {
           {composerDock}
         </Animated.View>
       </KeyboardStickyView>
+      <TankLeaps />
     </View>
   );
 }

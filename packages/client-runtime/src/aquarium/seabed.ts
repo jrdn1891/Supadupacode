@@ -1,4 +1,5 @@
-import { aquariumHash } from "@supacode/client-runtime/aquarium/creatures";
+// @effect-diagnostics globalDate:off - A seabed day follows the local calendar.
+import { aquariumHash } from "./creatures.ts";
 import type { Contribution, ContributionListInput } from "@supacode/contracts";
 
 export const CORALS = [
@@ -79,7 +80,7 @@ export function seabedPlants(
           projectKey: contribution.projectId,
         };
   });
-  return plants.toSorted((left, right) =>
+  return plants.sort((left, right) =>
     left.kind === right.kind ? left.x - right.x : left.kind === "weed" ? -1 : 1,
   );
 }

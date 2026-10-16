@@ -1,5 +1,5 @@
-import type { AgentCue } from "@supacode/client-runtime/aquarium/agents";
-import { aquariumHash, fishSpecies, SPECIES } from "@supacode/client-runtime/aquarium/creatures";
+import type { AgentCue } from "./agents.ts";
+import { aquariumHash, fishSpecies, SPECIES } from "./creatures.ts";
 
 export const AQUARIUM_PIXEL = 3;
 export const AQUARIUM_FPS = 10;
@@ -236,11 +236,17 @@ export function landingSpot(size: AquariumSize, key: string, fromX: number): Aqu
   };
 }
 
-export function leapKeyframes(
-  from: { readonly x: number; readonly y: number },
-  to: { readonly x: number; readonly y: number },
+export interface LeapFrame extends AquariumPoint {
+  readonly tilt: number;
+  readonly scale: number;
+  readonly opacity: number;
+}
+
+export function leapPath(
+  from: AquariumPoint,
+  to: AquariumPoint,
   dir: 1 | -1,
-): Keyframe[] {
+): ReadonlyArray<LeapFrame> {
   const bend = { x: from.x, y: to.y };
   return Array.from({ length: LEAP_FRAMES + 1 }, (_, index) => {
     const t = index / LEAP_FRAMES;
@@ -253,10 +259,7 @@ export function leapKeyframes(
     const angle = Math.atan2(heading(from.y, bend.y, to.y), heading(from.x, bend.x, to.x) * dir);
     const tilt = Math.max(-LEAP_MAX_TILT, Math.min(LEAP_MAX_TILT, ((angle * 180) / Math.PI) * dir));
     const scale = 0.6 + 0.4 * Math.min(1, t * 2.5);
-    return {
-      transform: `translate(${x}px, ${y}px) rotate(${tilt}deg) scale(${scale})`,
-      opacity: Math.min(1, t * 5),
-    };
+    return { x, y, tilt, scale, opacity: Math.min(1, t * 5) };
   });
 }
 
@@ -444,7 +447,7 @@ function nearestMeal(aquarium: Aquarium, fish: AquariumFish) {
   const away = (pellet: AquariumPellet) => Math.hypot(pellet.x - center.x, pellet.y - center.y);
   return aquarium.pellets
     .filter((pellet) => away(pellet) < range && edible(aquarium, fish.key, pellet))
-    .toSorted((left, right) => away(left) - away(right))[0];
+    .sort((left, right) => away(left) - away(right))[0];
 }
 
 function glide<T extends AquariumFish | AquariumPet>(body: T, to: AquariumPoint, speed: number): T {
