@@ -530,11 +530,11 @@ describe("buildThreadListV2Items", () => {
       pinnedShelfExpanded: false,
     });
     expect(collapsedList.map((item) => item.type)).toEqual([
+      "v2-pinned-shelf",
       "v2-active-header",
       "v2-thread",
-      "v2-pinned-shelf",
     ]);
-    expect(collapsedList[2]).toMatchObject({ count: 2, expanded: false });
+    expect(collapsedList[0]).toMatchObject({ count: 2, expanded: false });
     const selected = buildThreadListV2Items({
       ...input,
       pinnedShelfExpanded: false,
@@ -568,7 +568,7 @@ describe("buildThreadListV2Items", () => {
         disabled: false,
       },
     ]);
-    const header = collapsedList[2]!;
+    const header = collapsedList[0]!;
     expect(threadListV2ListItemsAreEqual(header, { ...header })).toBe(true);
     if (header.type !== "v2-pinned-shelf") throw new Error("Expected Pinned header");
     expect(threadListV2ListItemsAreEqual(header, { ...header, expanded: true })).toBe(false);
@@ -1279,19 +1279,19 @@ describe("buildThreadListV2ListItems", () => {
     };
     const items = buildThreadListV2ListItems(input);
     expect(items.map((item) => item.type)).toEqual([
-      "v2-settled-shelf",
-      "v2-show-more",
-      "v2-thread",
-      "v2-snoozed-shelf",
-      "v2-thread",
-      "v2-working-shelf",
+      "v2-pinned-shelf",
       "v2-thread",
       "v2-active-header",
       "v2-thread",
-      "v2-pinned-shelf",
+      "v2-working-shelf",
+      "v2-thread",
+      "v2-snoozed-shelf",
+      "v2-thread",
+      "v2-settled-shelf",
+      "v2-show-more",
       "v2-thread",
     ]);
-    expect(items[1]).toEqual({ type: "v2-show-more", key: "v2-show-more", hiddenCount: 1 });
+    expect(items[9]).toEqual({ type: "v2-show-more", key: "v2-show-more", hiddenCount: 1 });
     expect(
       buildThreadListV2ListItems({ ...input, settledShelfExpanded: false }).some(
         (item) => item.type === "v2-show-more",
@@ -1314,7 +1314,7 @@ describe("buildThreadListV2ListItems", () => {
     now: NOW,
   });
 
-  it("keeps queued tasks in Active below Settled", () => {
+  it("keeps queued tasks in Active above Settled", () => {
     const items = buildThreadListV2ListItems({
       items: layout.items,
       pendingTasks: [makePendingTask("queued-1"), makePendingTask("queued-2")],
@@ -1331,12 +1331,12 @@ describe("buildThreadListV2ListItems", () => {
             : item.type,
       ),
     ).toEqual([
-      "v2-settled-shelf",
-      "settled",
       "v2-active-header",
       "active",
       "queued-1",
       "queued-2",
+      "v2-settled-shelf",
+      "settled",
     ]);
     // Only the leading queued row labels the section, exactly like Settled.
     expect(
@@ -1359,7 +1359,7 @@ describe("buildThreadListV2ListItems", () => {
     expect(items.map((item) => item.type)).toEqual(["v2-active-header", "v2-thread", "v2-pending"]);
   });
 
-  it("keeps drafts below Active and queued tasks", () => {
+  it("places drafts above Active and queued tasks", () => {
     const items = buildThreadListV2ListItems({
       items: layout.items,
       settledCount: layout.settledCount,
@@ -1381,28 +1381,28 @@ describe("buildThreadListV2ListItems", () => {
             : item.type,
       ),
     ).toEqual([
-      "v2-settled-shelf",
-      "settled",
+      "draft-1",
+      "draft-2",
       "v2-active-header",
       "active",
       "queued-1",
       "queued-2",
-      "draft-1",
-      "draft-2",
+      "v2-settled-shelf",
+      "settled",
     ]);
     expect(
       items
         .filter((item) => item.type === "v2-pending")
         .map((item) => [item.pendingTask.kind, item.showPendingDivider, item.showTrailingDivider]),
     ).toEqual([
-      ["pending", true, true],
-      ["pending", false, false],
       ["draft", true, true],
       ["draft", false, false],
+      ["pending", true, true],
+      ["pending", false, false],
     ]);
   });
 
-  it("places Settled before Active when nothing is queued", () => {
+  it("places Settled after Active when nothing is queued", () => {
     const items = buildThreadListV2ListItems({
       items: layout.items,
       pendingTasks: [],
@@ -1411,14 +1411,14 @@ describe("buildThreadListV2ListItems", () => {
     });
 
     expect(items.map((item) => item.key)).toEqual([
-      "v2-settled-shelf",
-      `v2-thread:${environmentId}:settled`,
       "v2-active-header",
       `v2-thread:${environmentId}:active`,
+      "v2-settled-shelf",
+      `v2-thread:${environmentId}:settled`,
     ]);
   });
 
-  it("places queued tasks below the collapsed snoozed shelf", () => {
+  it("places queued tasks above the collapsed snoozed shelf", () => {
     const snoozedLayout = buildThreadListV2Items({
       threads: [
         makeThread({ id: ThreadId.make("active"), title: "active" }),
@@ -1450,15 +1450,15 @@ describe("buildThreadListV2ListItems", () => {
     });
 
     expect(items.map((item) => item.type)).toEqual([
-      "v2-settled-shelf",
-      "v2-thread",
-      "v2-snoozed-shelf",
       "v2-active-header",
       "v2-thread",
       "v2-pending",
+      "v2-snoozed-shelf",
+      "v2-settled-shelf",
+      "v2-thread",
     ]);
-    expect(threadJumpTarget(items, "thread.jump.1")?.id).toBe("settled");
-    expect(threadJumpTarget(items, "thread.jump.2")?.id).toBe("active");
+    expect(threadJumpTarget(items, "thread.jump.1")?.id).toBe("active");
+    expect(threadJumpTarget(items, "thread.jump.2")?.id).toBe("settled");
     expect(threadJumpTarget(items, "thread.jump.3")).toBeNull();
   });
 });
@@ -1514,9 +1514,9 @@ describe("buildThreadListV2ListItems empty Active block", () => {
 
   it("renders only the shelves when no threads need attention", () => {
     expect(listTypes([working, snoozed, settled])).toEqual([
-      "v2-settled-shelf",
-      "v2-snoozed-shelf",
       "v2-working-shelf",
+      "v2-snoozed-shelf",
+      "v2-settled-shelf",
     ]);
     expect(listTypes([snoozed])).toEqual(["v2-snoozed-shelf"]);
   });
@@ -1525,27 +1525,27 @@ describe("buildThreadListV2ListItems empty Active block", () => {
     const active = makeThread({ id: ThreadId.make("active"), title: "active" });
 
     expect(listTypes([active, settled])).toEqual([
-      "v2-settled-shelf",
       "v2-active-header",
       "v2-thread",
+      "v2-settled-shelf",
     ]);
     expect(listTypes([pinned, settled])).toEqual([
-      "v2-settled-shelf",
       "v2-pinned-shelf",
       "v2-thread",
+      "v2-settled-shelf",
     ]);
     expect(listTypes([pinned, settled], { pinnedShelfExpanded: false })).toEqual([
-      "v2-settled-shelf",
       "v2-pinned-shelf",
+      "v2-settled-shelf",
     ]);
     expect(listTypes([settled], { pendingTasks: [makePendingTask("queued")] })).toEqual([
-      "v2-settled-shelf",
       "v2-active-header",
       "v2-pending",
+      "v2-settled-shelf",
     ]);
     expect(listTypes([settled], { pendingTasks: [makeDraftTask("draft")] })).toEqual([
-      "v2-settled-shelf",
       "v2-pending",
+      "v2-settled-shelf",
     ]);
   });
 
@@ -2354,8 +2354,8 @@ describe("thread list v2 minute tick invalidation", () => {
       // shelf row ("2h" unchanged, Wake only), the shelf headers, and the
       // queued row — survives the tick untouched.
       expect(invalidated).toEqual([
-        `v2-thread:${environmentId}:tick-settled`,
         `v2-thread:${environmentId}:tick-ready`,
+        `v2-thread:${environmentId}:tick-settled`,
       ]);
     } finally {
       vi.useRealTimers();
@@ -2641,7 +2641,7 @@ describe("Working section", () => {
     ).toBe(0);
   });
 
-  it("places Working below Snoozed and above Active", () => {
+  it("places Working below Active and above Snoozed", () => {
     const layout = buildThreadListV2Items({
       threads: [
         makeThread({ id: ThreadId.make("active"), title: "active" }),
@@ -2687,16 +2687,16 @@ describe("Working section", () => {
             : item.type,
       ),
     ).toEqual([
-      "v2-settled-shelf",
-      "settled",
-      "v2-snoozed-shelf",
-      "snoozed",
-      "v2-working-shelf",
-      "working",
+      "draft",
       "v2-active-header",
       "active",
       "queued",
-      "draft",
+      "v2-working-shelf",
+      "working",
+      "v2-snoozed-shelf",
+      "snoozed",
+      "v2-settled-shelf",
+      "settled",
     ]);
   });
 });
