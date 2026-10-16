@@ -17,19 +17,19 @@ export default defineConfig({
     tasks: {
       build: {
         command:
-          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && vp pack",
+          "node scripts/build-browser-secret.mjs && node scripts/build-dictation.mjs && node scripts/build-preview-annotation-css.mjs && vp pack",
         dependsOn: ["supacode#build"],
         cache: false,
       },
       dev: {
         command:
-          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && cross-env SUPACODE_DESKTOP_DEV=1 vp pack --watch",
+          "node scripts/build-browser-secret.mjs && node scripts/build-dictation.mjs && node scripts/build-preview-annotation-css.mjs && cross-env SUPACODE_DESKTOP_DEV=1 vp pack --watch",
         dependsOn: ["supacode#build"],
         cache: false,
       },
       "dev:bundle": {
         command:
-          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && vp pack --watch",
+          "node scripts/build-browser-secret.mjs && node scripts/build-dictation.mjs && node scripts/build-preview-annotation-css.mjs && vp pack --watch",
         cache: false,
       },
       "dev:electron": {

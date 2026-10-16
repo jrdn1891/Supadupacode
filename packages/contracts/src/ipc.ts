@@ -1110,6 +1110,16 @@ export const DesktopPreviewRecordingSaveInputSchema = Schema.Struct({
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+export interface DesktopDictationBridge {
+  requestMicrophoneAccess: () => Promise<boolean>;
+  openMicrophoneSettings: () => Promise<void>;
+  prepare: () => Promise<string | null>;
+  record: (recording: string, seconds: number) => Promise<void>;
+  stop: (recording: string) => Promise<void>;
+  transcribe: (recording: string, locale: string) => Promise<string>;
+  discard: (recording: string) => Promise<void>;
+}
+
 export interface DesktopBridge {
   webLinks?: {
     setReady: (ready: boolean) => Promise<void>;
@@ -1261,6 +1271,7 @@ export interface DesktopBridge {
    * Electron desktop build; web builds have `preview === undefined`.
    */
   preview?: DesktopPreviewBridge;
+  dictation?: DesktopDictationBridge;
 }
 
 /** Renderer callback invoked by Electron with a fresh user gesture before display-media capture. */
