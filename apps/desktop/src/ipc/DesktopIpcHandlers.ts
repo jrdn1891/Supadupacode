@@ -75,6 +75,7 @@ import * as WebLinksIpc from "./methods/webLinks.ts";
 import * as AppActivationIpc from "./methods/appActivation.ts";
 import { requestAttention } from "./methods/attention.ts";
 import { performHaptic } from "./methods/haptics.ts";
+import * as DictationIpc from "./methods/dictation.ts";
 import { getWslState, setWslBackendEnabled, setWslDistro, setWslOnly } from "./methods/wsl.ts";
 import {
   getCliCommandState,
@@ -89,6 +90,13 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
 
   yield* ipc.handle(requestAttention);
   yield* ipc.handle(performHaptic);
+  yield* ipc.handle(DictationIpc.requestMicrophoneAccess);
+  yield* ipc.handle(DictationIpc.openMicrophoneSettings);
+  yield* ipc.handle(DictationIpc.prepare);
+  yield* ipc.handle(DictationIpc.record);
+  yield* ipc.handle(DictationIpc.stop);
+  yield* ipc.handle(DictationIpc.transcribe);
+  yield* ipc.handle(DictationIpc.discard);
   yield* ipc.handle(WebLinksIpc.setReady);
   yield* ipc.handle(AppActivationIpc.setReady);
   yield* ipc.handle(AppActivationIpc.complete);

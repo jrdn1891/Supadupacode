@@ -144,6 +144,9 @@ import {
   type ComposerTasksProgress,
 } from "./ComposerTasksBadge";
 import { ComposerActivityRow } from "./ComposerActivityStatus";
+import { ComposerDictationControl } from "./ComposerDictationControl";
+import { useComposerDictation } from "./useComposerDictation";
+import { voiceInputBlocksSubmission } from "@supacode/client-runtime/voice-input";
 import {
   COMPOSER_ATTACHMENT_PRESENCE_CLASS,
   useAttachmentExits,
@@ -2206,8 +2209,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       : selectedProviderEntry?.isAvailable === false
         ? "This provider is unavailable. Choose another provider or try again later."
         : getAntigravitySendBlockReason(selectedProviderEntry?.snapshot, selectedModel);
+  const dictation = useComposerDictation(composerDraftTargetKey);
+  const isDictating = dictation !== null && voiceInputBlocksSubmission(dictation.state);
   const sendDisabledReason =
     externalSendDisabledReason ??
+    (isDictating ? "Finish dictating first." : null) ??
     (multipleModelSelections?.length === 0 ? "Select at least one model." : null) ??
     (activePendingProgress
       ? attachmentBlockReason
@@ -2845,6 +2851,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   );
 
   const isComposerApprovalState = activePendingApproval !== null;
+  const canDictate =
+    !isConnecting &&
+    !isComposerApprovalState &&
+    !projectSelectionRequired &&
+    !activePendingProgress;
   const composerSuggestionsVisible = composerMenuOpen && !isComposerApprovalState;
   const composerSuggestionListVisible = composerSuggestionsVisible && composerMenuItems.length > 0;
   const activePendingUserInput = pendingUserInputs[0] ?? null;
@@ -7575,7 +7586,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       isComposerApprovalState ||
                       projectSelectionRequired ||
                       isChoiceOnlyPendingQuestion ||
-                      activePendingIsResponding
+                      activePendingIsResponding ||
+                      isDictating
                     }
                   />
                 </ComposerContextActionsContext>
@@ -7654,6 +7666,30 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   }
                   className="flex shrink-0 flex-nowrap items-center justify-end gap-2"
                 >
+                  {dictation !== null && (canDictate || dictation.state.phase !== "idle") ? (
+                    <ComposerDictationControl
+                      dictation={dictation}
+                      keybindings={keybindings}
+                      onStart={() =>
+                        dictation.start({
+                          readDraft: () => ({
+                            ownerKey: composerDraftTargetKeyRef.current,
+                            text: promptRef.current,
+                            selection: composerEditorRef.current?.readSelectionRange() ?? {
+                              start: promptRef.current.length,
+                              end: promptRef.current.length,
+                            },
+                            revision: 0,
+                          }),
+                          commitDraft: (text, selection) => {
+                            applyPromptReplacement(0, promptRef.current.length, text, {
+                              expandedCursorAfterReplace: selection.end,
+                            });
+                          },
+                        })
+                      }
+                    />
+                  ) : null}
                   {showComposerAttachAction ? (
                     <>
                       <input

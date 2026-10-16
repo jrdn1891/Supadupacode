@@ -20,7 +20,7 @@ const APP_BUNDLE_ID = isDevelopment
   ? `com.supaterm.supacode.dev.${devBundleIdSuffix || "local"}`
   : "com.supaterm.supacode";
 const APP_PROTOCOL_SCHEMES = isDevelopment ? ["supacode-dev"] : ["supacode"];
-const LAUNCHER_VERSION = 19;
+const LAUNCHER_VERSION = 20;
 const developmentMacIconPngPath = NodePath.join(
   repoRoot,
   "assets",
@@ -271,6 +271,8 @@ export function resolveMacBundleInfoPlistStrings(executableName) {
     CFBundleIconFile: "icon.icns",
     NSScreenCaptureUsageDescription:
       "Supacode captures the active window when you use the snapshot shortcut.",
+    NSMicrophoneUsageDescription:
+      "Supacode records your voice when you dictate a message. Transcription runs on this Mac.",
     NSDocumentsFolderUsageDescription: "Supacode reads project files you open in the desktop app.",
   };
 }

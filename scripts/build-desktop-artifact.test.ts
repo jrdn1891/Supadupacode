@@ -28,6 +28,7 @@ import {
   DESKTOP_EXTRA_RESOURCES,
   LINUX_CAPTURE_EXTRA_RESOURCES,
   LINUX_BROWSER_SECRET_EXTRA_RESOURCES,
+  MAC_DICTATION_EXTRA_RESOURCES,
   LINUX_FILE_EXCLUSIONS,
   MAC_FILE_EXCLUSIONS,
   InvalidMockUpdateServerPortError,
@@ -528,6 +529,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     for (const resource of [
       ...WSL_RUNTIME_EXTRA_RESOURCES,
       ...LINUX_BROWSER_SECRET_EXTRA_RESOURCES,
+      ...MAC_DICTATION_EXTRA_RESOURCES,
     ]) {
       assert.include(
         DESKTOP_FILE_EXCLUSIONS,
@@ -548,6 +550,10 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       "!apps/desktop/resources/browser-secret/**/*",
       "!apps/desktop/prod-resources/browser-secret",
       "!apps/desktop/prod-resources/browser-secret/**/*",
+      "!apps/desktop/resources/dictation",
+      "!apps/desktop/resources/dictation/**/*",
+      "!apps/desktop/prod-resources/dictation",
+      "!apps/desktop/prod-resources/dictation/**/*",
       "!apps/desktop/prod-resources/windows-server",
       "!apps/desktop/prod-resources/windows-server/**/*",
       "!apps/desktop/prod-resources/wsl-runtime.tar.gz",
@@ -590,7 +596,10 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       assert.deepStrictEqual(win.asarUnpack, [WINDOWS_NATIVE_ASAR_UNPACK_GLOB]);
       assert.deepStrictEqual(winWithoutWslRuntime.asar, win.asar);
       assert.deepStrictEqual(winWithoutWslRuntime.asarUnpack, win.asarUnpack);
-      assert.deepStrictEqual(mac.extraResources, DESKTOP_EXTRA_RESOURCES);
+      assert.deepStrictEqual(mac.extraResources, [
+        ...DESKTOP_EXTRA_RESOURCES,
+        ...MAC_DICTATION_EXTRA_RESOURCES,
+      ]);
       assert.deepStrictEqual(linux.extraResources, [
         ...DESKTOP_EXTRA_RESOURCES,
         ...LINUX_CAPTURE_EXTRA_RESOURCES,

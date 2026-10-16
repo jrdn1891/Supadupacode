@@ -1582,6 +1582,7 @@ describe("composer and pull request shortcuts", () => {
     ["u", "composer.mode"],
     ["a", "aquarium.open"],
     ["x", "composer.workspace"],
+    [" ", "composer.dictate"],
     ["g", "composer.branch"],
     ["l", "composer.previousWorktree"],
     ["c", "thread.copyReference"],

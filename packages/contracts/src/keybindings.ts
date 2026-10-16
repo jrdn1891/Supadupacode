@@ -145,6 +145,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "composer.effort",
   "composer.mode",
   "composer.workspace",
+  "composer.dictate",
   "composer.previousWorktree",
   "composer.branch",
   ...BRANCH_PICKER_JUMP_KEYBINDING_COMMANDS,

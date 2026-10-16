@@ -30,6 +30,8 @@ function isSnapShotEvent(value: unknown): value is DesktopSnapShotEvent {
 
 // oxlint-disable-next-line supacode/no-global-process-runtime -- Electron exposes the client platform in its sandboxed preload process.
 const clientPlatform = process.platform;
+const supportsDictation =
+  clientPlatform === "darwin" && Number.parseInt(process.getSystemVersion()) >= 26;
 
 if (clientPlatform === "darwin") {
   // Native window buttons do not scale with Chromium zoom. Keep their reserved
@@ -418,6 +420,24 @@ contextBridge.exposeInMainWorld("desktopBridge", {
         ipcRenderer.removeListener(IpcChannels.PREVIEW_OPEN_LINK_CHANNEL, wrappedListener);
     },
   },
+  ...(supportsDictation
+    ? {
+        dictation: {
+          requestMicrophoneAccess: () =>
+            ipcRenderer.invoke(IpcChannels.DICTATION_REQUEST_MICROPHONE_ACCESS_CHANNEL),
+          openMicrophoneSettings: () =>
+            ipcRenderer.invoke(IpcChannels.DICTATION_OPEN_MICROPHONE_SETTINGS_CHANNEL),
+          prepare: () => ipcRenderer.invoke(IpcChannels.DICTATION_PREPARE_CHANNEL),
+          record: (recording, seconds) =>
+            ipcRenderer.invoke(IpcChannels.DICTATION_RECORD_CHANNEL, { recording, seconds }),
+          stop: (recording) => ipcRenderer.invoke(IpcChannels.DICTATION_STOP_CHANNEL, recording),
+          transcribe: (recording, locale) =>
+            ipcRenderer.invoke(IpcChannels.DICTATION_TRANSCRIBE_CHANNEL, { recording, locale }),
+          discard: (recording) =>
+            ipcRenderer.invoke(IpcChannels.DICTATION_DISCARD_CHANNEL, recording),
+        },
+      }
+    : {}),
   webLinks: {
     setReady: (ready) => ipcRenderer.invoke(IpcChannels.WEB_LINK_READY_CHANNEL, ready),
     onOpen: (listener) => {

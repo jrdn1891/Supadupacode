@@ -202,6 +202,18 @@ microphone.
 Transcription runs on your device. Supacode deletes the temporary audio after
 transcription or cancellation; only the message text is sent when you submit.
 
+## Voice input on Mac
+
+In the desktop app on macOS 26 or later, click the microphone next to the attach
+button or press `mod+shift+space` to record. Click the stop button or press the
+shortcut again to transcribe; the text is inserted where your cursor was when
+recording started. You can't edit or send the draft while dictating.
+
+The first recording asks for microphone access. If you deny it, the microphone
+button opens **System Settings → Privacy & Security → Microphone**. The first use
+of a language downloads Apple's speech model. Dictation uses your Mac's language,
+and transcription runs on your Mac.
+
 ## Queued messages
 
 On web and desktop, the composer shows **Interrupt** while the agent is working and the draft is

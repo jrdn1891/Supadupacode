@@ -2,6 +2,15 @@ export const PICK_FOLDER_CHANNEL = "desktop:pick-folder";
 export const SET_NOTIFICATION_BADGE_CHANNEL = "desktop:set-notification-badge";
 export const REQUEST_ATTENTION_CHANNEL = "desktop:request-attention";
 export const PERFORM_HAPTIC_CHANNEL = "desktop:perform-haptic";
+export const DICTATION_REQUEST_MICROPHONE_ACCESS_CHANNEL =
+  "desktop:dictation-request-microphone-access";
+export const DICTATION_OPEN_MICROPHONE_SETTINGS_CHANNEL =
+  "desktop:dictation-open-microphone-settings";
+export const DICTATION_PREPARE_CHANNEL = "desktop:dictation-prepare";
+export const DICTATION_RECORD_CHANNEL = "desktop:dictation-record";
+export const DICTATION_STOP_CHANNEL = "desktop:dictation-stop";
+export const DICTATION_TRANSCRIBE_CHANNEL = "desktop:dictation-transcribe";
+export const DICTATION_DISCARD_CHANNEL = "desktop:dictation-discard";
 export const PICK_PROJECT_FAVICON_CHANNEL = "desktop:pick-project-favicon";
 export const PICK_THEME_FILES_CHANNEL = "desktop:pick-theme-files";
 export const SET_THEME_CHANNEL = "desktop:set-theme";
