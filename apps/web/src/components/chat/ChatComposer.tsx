@@ -1098,7 +1098,14 @@ import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectValue } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { toastManager } from "../ui/toast";
-import { CircleAlertIcon, PaperclipIcon, PlayIcon, ShieldIcon, XIcon } from "lucide-react";
+import {
+  CircleAlertIcon,
+  FishIcon,
+  PaperclipIcon,
+  PlayIcon,
+  ShieldIcon,
+  XIcon,
+} from "lucide-react";
 import {
   applyProviderInstanceSettings,
   deriveProviderInstanceEntries,
@@ -1551,6 +1558,7 @@ export interface ChatComposerProps {
   onToggleKeepFullHistory: () => void;
   /** Picking /usage-limits from the menu is the action itself; the draft keeps nothing of it. */
   onUsageLimitsCommand?: (() => void) | undefined;
+  onGoToAquarium?: (() => void) | undefined;
   environmentUnavailable: {
     readonly label: string;
     readonly connection: EnvironmentConnectionPresentation;
@@ -7666,6 +7674,29 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   }
                   className="flex shrink-0 flex-nowrap items-center justify-end gap-2"
                 >
+                  {props.onGoToAquarium ? (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onPointerDown={(event) => event.preventDefault()}
+                            onClick={props.onGoToAquarium}
+                            aria-label="Go to the aquarium"
+                          />
+                        }
+                      >
+                        <FishIcon />
+                      </TooltipTrigger>
+                      <TooltipPopup
+                        shortcut={shortcutLabelForCommand(keybindings, "aquarium.open")}
+                      >
+                        Go to the aquarium
+                      </TooltipPopup>
+                    </Tooltip>
+                  ) : null}
                   {dictation !== null && (canDictate || dictation.state.phase !== "idle") ? (
                     <ComposerDictationControl
                       dictation={dictation}

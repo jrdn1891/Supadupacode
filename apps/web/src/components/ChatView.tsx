@@ -554,6 +554,7 @@ import {
 } from "./ChatView.logic";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useComposerHandleContext } from "../composerHandleContext";
+import { openAquarium } from "../scene/openAquarium";
 import { SceneAquarium } from "../scene/SceneAquarium";
 import { releaseFish } from "@supacode/client-runtime/aquarium/releases";
 import { useScenePane } from "../scene/ScenePaneContext";
@@ -4198,6 +4199,17 @@ export default function ChatView(props: ChatViewProps) {
     hasWorktreeSetupCard: worktreeSetup !== null,
   });
   const showsAquarium = isDraftHeroState && !paneSplit;
+  const atAquarium = showsAquarium && !rightPanelOpen && !terminalUiState.terminalOpen;
+  const goToAquarium = useCallback(
+    () =>
+      void openAquarium({
+        activeDraftThread: null,
+        activeThread,
+        defaultProjectRef: null,
+        handleNewThread,
+      }),
+    [activeThread, handleNewThread],
+  );
   const composerRestsUntilReached = showsAquarium && canHover;
   const [composerReached, setComposerReached] = useState(false);
   if (composerReached && !composerRestsUntilReached) setComposerReached(false);
@@ -11105,6 +11117,7 @@ export default function ChatView(props: ChatViewProps) {
                                       ? openUsageLimits
                                       : undefined
                                   }
+                                  onGoToAquarium={atAquarium ? undefined : goToAquarium}
                                   environmentUnavailable={activeEnvironmentUnavailableState}
                                   activePendingApproval={
                                     outboxEditor.editing ? null : activePendingApproval
