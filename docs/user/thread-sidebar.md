@@ -53,9 +53,8 @@ thread from the sidebar when it needs you. To send and open it instead, press
 desktop app. The next draft keeps the workspace mode and base branch you selected.
 With **New worktree**, each background submission creates its own worktree.
 
-On iOS and Android, sending a new thread opens it. Long-press **Send** and choose **Start in
-background** to stay on a fresh draft instead; on an iPad with a keyboard, `Cmd+Return` does the
-same.
+The iOS and Android app works the same way. To open the thread instead, long-press **Send** and
+choose **Start and open**; on an iPad with a keyboard, `Cmd+Return` does the same.
 
 To send the same prompt to several models on web or desktop, **Shift-click** models
 in a new thread's model picker to add or remove them. A regular click returns to a
@@ -300,8 +299,8 @@ stays as it grew even after its branches are merged or deleted.
 
 In the iOS and Android app, the same aquarium fills the **New thread** screen above the composer.
 Tap a creature to open its agent's thread, or tap the water to drop a pellet or pick up a pearl.
-While you are typing, a tap closes the keyboard instead. When you long-press **Send** to start a
-thread in the background, its creature leaps out of the button into the tank. The seabed and its
+While you are typing, a tap closes the keyboard instead. When a thread starts in the background,
+its creature leaps out of **Send** into the tank. The seabed and its
 day arrows work as they do on the web. Hatching your own fish, stirring a current, and chatting
 with a creature in place are only on the web and desktop.
 

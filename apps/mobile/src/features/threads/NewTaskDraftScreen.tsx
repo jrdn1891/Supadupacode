@@ -1305,7 +1305,7 @@ export function NewTaskDraftScreen(props: {
     [composerMenu, flow, selectedEnvironmentServerConfig],
   );
 
-  async function handleStart(intent: "open" | "background" = "open"): Promise<void> {
+  async function handleStart(intent: "open" | "background" = "background"): Promise<void> {
     if (
       isComposerInteractionLocked ||
       voiceInput.blocksSubmission ||
@@ -1548,10 +1548,10 @@ export function NewTaskDraftScreen(props: {
         selection={composerMenu.selection}
         onChangeText={flow.setPrompt}
         onSubmit={(alternate) => {
-          if (canStart) void handleStart(alternate ? "background" : "open");
+          if (canStart) void handleStart(alternate ? "open" : "background");
         }}
-        submitTitle="Start task"
-        alternateSubmitTitle="Start in background"
+        submitTitle="Start in background"
+        alternateSubmitTitle="Start and open"
         onSelectionChange={composerMenu.onSelectionChange}
         onFocus={() => setIsComposerFocused(true)}
         onBlur={() => setIsComposerFocused(false)}
@@ -2030,7 +2030,7 @@ function StartTaskButton(props: {
       disabled={props.disabled}
       onPress={() => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        props.onStart("open");
+        props.onStart("background");
       }}
     />
   );
@@ -2046,17 +2046,17 @@ function StartTaskButton(props: {
         }
       }}
       actions={[
-        { id: "open", title: "Start and open", state: "on" as const },
         {
           id: "background",
           title: "Start in background",
           subtitle: "Stay here to start another",
-          state: "off" as const,
+          state: "on" as const,
         },
+        { id: "open", title: "Start and open", state: "off" as const },
       ]}
       onPressAction={({ nativeEvent }) => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        props.onStart(nativeEvent.event === "background" ? "background" : "open");
+        props.onStart(nativeEvent.event === "open" ? "open" : "background");
       }}
     >
       {button}
