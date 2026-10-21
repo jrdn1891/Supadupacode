@@ -263,7 +263,7 @@ export function Tank(props: {
     const fish = tankRef.current?.fishAt(at.x, at.y);
     const agent = agents.find((candidate) => candidate.key === fish?.key);
     if (agent !== undefined) props.onOpenAgent(agent);
-    else tankRef.current?.tap(at, 0);
+    else tankRef.current?.tap(at);
   };
 
   return (
