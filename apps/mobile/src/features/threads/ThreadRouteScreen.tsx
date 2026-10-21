@@ -520,6 +520,20 @@ function ThreadRouteContent(
     setInspectorSelection({ routeThreadIdentity, mode: "git" });
     showAuxiliaryPane("inspector");
   }, [fileInspector.supported, navigation, routeThreadIdentity, selectedThread, showAuxiliaryPane]);
+  const openTodoCount = selectedThread?.todos.filter((todo) => !todo.done).length ?? 0;
+  const selectedThreadEnvironmentId = selectedThread?.environmentId;
+  const selectedThreadId = selectedThread?.id;
+  const handleOpenTodos = useCallback(() => {
+    if (selectedThreadEnvironmentId === undefined || selectedThreadId === undefined) return;
+    navigation.navigate("ThreadTodos", {
+      environmentId: selectedThreadEnvironmentId,
+      threadId: selectedThreadId,
+    });
+  }, [navigation, selectedThreadEnvironmentId, selectedThreadId]);
+  const threadTodos = useMemo(
+    () => ({ openCount: openTodoCount, onOpen: handleOpenTodos }),
+    [handleOpenTodos, openTodoCount],
+  );
   const handleOpenFilesInspector = useCallback(() => {
     if (selectedThread === null || selectedThreadCwd === null) {
       return;
@@ -1111,6 +1125,7 @@ function ThreadRouteContent(
         headerColor={headerColor}
         usesNativeHeaderGlass={usesNativeHeaderGlass}
         gitControls={threadGitControlProps}
+        todos={threadTodos}
         hasThreadCwd={selectedThreadCwd !== null}
         hasWorkspaceRoot={Boolean(selectedThreadProject?.workspaceRoot)}
         fileInspectorSupported={fileInspector.supported}

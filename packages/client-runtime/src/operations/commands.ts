@@ -131,6 +131,7 @@ export interface UpdateThreadMetadataInput extends ThreadCommandInput {
   /** Link (object) or unlink (null) a pull request (#8160). */
   readonly linkedPullRequest?: ThreadLinkedPullRequest | null;
   readonly phase?: import("@supacode/contracts").OrchestrationV2ThreadPhase | null;
+  readonly todo?: import("@supacode/contracts").OrchestrationV2ThreadTodoChange;
 }
 
 export interface SetThreadRuntimeModeInput extends ThreadCommandInput {
@@ -567,7 +568,8 @@ export const updateThreadMetadata = Effect.fn("EnvironmentCommands.updateThreadM
       input.regenerateTitle !== undefined ||
       input.linkedPullRequest !== undefined ||
       input.limitRecovery !== undefined ||
-      input.phase !== undefined
+      input.phase !== undefined ||
+      input.todo !== undefined
     ) {
       result = yield* dispatch({
         type: "thread.metadata.update",
@@ -582,6 +584,7 @@ export const updateThreadMetadata = Effect.fn("EnvironmentCommands.updateThreadM
           ? {}
           : { linkedPullRequest: input.linkedPullRequest }),
         ...(input.phase === undefined ? {} : { phase: input.phase }),
+        ...(input.todo === undefined ? {} : { todo: input.todo }),
       });
     }
     if (input.modelSelection !== undefined) {

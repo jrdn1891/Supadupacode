@@ -22,9 +22,17 @@ export function ThreadHeader(
   const returnToList = useWorkspaceListNavigation("threads");
   const { layout, panes, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
+  const { openCount: openTodoCount, onOpen: openTodos } = props.todos;
   const native = useThreadHeaderOptions(props);
   const androidHeaderMenu = useMemo<ScreenHeaderMenu>(() => {
-    const items: ScreenHeaderMenuItem[] = [];
+    const items: ScreenHeaderMenuItem[] = [
+      {
+        id: "thread-todos",
+        title: "To-dos",
+        ...(openTodoCount > 0 ? { subtitle: `${openTodoCount} open` } : {}),
+        onPress: openTodos,
+      },
+    ];
     if (props.hasWorkspaceRoot) {
       items.push({
         id: "thread-terminal",
@@ -64,6 +72,8 @@ export function ThreadHeader(
     toggleAuxiliaryPane,
     props.hasThreadCwd,
     props.hasWorkspaceRoot,
+    openTodoCount,
+    openTodos,
   ]);
 
   return (

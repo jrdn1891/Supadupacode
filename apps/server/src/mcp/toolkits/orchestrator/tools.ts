@@ -208,7 +208,7 @@ const ThreadReadTool = Tool.make("supacode_thread_read", {
 
 export const ThreadUpdateTool = Tool.make("supacode_thread_update", {
   description:
-    "Update metadata for a thread. Omit threadId to update this thread. Use action='rename' with title, action='regenerate_title' with no extra field, action='link_pull_request' with pullRequest, action='unlink_pull_request', or action='set_phase' with phase (explore, build, ready, or null to clear). Workspace and branch changes are intentionally not supported. clientRequestId makes retries idempotent.",
+    "Update metadata for a thread. Omit threadId to update this thread. Use action='rename' with title, action='regenerate_title' with no extra field, action='link_pull_request' with pullRequest, action='unlink_pull_request', action='set_phase' with phase (explore, build, ready, or null to clear), action='add_todo' with todo, or action='complete_todo', 'reopen_todo', or 'remove_todo' with todoId. To-dos are the user's checklist for the thread: add only what the user must do themselves, such as testing on a device or merging, and complete one when you have done it. Workspace and branch changes are intentionally not supported. clientRequestId makes retries idempotent.",
   parameters: ThreadMetadataMcpUpdateInput,
   success: ThreadMetadataMcpUpdateResult,
   failure: OrchestratorMcpFailure,

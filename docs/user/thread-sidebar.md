@@ -330,6 +330,17 @@ minutes, hours, or days. Durations start when you confirm; one day means 24 hour
 threads wait in the **Parked** shelf with the time they return. Choose **Wake thread** to bring
 one back early. On web and desktop, you can also park or snooze several selected threads together.
 
+## Keep a to-do list
+
+Open a thread's details and use **To-dos** to note what you still have to do about it, such as
+testing a change on your phone or merging its pull request. On mobile, tap the to-dos button at
+the top of the thread. Check a to-do off when it is done, or choose **Clear done** to remove the
+finished ones. While a thread has open to-dos, its sidebar row shows the next one in place of the
+branch, and settled rows show how many are left.
+
+Agents can add to-dos for you too, usually for steps only you can take, and they check off the
+ones they finish. A to-do an agent added shows its provider's icon.
+
 ## Phase and project context
 
 Choose **Phase** from a thread's menu to mark where the work stands: **Explore**, **Build**, or

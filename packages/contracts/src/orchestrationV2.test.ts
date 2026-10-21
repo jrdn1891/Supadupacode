@@ -23,6 +23,7 @@ import {
   TurnItemId,
 } from "./index.ts";
 import {
+  applyOrchestrationV2ThreadTodoChange,
   latestForkableRun,
   latestProviderTurnForAttempt,
   OrchestrationV2Checkpoint,
@@ -1589,5 +1590,44 @@ describe("latestProviderTurnForAttempt", () => {
     ];
     expect(latestProviderTurnForAttempt(turns, RunAttemptId.make("goal-attempt"))?.id).toBe("last");
     expect(latestProviderTurnForAttempt(turns, null)).toBeUndefined();
+  });
+
+  it("applies to-do changes and refuses ones that name a missing to-do", () => {
+    const added = applyOrchestrationV2ThreadTodoChange([], {
+      type: "add",
+      todoId: "a",
+      text: "Test on iPhone",
+      addedBy: "user",
+      addedByProviderInstanceId: null,
+    })!;
+    const retried = applyOrchestrationV2ThreadTodoChange(added, {
+      type: "add",
+      todoId: "a",
+      text: "Merge",
+      addedBy: "user",
+      addedByProviderInstanceId: null,
+    })!;
+    expect(retried).toBe(added);
+    const edited = applyOrchestrationV2ThreadTodoChange(added, {
+      type: "edit",
+      todoId: "a",
+      text: "Test on Android",
+    })!;
+    const done = applyOrchestrationV2ThreadTodoChange(edited, {
+      type: "set-done",
+      todoId: "a",
+      done: true,
+    })!;
+    expect(done).toEqual([
+      {
+        id: "a",
+        text: "Test on Android",
+        done: true,
+        addedBy: "user",
+        addedByProviderInstanceId: null,
+      },
+    ]);
+    expect(applyOrchestrationV2ThreadTodoChange(done, { type: "clear-done" })).toEqual([]);
+    expect(applyOrchestrationV2ThreadTodoChange(done, { type: "remove", todoId: "b" })).toBeNull();
   });
 });

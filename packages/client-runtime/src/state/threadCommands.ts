@@ -1,4 +1,8 @@
-import { orchestrationV2SnoozeUnchanged, type ThreadId } from "@supacode/contracts";
+import {
+  applyOrchestrationV2ThreadTodoChange,
+  orchestrationV2SnoozeUnchanged,
+  type ThreadId,
+} from "@supacode/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -508,8 +512,15 @@ export function createThreadEnvironmentAtoms<R, E>(
       ...thread,
       activeOrderKey: input.orderKey,
     })),
-    updateMetadata: optimistic.wrap(commands.updateMetadata, (thread, input) =>
-      input.phase === undefined ? thread : { ...thread, phase: input.phase },
-    ),
+    updateMetadata: optimistic.wrap(commands.updateMetadata, (thread, input) => ({
+      ...thread,
+      ...(input.phase === undefined ? {} : { phase: input.phase }),
+      ...(input.todo === undefined
+        ? {}
+        : {
+            todos:
+              applyOrchestrationV2ThreadTodoChange(thread.todos ?? [], input.todo) ?? thread.todos,
+          }),
+    })),
   };
 }

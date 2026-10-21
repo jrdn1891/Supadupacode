@@ -373,9 +373,9 @@ link carries only the id, which resolves in the environment of the message that
 holds it. Clients show the thread's current title rather than the label, so a
 rename never leaves a stale link.
 
-List and read results report `snoozed`, `snoozedUntil`, and `phase`, and
-`supacode_thread_list` filters on `snoozed`. The server's `isSnoozed` follows the
-client's `effectiveSnoozed`, so agents and the sidebar agree: a snoozed thread
+List and read results report `snoozed`, `snoozedUntil`, and `phase`, and read results also
+report the thread's `todos`. `supacode_thread_list` filters on `snoozed`. The server's
+`isSnoozed` follows the client's `effectiveSnoozed`, so agents and the sidebar agree: a snoozed thread
 wakes early when it has a pending request, fails, or completes after the snooze.
 A parked thread reports `snoozedUntil: null` and stays parked when a run completes.
 
@@ -383,13 +383,16 @@ A parked thread reports `snoozedUntil: null` and stays parked when a run complet
 
 Updates metadata for the calling thread or any other thread in the environment.
 The typed actions are `rename`, `regenerate_title`, `link_pull_request`,
-`unlink_pull_request`, and `set_phase`. A link input supplies the repository, number, and URL;
+`unlink_pull_request`, `set_phase`, `add_todo`, `complete_todo`, `reopen_todo`, and
+`remove_todo`. A link input supplies the repository, number, and URL;
 the server records the target thread's project ID. `set_phase` takes `explore`, `build`,
-`ready`, or `null` to clear it. Branch and workspace changes
-are outside this tool.
+`ready`, or `null` to clear it. To-dos are the user's checklist for the thread: `add_todo`
+takes the text, and the other to-do actions take a `todoId` from `todos`. A to-do added from
+a thread records that thread's provider instance, so clients can show who added it. A thread
+holds at most 30 to-dos. Branch and workspace changes are outside this tool.
 
 The result includes the command ID and durable event sequence together with the
-resultant title, title-regeneration marker, linked pull request, and phase. Reusing a
+resultant title, title-regeneration marker, linked pull request, phase, and to-dos. Reusing a
 `clientRequestId` for the same action and thread replays the same command
 receipt. Thread list and read results expose the linked pull request, and thread
 detail also exposes an in-flight title regeneration.

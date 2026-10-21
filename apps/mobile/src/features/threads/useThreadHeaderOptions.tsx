@@ -17,6 +17,7 @@ export function useThreadHeaderOptions(props: {
   readonly headerColor: string;
   readonly usesNativeHeaderGlass: boolean;
   readonly gitControls: Parameters<typeof ThreadGitControls>[0];
+  readonly todos: { readonly openCount: number; readonly onOpen: () => void };
   readonly onReturnToThread?: () => void;
 }) {
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
@@ -24,7 +25,22 @@ export function useThreadHeaderOptions(props: {
   const navigation = useNavigation();
   const { layout, panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const startNewTask = useStartNewTask();
-  const rightHeaderItems = useThreadGitRightHeaderItems(props.gitControls);
+  const gitRightHeaderItems = useThreadGitRightHeaderItems(props.gitControls);
+  const { openCount: openTodoCount, onOpen: openTodos } = props.todos;
+  const rightHeaderItems = useMemo<NativeHeaderItems>(
+    () => [
+      withNativeGlassHeaderItem({
+        accessibilityLabel: openTodoCount > 0 ? `To-dos, ${openTodoCount} open` : "To-dos",
+        icon: { name: "checklist", type: "sfSymbol" as const },
+        identifier: "thread-right-todos",
+        onPress: openTodos,
+        type: "button" as const,
+        ...(openTodoCount > 0 ? { badge: { value: openTodoCount } } : {}),
+      }),
+      ...gitRightHeaderItems,
+    ],
+    [gitRightHeaderItems, openTodoCount, openTodos],
+  );
   const splitLeftHeaderItems = useMemo<NativeHeaderItems>(
     () => [
       ...(!usesDuoHeader

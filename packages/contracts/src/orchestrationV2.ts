@@ -364,6 +364,80 @@ export type OrchestrationV2LimitRecoveryUpdate = typeof OrchestrationV2LimitReco
 export const OrchestrationV2ThreadPhase = Schema.Literals(["explore", "build", "ready"]);
 export type OrchestrationV2ThreadPhase = typeof OrchestrationV2ThreadPhase.Type;
 
+export const THREAD_MAX_TODOS = 30;
+
+export const OrchestrationV2ThreadTodoText = TrimmedNonEmptyString.check(Schema.isMaxLength(200));
+
+export const OrchestrationV2ThreadTodo = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  text: OrchestrationV2ThreadTodoText,
+  done: Schema.Boolean,
+  addedBy: OrchestrationV2Actor,
+  addedByProviderInstanceId: Schema.NullOr(ProviderInstanceId),
+});
+export type OrchestrationV2ThreadTodo = typeof OrchestrationV2ThreadTodo.Type;
+
+export const OrchestrationV2ThreadTodoChange = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("add"),
+    todoId: TrimmedNonEmptyString,
+    text: OrchestrationV2ThreadTodoText,
+    addedBy: OrchestrationV2Actor,
+    addedByProviderInstanceId: Schema.NullOr(ProviderInstanceId),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("set-done"),
+    todoId: TrimmedNonEmptyString,
+    done: Schema.Boolean,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("edit"),
+    todoId: TrimmedNonEmptyString,
+    text: OrchestrationV2ThreadTodoText,
+  }),
+  Schema.Struct({ type: Schema.Literal("remove"), todoId: TrimmedNonEmptyString }),
+  Schema.Struct({ type: Schema.Literal("clear-done") }),
+]);
+export type OrchestrationV2ThreadTodoChange = typeof OrchestrationV2ThreadTodoChange.Type;
+
+export function applyOrchestrationV2ThreadTodoChange(
+  todos: ReadonlyArray<OrchestrationV2ThreadTodo>,
+  change: OrchestrationV2ThreadTodoChange,
+): ReadonlyArray<OrchestrationV2ThreadTodo> | null {
+  switch (change.type) {
+    case "add":
+      return todos.some((todo) => todo.id === change.todoId)
+        ? todos
+        : [
+            ...todos,
+            {
+              id: change.todoId,
+              text: change.text,
+              done: false,
+              addedBy: change.addedBy,
+              addedByProviderInstanceId: change.addedByProviderInstanceId,
+            },
+          ];
+    case "clear-done":
+      return todos.filter((todo) => !todo.done);
+    case "remove":
+      return todos.some((todo) => todo.id === change.todoId)
+        ? todos.filter((todo) => todo.id !== change.todoId)
+        : null;
+    case "set-done":
+    case "edit":
+      return todos.some((todo) => todo.id === change.todoId)
+        ? todos.map((todo) =>
+            todo.id !== change.todoId
+              ? todo
+              : change.type === "edit"
+                ? { ...todo, text: change.text }
+                : { ...todo, done: change.done },
+          )
+        : null;
+  }
+}
+
 export const OrchestrationV2AppThread = Schema.Struct({
   ...OrchestrationV2CreationFields,
   id: ThreadId,
@@ -418,6 +492,7 @@ export const OrchestrationV2AppThread = Schema.Struct({
   /** Fractional-index slot in the user-arranged active order. */
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)),
+  todos: Schema.optional(Schema.Array(OrchestrationV2ThreadTodo)),
   lastVisitedAt: Schema.NullOr(Schema.DateTimeUtc).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
@@ -2061,6 +2136,7 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   /** Slot in the user-arranged active order; omitted by pre-reorder servers. */
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)),
+  todos: Schema.optional(Schema.Array(OrchestrationV2ThreadTodo)),
   /** The active run's todo list, counted; null when the run keeps none. */
   progress: Schema.optional(Schema.NullOr(OrchestrationV2ThreadProgress)),
   /**
@@ -2905,6 +2981,7 @@ export const OrchestrationV2Command = Schema.Union([
     /** Link (object) or unlink (null) a pull request (#8160); absent leaves it unchanged. */
     linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
     phase: Schema.optional(Schema.NullOr(OrchestrationV2ThreadPhase)),
+    todo: Schema.optional(OrchestrationV2ThreadTodoChange),
   }),
   Schema.Struct({
     type: Schema.Literal("thread.pull-request.link"),

@@ -56,6 +56,9 @@ import {
   latestProviderTurnForAttempt,
   orchestrationV2RunWorkStartedAt,
   orchestrationV2SnoozeHolds,
+  applyOrchestrationV2ThreadTodoChange,
+  THREAD_MAX_TODOS,
+  type OrchestrationV2ThreadTodo,
   orchestrationV2SnoozeUnchanged,
   ProviderInstanceId,
   ProviderInteractionMode,
@@ -2832,6 +2835,20 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       }
       markUnreadVisitedAt = DateTime.subtract(latestRunCompletedAt, { milliseconds: 1 });
     }
+    let todos: ReadonlyArray<OrchestrationV2ThreadTodo> | null = null;
+    if (command.type === "thread.metadata.update" && command.todo !== undefined) {
+      todos = applyOrchestrationV2ThreadTodoChange(thread.todos ?? [], command.todo);
+      if (todos === null || todos.length > THREAD_MAX_TODOS) {
+        return yield* new OrchestratorDispatchError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause:
+            todos === null
+              ? `The to-do is no longer on thread ${command.threadId}.`
+              : `Thread ${command.threadId} already holds ${THREAD_MAX_TODOS} to-dos.`,
+        });
+      }
+    }
     const updatedThread: OrchestrationV2AppThread = (() => {
       switch (command.type) {
         case "thread.archive":
@@ -3000,6 +3017,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             ...(command.branch === undefined ? {} : { branch: command.branch }),
             ...(command.worktreePath === undefined ? {} : { worktreePath: command.worktreePath }),
             ...(command.phase === undefined ? {} : { phase: command.phase }),
+            ...(todos === null ? {} : { todos }),
             ...(command.linkedPullRequest === undefined
               ? {}
               : {

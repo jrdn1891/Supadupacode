@@ -10598,6 +10598,7 @@ export default function ChatView(props: ChatViewProps) {
     threadPanelPopoverHandle,
     threadPanelShortcutLabel: shortcutLabelForCommand(keybindings, "threadPanel.toggle"),
     threadPanelHasAttention: activeEnvironmentUnavailableState !== null,
+    threadPanelOpenTodoCount: activeThreadShell?.todos.filter((todo) => !todo.done).length ?? 0,
     rightPanelAvailable: activeProject !== null,
     rightPanelOpen,
     rightPanelShortcutLabel: shortcutLabelForCommand(keybindings, "rightPanel.toggle"),
