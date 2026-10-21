@@ -8,7 +8,11 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "./baseSchemas.ts";
-import { OrchestrationV2ThreadPhase } from "./orchestrationV2.ts";
+import {
+  OrchestrationV2ThreadPhase,
+  OrchestrationV2ThreadTodo,
+  OrchestrationV2ThreadTodoText,
+} from "./orchestrationV2.ts";
 import { ThreadLinkedPullRequest } from "./threadPullRequest.ts";
 import { ThreadTitleRegeneration } from "./threadTitle.ts";
 
@@ -65,9 +69,13 @@ export const ThreadMetadataMcpAction = Schema.Literals([
   "link_pull_request",
   "unlink_pull_request",
   "set_phase",
+  "add_todo",
+  "complete_todo",
+  "reopen_todo",
+  "remove_todo",
 ]).annotate({
   description:
-    "Metadata mutation: rename, regenerate_title, link_pull_request, unlink_pull_request, or set_phase.",
+    "Metadata mutation: rename, regenerate_title, link_pull_request, unlink_pull_request, set_phase, add_todo, complete_todo, reopen_todo, or remove_todo.",
 });
 export type ThreadMetadataMcpAction = typeof ThreadMetadataMcpAction.Type;
 
@@ -93,11 +101,29 @@ export const ThreadMetadataMcpUpdateInput = Schema.Struct({
     description:
       "Work phase: explore, build, or ready (to merge); null clears it. Required only when action is set_phase.",
   }),
+  todo: Schema.optional(OrchestrationV2ThreadTodoText).annotate({
+    description:
+      "To-do for the user, such as a manual test or a merge only they can do. Required only when action is add_todo.",
+  }),
+  todoId: Schema.optional(TrimmedNonEmptyString).annotate({
+    description:
+      "To-do id from todos. Required only when action is complete_todo, reopen_todo, or remove_todo.",
+  }),
   clientRequestId: Schema.optional(ThreadMetadataClientRequestId),
 }).check(
   Schema.makeFilter((input) => {
     if (input.action !== "set_phase" && input.phase !== undefined) {
       return `${input.action} does not accept phase.`;
+    }
+    if (input.action !== "add_todo" && input.todo !== undefined) {
+      return `${input.action} does not accept todo.`;
+    }
+    const takesTodoId =
+      input.action === "complete_todo" ||
+      input.action === "reopen_todo" ||
+      input.action === "remove_todo";
+    if (!takesTodoId && input.todoId !== undefined) {
+      return `${input.action} does not accept todoId.`;
     }
     switch (input.action) {
       case "rename":
@@ -114,6 +140,20 @@ export const ThreadMetadataMcpUpdateInput = Schema.Struct({
           input.pullRequest === undefined
           ? true
           : "set_phase requires phase and does not accept title or pullRequest.";
+      case "add_todo":
+        return input.todo !== undefined &&
+          input.title === undefined &&
+          input.pullRequest === undefined
+          ? true
+          : "add_todo requires todo and does not accept title or pullRequest.";
+      case "complete_todo":
+      case "reopen_todo":
+      case "remove_todo":
+        return input.todoId !== undefined &&
+          input.title === undefined &&
+          input.pullRequest === undefined
+          ? true
+          : `${input.action} requires todoId and does not accept title or pullRequest.`;
       case "regenerate_title":
       case "unlink_pull_request":
         return input.title === undefined && input.pullRequest === undefined
@@ -133,6 +173,7 @@ export const ThreadMetadataMcpUpdateResult = Schema.Struct({
   titleRegeneration: Schema.NullOr(ThreadTitleRegeneration),
   linkedPullRequest: Schema.NullOr(ThreadLinkedPullRequest),
   phase: Schema.NullOr(OrchestrationV2ThreadPhase),
+  todos: Schema.Array(OrchestrationV2ThreadTodo),
   updatedAt: IsoDateTime,
 });
 export type ThreadMetadataMcpUpdateResult = typeof ThreadMetadataMcpUpdateResult.Type;

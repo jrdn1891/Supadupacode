@@ -2194,6 +2194,56 @@ describe("orchestrator MCP toolkit", () => {
             );
             expect(phased.phase).toBe("ready");
 
+            const todoCall = yield* invoke("supacode_thread_update", {
+              threadId: emptyThread.threadId,
+              action: "add_todo",
+              todo: "Test on iPhone",
+              clientRequestId: "metadata-todo-1",
+            });
+            const todoAdded = yield* decodeThreadUpdateResult(todoCall.structuredContent).pipe(
+              Effect.orDie,
+            );
+            expect(todoAdded.todos).toEqual([
+              {
+                id: "metadata-todo-1",
+                text: "Test on iPhone",
+                done: false,
+                addedBy: "agent",
+                addedByProviderInstanceId: codexInstanceId,
+              },
+            ]);
+            const completeCall = yield* invoke("supacode_thread_update", {
+              threadId: emptyThread.threadId,
+              action: "complete_todo",
+              todoId: "metadata-todo-1",
+            });
+            const completed = yield* decodeThreadUpdateResult(completeCall.structuredContent).pipe(
+              Effect.orDie,
+            );
+            expect(completed.todos.map((todo) => todo.done)).toEqual([true]);
+            const todoReadCall = yield* invoke("supacode_thread_read", {
+              threadId: emptyThread.threadId,
+            });
+            const todoRead = yield* decodeThreadReadResult(todoReadCall.structuredContent).pipe(
+              Effect.orDie,
+            );
+            expect(todoRead.thread.todos).toEqual(completed.todos);
+            const removeCall = yield* invoke("supacode_thread_update", {
+              threadId: emptyThread.threadId,
+              action: "remove_todo",
+              todoId: "metadata-todo-1",
+            });
+            const removed = yield* decodeThreadUpdateResult(removeCall.structuredContent).pipe(
+              Effect.orDie,
+            );
+            expect(removed.todos).toEqual([]);
+            const missingTodoCall = yield* invoke("supacode_thread_update", {
+              threadId: emptyThread.threadId,
+              action: "complete_todo",
+              todoId: "metadata-todo-1",
+            });
+            expect(missingTodoCall.isError).toBe(true);
+
             const regenerateCall = yield* invoke("supacode_thread_update", {
               threadId: emptyThread.threadId,
               action: "regenerate_title",

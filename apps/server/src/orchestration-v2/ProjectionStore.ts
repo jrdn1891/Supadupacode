@@ -1448,6 +1448,7 @@ export function threadShellFromProjection(
       ? {}
       : { activeOrderKey: projection.thread.activeOrderKey }),
     ...(projection.thread.phase === undefined ? {} : { phase: projection.thread.phase }),
+    ...(projection.thread.todos === undefined ? {} : { todos: projection.thread.todos }),
     progress: activityProgressForShell(projection.plans, activityRun?.id ?? null),
     lineage: projection.thread.lineage,
     forkedFrom: projection.thread.forkedFrom,
@@ -1733,6 +1734,7 @@ function shellFromState(input: {
       ? {}
       : { activeOrderKey: input.state.thread.activeOrderKey }),
     ...(input.state.thread.phase === undefined ? {} : { phase: input.state.thread.phase }),
+    ...(input.state.thread.todos === undefined ? {} : { todos: input.state.thread.todos }),
     progress: input.state.progress,
     lineage: input.state.thread.lineage,
     forkedFrom: input.state.thread.forkedFrom,

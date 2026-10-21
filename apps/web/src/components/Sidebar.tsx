@@ -87,6 +87,7 @@ import {
   SettingsIcon,
   ShieldQuestionIcon,
   SquareParkingIcon,
+  SquareIcon,
   SquareParkingOffIcon,
   SquarePenIcon,
   TerminalIcon,
@@ -528,6 +529,14 @@ function SidebarThreadTooltip({
           ) : null
         }
       >
+        {thread.todos
+          .filter((todo) => !todo.done)
+          .map((todo) => (
+            <div key={todo.id} className="flex min-w-0 items-center gap-2">
+              <SquareIcon aria-hidden className="size-3 shrink-0 stroke-muted-foreground" />
+              <div className="min-w-0 truncate text-foreground/75">{todo.text}</div>
+            </div>
+          ))}
         {projectDisplayName ? (
           <div className="flex min-w-0 items-center gap-2">
             {project ? <ProjectFavicon project={project} className="size-3 shrink-0" /> : null}
@@ -1846,6 +1855,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
       <TooltipPopup side="top">Unsent draft</TooltipPopup>
     </Tooltip>
   ) : null;
+  const openTodos = thread.todos.filter((todo) => !todo.done);
   const showPin =
     props.isPinned && (!sortable?.isDragging || (props.dragOverPinned && props.dropVerb === null));
   const pinIndicator = showPin ? (
@@ -1914,6 +1924,16 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
             {draftIndicator}
             {title}
             {thread.phase ? <ThreadPhasePips phase={thread.phase} /> : null}
+            {openTodos.length > 0 ? (
+              <span
+                role="img"
+                aria-label={`${openTodos.length} open to-dos`}
+                className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground"
+              >
+                <SquareIcon aria-hidden className="size-3" />
+                {openTodos.length}
+              </span>
+            ) : null}
             {pinIndicator}
             <span className={cn("contents", jumpHintIndicatorsClassName)}>
               {terminalStatusIcon}
@@ -2203,7 +2223,17 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               </span>
             ) : null}
             <div className="mt-0.5 flex h-4 min-w-0 items-center gap-1.5 text-xs text-secondary-label">
-              {thread.branch ? (
+              {openTodos[0] ? (
+                <span className="flex min-w-0 flex-1 items-center gap-1.5 text-foreground/75">
+                  <SquareIcon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{openTodos[0].text}</span>
+                  {openTodos.length > 1 ? (
+                    <span className="shrink-0 tabular-nums text-muted-foreground/70">
+                      +{openTodos.length - 1}
+                    </span>
+                  ) : null}
+                </span>
+              ) : thread.branch ? (
                 <span className="flex min-w-0 flex-1 text-muted-foreground/60">
                   <MiddleTruncate value={thread.branch} showTitle={false} />
                 </span>

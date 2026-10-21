@@ -20,6 +20,7 @@ export interface PanelLayoutControlsProps {
   threadPanelPopoverHandle?: ReturnType<typeof PopoverCreateHandle>;
   threadPanelShortcutLabel: string | null;
   threadPanelHasAttention?: boolean;
+  threadPanelOpenTodoCount?: number;
   rightPanelAvailable: boolean;
   rightPanelOpen: boolean;
   rightPanelShortcutLabel: string | null;
@@ -41,6 +42,7 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
   threadPanelPopoverHandle,
   threadPanelShortcutLabel,
   threadPanelHasAttention = false,
+  threadPanelOpenTodoCount = 0,
   rightPanelAvailable,
   rightPanelOpen,
   rightPanelShortcutLabel,
@@ -53,12 +55,23 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
     <Toggle
       className="relative shrink-0 [-webkit-app-region:no-drag]"
       pressed={threadPanelOpen}
-      aria-label="Toggle thread details panel"
+      aria-label={
+        threadPanelOpenTodoCount > 0
+          ? `Toggle thread details panel, ${threadPanelOpenTodoCount} open to-dos`
+          : "Toggle thread details panel"
+      }
       variant="ghost"
       size="sm"
     >
       <SquareMenuIcon className="size-4" />
-      {threadPanelHasAttention ? (
+      {threadPanelOpenTodoCount > 0 && !threadPanelOpen ? (
+        <span
+          className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-3xs font-semibold text-primary-foreground tabular-nums ring-2 ring-background"
+          aria-hidden="true"
+        >
+          {threadPanelOpenTodoCount}
+        </span>
+      ) : threadPanelHasAttention ? (
         <span
           className="absolute right-1 top-1 size-1.5 rounded-full bg-warning ring-2 ring-background"
           aria-hidden="true"

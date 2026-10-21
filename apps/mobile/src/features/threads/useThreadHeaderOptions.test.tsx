@@ -91,6 +91,8 @@ function status(
   } as unknown as VcsStatusResult;
 }
 
+const todos = { openCount: 0, onOpen: () => {} };
+
 function Header(props: { readonly gitStatus: VcsStatusResult | null; readonly title?: string }) {
   return (
     <ThreadHeader
@@ -115,6 +117,7 @@ function Header(props: { readonly gitStatus: VcsStatusResult | null; readonly ti
         onOpenNewTerminal: () => {},
         onRunProjectScript: async () => {},
       }}
+      todos={todos}
       hasThreadCwd
       hasWorkspaceRoot
       fileInspectorSupported={false}

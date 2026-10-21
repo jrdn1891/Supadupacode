@@ -71,6 +71,8 @@ function metadataCommand(input: {
   readonly threadId: ThreadId;
   readonly projectId: OrchestrationV2AppThread["projectId"];
   readonly update: ThreadMetadataMcpUpdateInput;
+  readonly requestKey: string;
+  readonly caller: McpInvocationScope["thread"];
 }): Extract<OrchestrationV2Command, { readonly type: "thread.metadata.update" }> {
   switch (input.update.action) {
     case "rename":
@@ -111,6 +113,38 @@ function metadataCommand(input: {
         threadId: input.threadId,
         phase: input.update.phase ?? null,
       };
+    case "add_todo":
+      return {
+        type: "thread.metadata.update",
+        commandId: input.commandId,
+        threadId: input.threadId,
+        todo: {
+          type: "add",
+          todoId: input.requestKey,
+          text: input.update.todo!,
+          addedBy: "agent",
+          addedByProviderInstanceId: input.caller?.providerInstanceId ?? null,
+        },
+      };
+    case "complete_todo":
+    case "reopen_todo":
+      return {
+        type: "thread.metadata.update",
+        commandId: input.commandId,
+        threadId: input.threadId,
+        todo: {
+          type: "set-done",
+          todoId: input.update.todoId!,
+          done: input.update.action === "complete_todo",
+        },
+      };
+    case "remove_todo":
+      return {
+        type: "thread.metadata.update",
+        commandId: input.commandId,
+        threadId: input.threadId,
+        todo: { type: "remove", todoId: input.update.todoId! },
+      };
   }
 }
 
@@ -135,6 +169,7 @@ function resultFromThread(input: {
           },
     linkedPullRequest: input.thread.linkedPullRequest ?? null,
     phase: input.thread.phase ?? null,
+    todos: input.thread.todos ?? [],
     updatedAt: DateTime.formatIso(input.thread.updatedAt),
   };
 }
@@ -194,6 +229,8 @@ const make = Effect.gen(function* () {
           threadId,
           projectId: target.thread.projectId,
           update: input,
+          requestKey,
+          caller: scope.thread,
         }),
       )
       .pipe(

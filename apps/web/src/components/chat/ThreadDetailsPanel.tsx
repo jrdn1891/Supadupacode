@@ -28,6 +28,7 @@ import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
 import { ThreadDetailsUsage } from "./ThreadDetailsUsage";
 import { ThreadDetailsForkControl } from "./ThreadDetailsForkControl";
+import { ThreadTodosPanel } from "./ThreadTodosPanel";
 
 const GitActionsControl = memo(BaseGitActionsControl);
 
@@ -124,10 +125,14 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
     >
       {(density) => (
         <>
+          {!props.draftId ? (
+            <ThreadTodosPanel environmentId={props.environmentId} threadId={props.threadId} />
+          ) : null}
+
           <ThreadDetailsSection
             headingId="thread-details-workspace-heading"
             title="Workspace"
-            separated={false}
+            separated={!props.draftId}
             showHeading={false}
           >
             <div className="flex flex-col">

@@ -9,6 +9,7 @@ import type {
   OrchestrationV2RunStatus,
   OrchestrationV2ProviderFailureClass,
   OrchestrationV2ThreadPhase,
+  OrchestrationV2ThreadTodo,
   OrchestrationV2ThreadProgress,
   OrchestrationV2ThreadProjection,
   OrchestrationV2ThreadShell,
@@ -137,6 +138,7 @@ export interface EnvironmentThreadShell {
   /** Slot in the user-arranged active order; null for keyless active threads. */
   readonly activeOrderKey: string | null;
   readonly phase: OrchestrationV2ThreadPhase | null;
+  readonly todos: ReadonlyArray<OrchestrationV2ThreadTodo>;
   readonly progress: OrchestrationV2ThreadProgress | null;
   readonly pullRequests: ReadonlyArray<import("@supacode/contracts").ThreadPullRequestLink>;
   readonly linkedPullRequest?: ThreadLinkedPullRequest | null;
@@ -283,6 +285,7 @@ export function presentThreadShell(
     pinOrderKey: thread.pinOrderKey ?? null,
     activeOrderKey: thread.activeOrderKey ?? null,
     phase: thread.phase ?? null,
+    todos: thread.todos ?? [],
     progress: thread.progress ?? null,
     ...(thread.lastVisitedAt === undefined
       ? {}

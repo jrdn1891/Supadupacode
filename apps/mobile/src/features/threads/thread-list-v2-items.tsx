@@ -670,6 +670,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   } = props;
   const snoozedRow = props.snoozed === true;
   const parkedRow = snoozedRow && thread.snoozedUntil === null;
+  const openTodos = thread.todos.filter((todo) => !todo.done);
   const context = resolveProjectContext(props.contextSettings, thread.projectId);
   const pinnedRow = props.pinned === true;
   const environmentConnected = useAtomValue(
@@ -1225,6 +1226,37 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           >
             {thread.runtime.lastError}
           </Text>
+        ) : openTodos[0] ? (
+          <View
+            accessible
+            accessibilityLabel={`To-do: ${openTodos[0].text}${openTodos.length > 1 ? `, ${openTodos.length - 1} more` : ""}`}
+            className="min-w-0 flex-1 flex-row items-center gap-1.5"
+          >
+            <View className="size-[11px] rounded-[3px] border-[1.5px] border-foreground-muted" />
+            <Text
+              className={cn(
+                "shrink text-xs",
+                selected
+                  ? selectedThreadRowColors.foregroundClassName
+                  : rowAppearance.foregroundClassName,
+              )}
+              numberOfLines={1}
+            >
+              {openTodos[0].text}
+            </Text>
+            {openTodos.length > 1 ? (
+              <Text
+                className={cn(
+                  "text-xs tabular-nums",
+                  selected
+                    ? selectedThreadRowColors.mutedForegroundClassName
+                    : rowAppearance.mutedForegroundClassName,
+                )}
+              >
+                +{openTodos.length - 1}
+              </Text>
+            ) : null}
+          </View>
         ) : thread.branch || props.environmentLabel ? (
           /* "branch · machine" share one truncating line. The machine sits
              last so a tight fit cuts the repetitive label, not the branch —
@@ -1442,6 +1474,16 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             ) : null}
           </View>
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
+          {openTodos.length > 0 ? (
+            <View
+              accessible
+              accessibilityLabel={`${openTodos.length} open to-do${openTodos.length === 1 ? "" : "s"}`}
+              className="flex-row items-center gap-1 rounded-md bg-subtle px-1.5 py-0.5"
+            >
+              <View className="size-[9px] rounded-[2px] border-[1.5px] border-foreground-muted" />
+              <Text className="text-xs tabular-nums text-foreground-muted">{openTodos.length}</Text>
+            </View>
+          ) : null}
           <Text
             className={cn(
               "text-sm tabular-nums",
