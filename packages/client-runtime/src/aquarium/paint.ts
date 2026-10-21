@@ -9,7 +9,7 @@ import {
   type AquariumStash,
   FULL_TICKS,
   fishTraits,
-  PETS,
+  SHARK,
 } from "./simulation.ts";
 
 export type AquariumAppearance = "light" | "dark";
@@ -50,10 +50,7 @@ const SCENERY = {
   },
 } as const;
 
-const PET_COLORS = {
-  clownfish: { x: "#f07a2c", w: "#fbf3e8", f: "#c4531c" },
-  shark: { x: "#6f8399", o: "#b9c6d2", f: "#53667b" },
-} as const;
+const SHARK_COLORS = { x: "#6f8399", o: "#b9c6d2", f: "#53667b" } as const;
 
 const HEART = ["#.#", "###", ".#."];
 
@@ -282,18 +279,15 @@ export function paintAquarium(
   );
   for (const fish of byDepth)
     paintFish(pen, fish, input.residents.get(fish.key), tick, input.appearance);
-  const { pet, ripple, width } = aquarium;
-  if (pet !== null) {
-    const { frames, stroke } = PETS[pet.kind];
-    paintSprite(
-      pen,
-      frames[Math.floor(tick / stroke) % frames.length]!,
-      { ...PET_COLORS[pet.kind], e: look.eye },
-      Math.round(pet.x),
-      Math.round(pet.y),
-      pet.dir,
-    );
-  }
+  const { shark, ripple, width } = aquarium;
+  paintSprite(
+    pen,
+    SHARK.frames[Math.floor(tick / SHARK.stroke) % SHARK.frames.length]!,
+    { ...SHARK_COLORS, e: look.eye },
+    Math.round(shark.x),
+    Math.round(shark.y),
+    shark.dir,
+  );
   if (ripple !== null) {
     const radius = 1 + Math.floor(ripple.age / 2);
     for (let dx = -radius; dx <= radius; dx++) {

@@ -19,6 +19,7 @@ import {
   FRESH_STASH,
   releasePrey,
   resizeAquarium,
+  sharkAt,
   stepAquarium,
   stirAquarium,
   stockAquarium,
@@ -85,6 +86,7 @@ export function startTank(options: {
   let held: string | null = null;
   let pinned: string | null = null;
   let prey: string | null = null;
+  let lure: AquariumPoint | null = null;
   let tick = resting?.tick ?? 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let vents: ReadonlyArray<number> = [];
@@ -104,7 +106,7 @@ export function startTank(options: {
   };
 
   const notice = () => {
-    const next = aquarium?.pet?.prey ?? null;
+    const next = aquarium?.shark.prey ?? null;
     if (next === prey) return;
     prey = next;
     options.onPrey?.(aquarium?.fish.find((fish) => fish.key === next) ?? null);
@@ -116,6 +118,7 @@ export function startTank(options: {
     aquarium = stepAquarium(aquarium, {
       featuredKey: input.featuredKey,
       heldKey: pinned ?? held,
+      lure,
       vents,
       random: Math.random,
     });
@@ -200,23 +203,29 @@ export function startTank(options: {
       aquarium = releasePrey(aquarium);
       notice();
     },
-    tap(at: AquariumPoint, heldMs: number) {
+    tap(at: AquariumPoint) {
       if (input === null || input.reducedMotion || aquarium === null) return;
-      ({ aquarium, stash } = tapAquarium(aquarium, stash, at, heldMs));
+      ({ aquarium, stash } = tapAquarium(aquarium, stash, at));
       paint();
+    },
+    grab(at: AquariumPoint) {
+      if (input === null || input.reducedMotion || aquarium === null) return;
+      lure = sharkAt(aquarium, at) ? at : null;
     },
     drag(from: AquariumPoint, to: AquariumPoint) {
       if (input === null || input.reducedMotion || aquarium === null) return;
-      aquarium =
-        aquarium.pet === null
-          ? stirAquarium(aquarium, {
-              from,
-              to,
-              residents: input.residents,
-              featuredKey: input.featuredKey,
-              heldKey: pinned ?? held,
-            })
-          : { ...aquarium, pet: { ...aquarium.pet, goal: to } };
+      if (lure !== null) lure = to;
+      else
+        aquarium = stirAquarium(aquarium, {
+          from,
+          to,
+          residents: input.residents,
+          featuredKey: input.featuredKey,
+          heldKey: pinned ?? held,
+        });
+    },
+    letGo() {
+      lure = null;
     },
     findFish(key: string) {
       return aquarium?.fish.find((fish) => fish.key === key) ?? null;

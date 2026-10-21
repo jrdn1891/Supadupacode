@@ -73,7 +73,6 @@ interface Chat {
 
 interface Press extends AquariumPoint {
   readonly dragging: boolean;
-  readonly since: number;
 }
 
 function startCanvasTank(canvas: HTMLCanvasElement, onPrey: (fish: AquariumFish | null) => void) {
@@ -295,7 +294,9 @@ export function SceneAquarium() {
           if (!event.isPrimary || event.button !== 0) return;
           event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
-          pressRef.current = { ...tankPoint(event), dragging: false, since: event.timeStamp };
+          const at = tankPoint(event);
+          pressRef.current = { ...at, dragging: false };
+          tankRef.current?.grab(at);
         }}
         onPointerMove={(event) => {
           if (!event.isPrimary) return;
@@ -317,16 +318,18 @@ export function SceneAquarium() {
           if (!event.isPrimary) return;
           const press = pressRef.current;
           pressRef.current = null;
+          tankRef.current?.letGo();
           if (press === null || press.dragging) return;
           const at = tankPoint(event);
           const fish = tankRef.current?.fishAt(at.x, at.y);
           const entry = entries.find((candidate) => candidate.key === fish?.key);
           if (entry !== undefined) showChat(entry.key, at);
           else if (chat?.open) setChat({ ...chat, open: false });
-          else tankRef.current?.tap(at, event.timeStamp - press.since);
+          else tankRef.current?.tap(at);
         }}
         onPointerCancel={() => {
           pressRef.current = null;
+          tankRef.current?.letGo();
         }}
         onPointerLeave={() => {
           tankRef.current?.hold(null);

@@ -282,14 +282,12 @@ Click or tap empty water to drop a pellet, and hungry creatures nearby come to e
 the top right show how many pellets you have left, up to nine. Your agents earn more as they work,
 and a few at once each time one finishes. A finishing agent's creature also drops a pearl in its
 project's color; tap the pearl on the sand to add it to the strand at the top left. Drag through
-the water to stir a current that sweeps nearby creatures along. Press and hold empty water to hatch
-a clownfish of your own, and hold again to swap it for a shark, which is faster and scares
-creatures from farther away. While your fish is out, dragging steers it instead of stirring.
-Creatures scatter as it comes near. One your clownfish catches vanishes in a puff of bubbles and
-swims back in later. One your shark catches stays in its jaws while a menu offers that agent's
-effort levels, as its composer would, and swims free once you pick one or close the menu. Tap your
-fish to send it away. Your pellets and strand last until you reload or restart
-the app. With reduced motion turned on, the creatures hold still and the water ignores taps and
+the water to stir a current that sweeps nearby creatures along. A shark patrols the tank, cruising
+from wall to wall. Drag the shark to steer it, and creatures scatter as it comes near. One it
+catches stays in its jaws while a menu offers that agent's effort levels, as its composer would,
+and swims free once you pick one or close the menu. Let go and the shark returns to its patrol.
+Your pellets and strand last until you reload or restart the app. With reduced motion turned on,
+the creatures hold still and the water ignores taps and
 drags.
 
 The seabed grows with your own work across every project: each commit you author sprouts
@@ -302,8 +300,8 @@ In the iOS and Android app, the same aquarium fills the **New thread** screen ab
 Tap a creature to open its agent's thread, or tap the water to drop a pellet or pick up a pearl.
 While you are typing, a tap closes the keyboard instead. When a thread starts in the background,
 its creature leaps out of **Send** into the tank. The seabed and its
-day arrows work as they do on the web. Hatching your own fish, stirring a current, and chatting
-with a creature in place are only on the web and desktop.
+day arrows work as they do on the web. Steering the shark, stirring a current, and chatting with a
+creature in place are only on the web and desktop.
 
 On iOS and Android, the phone taps when an agent finishes or needs you while the app is open,
 except for the thread you are reading. Add the **Aquarium** widget from your widget gallery to see

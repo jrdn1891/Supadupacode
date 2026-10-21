@@ -35,77 +35,38 @@ const ITEMS_PER_PELLET = 4;
 const FINISH_BONUS = 3;
 const FLEE_BOOST = 5;
 
-export const HATCH_MS = 500;
-
-interface PetLook {
-  readonly speed: number;
-  readonly fright: number;
-  readonly stroke: number;
-  readonly frames: ReadonlyArray<ReadonlyArray<string>>;
-}
-
-export const PETS = {
-  clownfish: {
-    speed: 3,
-    fright: 36,
-    stroke: 2,
-    frames: [
-      [
-        "......ff....",
-        "f...xxxxx...",
-        "ff.xwxxxwxx.",
-        ".fxxwxxxwexx",
-        ".fxxwxxxwxxx",
-        "ff.xwxxxwxx.",
-        "f...xxxxx...",
-        "......f.....",
-      ],
-      [
-        "......ff....",
-        ".f..xxxxx...",
-        ".f.xwxxxwxx.",
-        "ffxxwxxxwexx",
-        "ffxxwxxxwxxx",
-        ".f.xwxxxwxx.",
-        ".f..xxxxx...",
-        "......f.....",
-      ],
+export const SHARK = {
+  speed: 4,
+  cruise: 0.8,
+  fright: 48,
+  stroke: 3,
+  frames: [
+    [
+      "f.........f.........",
+      "ff.......ff.........",
+      ".ff....xxxxxx.......",
+      "..fxxxxxxxxxxxxx....",
+      "...xxxxxxxxxxxxxxx..",
+      "..fxxxxxxxxxxxxxxexx",
+      ".ffooooooooooooooooo",
+      "ff....oooooooooooo..",
+      "f.......off.........",
+      ".........f..........",
     ],
-  },
-  shark: {
-    speed: 4,
-    fright: 48,
-    stroke: 3,
-    frames: [
-      [
-        "f.........f.........",
-        "ff.......ff.........",
-        ".ff....xxxxxx.......",
-        "..fxxxxxxxxxxxxx....",
-        "...xxxxxxxxxxxxxxx..",
-        "..fxxxxxxxxxxxxxxexx",
-        ".ffooooooooooooooooo",
-        "ff....oooooooooooo..",
-        "f.......off.........",
-        ".........f..........",
-      ],
-      [
-        ".f........f.........",
-        ".ff......ff.........",
-        "..ff...xxxxxx.......",
-        "..fxxxxxxxxxxxxx....",
-        "..fxxxxxxxxxxxxxxx..",
-        "..fxxxxxxxxxxxxxxexx",
-        "..foooooooooooooooo.",
-        ".ff...oooooooooooo..",
-        ".f......off.........",
-        ".........f..........",
-      ],
+    [
+      ".f........f.........",
+      ".ff......ff.........",
+      "..ff...xxxxxx.......",
+      "..fxxxxxxxxxxxxx....",
+      "..fxxxxxxxxxxxxxxx..",
+      "..fxxxxxxxxxxxxxxexx",
+      "..foooooooooooooooo.",
+      ".ff...oooooooooooo..",
+      ".f......off.........",
+      ".........f..........",
     ],
-  },
-} as const satisfies Record<string, PetLook>;
-
-export type PetKind = keyof typeof PETS;
+  ],
+} as const;
 
 export interface AquariumResident {
   readonly key: string;
@@ -129,12 +90,11 @@ export interface AquariumFish {
   readonly drift: AquariumPoint;
 }
 
-export interface AquariumPet {
-  readonly kind: PetKind;
+export interface AquariumShark {
   readonly x: number;
   readonly y: number;
   readonly dir: 1 | -1;
-  readonly goal: AquariumPoint;
+  readonly lane: number;
   readonly prey: string | null;
   readonly sated: boolean;
 }
@@ -168,7 +128,7 @@ export interface Aquarium extends AquariumSize {
   readonly bubbles: ReadonlyArray<AquariumBubble>;
   readonly pellets: ReadonlyArray<AquariumPellet>;
   readonly pearls: ReadonlyArray<AquariumPearl>;
-  readonly pet: AquariumPet | null;
+  readonly shark: AquariumShark;
   readonly ripple: { readonly x: number; readonly y: number; readonly age: number } | null;
 }
 
@@ -208,9 +168,7 @@ export function fishSize(key: string) {
   return frameSize(SPECIES[fishTraits(key).species].frames[0]);
 }
 
-function petSize(kind: PetKind) {
-  return frameSize(PETS[kind].frames[0]);
-}
+const SHARK_SPRITE = frameSize(SHARK.frames[0]);
 
 export function featuredResident<T extends { readonly cue: AgentCue }>(
   residents: ReadonlyArray<T>,
@@ -275,6 +233,10 @@ function seabed(size: AquariumSize) {
   return size.height - AQUARIUM_SAND - 1;
 }
 
+function sharkLane(size: AquariumSize, random: Random) {
+  return Math.round(size.top + random() * (swimBottom(size, SHARK_SPRITE) - size.top));
+}
+
 function swimRow(size: AquariumSize, key: string, random: Random) {
   const bottom = swimBottom(size, fishSize(key));
   if (fishTraits(key).diet === "crawl") return bottom;
@@ -316,6 +278,7 @@ export function createAquarium(
   featuredKey: string | null,
   random: Random,
 ): Aquarium {
+  const lane = sharkLane(size, random);
   return {
     ...size,
     fish: residents.map((resident) =>
@@ -333,7 +296,14 @@ export function createAquarium(
     bubbles: [],
     pellets: [],
     pearls: [],
-    pet: null,
+    shark: {
+      x: Math.round(random() * (size.width - SHARK_SPRITE.width)),
+      y: lane,
+      dir: random() < 0.5 ? 1 : -1,
+      lane,
+      prey: null,
+      sated: false,
+    },
     ripple: null,
   };
 }
@@ -373,6 +343,11 @@ export function resizeAquarium(aquarium: Aquarium, size: AquariumSize): Aquarium
       x: Math.min(pearl.x, size.width - 2),
       y: Math.min(pearl.y, seabed(size)),
     })),
+    shark: {
+      ...aquarium.shark,
+      x: Math.min(aquarium.shark.x, size.width - SHARK_SPRITE.width),
+      y: Math.min(aquarium.shark.y, swimBottom(size, SHARK_SPRITE)),
+    },
   };
 }
 
@@ -450,7 +425,11 @@ function nearestMeal(aquarium: Aquarium, fish: AquariumFish) {
     .sort((left, right) => away(left) - away(right))[0];
 }
 
-function glide<T extends AquariumFish | AquariumPet>(body: T, to: AquariumPoint, speed: number): T {
+function glide<T extends AquariumFish | AquariumShark>(
+  body: T,
+  to: AquariumPoint,
+  speed: number,
+): T {
   const dx = to.x - body.x;
   const dy = to.y - body.y;
   const pull = Math.min(1, speed / Math.hypot(dx, dy));
@@ -472,26 +451,37 @@ function chase(aquarium: Aquarium, fish: AquariumFish, pellet: AquariumPellet): 
   );
 }
 
-function petSpot(size: AquariumSize, kind: PetKind, at: AquariumPoint) {
-  const sprite = petSize(kind);
-  return {
-    x: Math.max(0, Math.min(size.width - sprite.width, at.x - sprite.width / 2)),
-    y: inBand(size, sprite, at.y - sprite.height / 2),
-  };
+function steer(size: AquariumSize, shark: AquariumShark, to: AquariumPoint): AquariumShark {
+  const steered = glide(
+    shark,
+    {
+      x: Math.max(0, Math.min(size.width - SHARK_SPRITE.width, to.x - SHARK_SPRITE.width / 2)),
+      y: inBand(size, SHARK_SPRITE, to.y - SHARK_SPRITE.height / 2),
+    },
+    SHARK.speed,
+  );
+  return { ...steered, lane: steered.y };
 }
 
-function mouthOf(pet: AquariumPet): AquariumPoint {
-  const { width, height } = petSize(pet.kind);
-  return { x: pet.dir === 1 ? pet.x + width - 1 : pet.x, y: pet.y + height / 2 };
+function patrol(size: AquariumSize, shark: AquariumShark, random: Random): AquariumShark {
+  const wall = shark.dir === 1 ? size.width - SHARK_SPRITE.width : 0;
+  if (shark.x === wall)
+    return { ...shark, dir: shark.dir === 1 ? -1 : 1, lane: sharkLane(size, random) };
+  return glide(shark, { x: wall, y: inBand(size, SHARK_SPRITE, shark.lane) }, SHARK.cruise);
 }
 
-function flee(fish: AquariumFish, pet: AquariumPet): AquariumFish {
+function mouthOf(shark: AquariumShark): AquariumPoint {
+  const { width, height } = SHARK_SPRITE;
+  return { x: shark.dir === 1 ? shark.x + width - 1 : shark.x, y: shark.y + height / 2 };
+}
+
+function flee(fish: AquariumFish, shark: AquariumShark): AquariumFish {
   const center = centerOf(fish);
-  const mouth = mouthOf(pet);
+  const mouth = mouthOf(shark);
   const dx = center.x - mouth.x;
   const dy = center.y - mouth.y;
   const away = Math.max(1, Math.hypot(dx, dy));
-  const fear = 1 - away / PETS[pet.kind].fright;
+  const fear = 1 - away / SHARK.fright;
   const { diet, speed } = fishTraits(fish.key);
   if (fear <= 0 || diet === "crawl") return fish;
   const push = speed * FLEE_BOOST * fear;
@@ -531,6 +521,7 @@ export function stepAquarium(
   input: {
     readonly featuredKey: string | null;
     readonly heldKey: string | null;
+    readonly lure: AquariumPoint | null;
     readonly vents: ReadonlyArray<number>;
     readonly random: Random;
   },
@@ -542,24 +533,21 @@ export function stepAquarium(
       ? [{ x: vents[Math.floor(random() * vents.length)]!, y: floor, big: random() < 0.3 }]
       : [];
   const bottom = seabed(aquarium);
-  const pet =
-    aquarium.pet &&
-    (aquarium.pet.prey === null
-      ? glide(
-          aquarium.pet,
-          petSpot(aquarium, aquarium.pet.kind, aquarium.pet.goal),
-          PETS[aquarium.pet.kind].speed,
-        )
-      : aquarium.pet);
-  const mouth = pet && mouthOf(pet);
+  const shark =
+    aquarium.shark.prey !== null
+      ? aquarium.shark
+      : input.lure === null
+        ? patrol(aquarium, aquarium.shark, random)
+        : steer(aquarium, aquarium.shark, input.lure);
+  const mouth = mouthOf(shark);
   let pellets = aquarium.pellets;
   const fed = aquarium.fish
     .map((fish) =>
-      fish.key === input.heldKey || fish.key === pet?.prey
+      fish.key === input.heldKey || fish.key === shark.prey
         ? fish
         : fish.key === input.featuredKey
           ? park(aquarium, fish)
-          : swim(aquarium, pet === null ? fish : flee(fish, pet), random),
+          : swim(aquarium, input.lure === null ? fish : flee(fish, shark), random),
     )
     .map((fish) => {
       if (fish.full > 0) return { ...fish, full: fish.full - 1 };
@@ -570,23 +558,18 @@ export function stepAquarium(
       pellets = pellets.filter((pellet) => pellet !== meal);
       return { ...fish, full: FULL_TICKS };
     });
-  const touching =
-    mouth === null
-      ? []
-      : fed.filter(
-          (fish) =>
-            free(fish, input) && inside(aquarium, fish) && touches(fish, fishSize(fish.key), mouth),
-        );
-  const hunting = pet !== null && pet.prey === null && !pet.sated;
-  const prey = hunting && pet.kind === "shark" ? touching[0] : undefined;
-  const caught = hunting && pet.kind !== "shark" ? touching : [];
+  const touching = fed.filter(
+    (fish) =>
+      free(fish, input) && inside(aquarium, fish) && touches(fish, fishSize(fish.key), mouth),
+  );
+  const prey = input.lure !== null && shark.prey === null && !shark.sated ? touching[0] : undefined;
   return {
     ...aquarium,
-    fish: fed.map((fish) => (caught.includes(fish) ? enter(aquarium, fish.key, random) : fish)),
-    pet: pet && {
-      ...pet,
-      prey: prey?.key ?? (fed.some((fish) => fish.key === pet.prey) ? pet.prey : null),
-      sated: pet.sated && touching.length > 0,
+    fish: fed,
+    shark: {
+      ...shark,
+      prey: prey?.key ?? (fed.some((fish) => fish.key === shark.prey) ? shark.prey : null),
+      sated: shark.sated && touching.length > 0,
     },
     pellets: pellets.flatMap((pellet) =>
       pellet.y < bottom
@@ -614,10 +597,6 @@ export function stepAquarium(
         bubble.y > 2 ? [{ ...bubble, x: bubble.x + jitter(random), y: bubble.y - 1 }] : [],
       ),
       ...spawned,
-      ...caught.map((fish) => {
-        const center = centerOf(fish);
-        return { x: Math.round(center.x), y: Math.round(center.y), big: true };
-      }),
     ],
   };
 }
@@ -667,9 +646,13 @@ export function stirAquarium(
 }
 
 export function releasePrey(aquarium: Aquarium): Aquarium {
-  return aquarium.pet === null || aquarium.pet.prey === null
+  return aquarium.shark.prey === null
     ? aquarium
-    : { ...aquarium, pet: { ...aquarium.pet, prey: null, sated: true } };
+    : { ...aquarium, shark: { ...aquarium.shark, prey: null, sated: true } };
+}
+
+export function sharkAt(aquarium: Aquarium, at: AquariumPoint) {
+  return touches(aquarium.shark, SHARK_SPRITE, at);
 }
 
 export function finishedResidents(
@@ -724,12 +707,7 @@ export function dropPearls(
   return { ...aquarium, pearls: [...aquarium.pearls, ...dropped].slice(-PEARL_LIMIT) };
 }
 
-export function tapAquarium(
-  aquarium: Aquarium,
-  stash: AquariumStash,
-  at: AquariumPoint,
-  heldMs: number,
-) {
+export function tapAquarium(aquarium: Aquarium, stash: AquariumStash, at: AquariumPoint) {
   const pearl = aquarium.pearls.find(
     (candidate) =>
       Math.abs(candidate.x + 1 - at.x) <= PEARL_REACH &&
@@ -740,25 +718,6 @@ export function tapAquarium(
       aquarium: { ...aquarium, pearls: aquarium.pearls.filter((candidate) => candidate !== pearl) },
       stash: { ...stash, strand: [...stash.strand, pearl.projectKey] },
     };
-  if (aquarium.pet !== null && touches(aquarium.pet, petSize(aquarium.pet.kind), at))
-    return { aquarium: { ...aquarium, pet: null }, stash };
-  if (heldMs >= HATCH_MS) {
-    const kind = aquarium.pet?.kind === "clownfish" ? "shark" : "clownfish";
-    return {
-      aquarium: {
-        ...aquarium,
-        pet: {
-          kind,
-          ...petSpot(aquarium, kind, at),
-          dir: at.x < aquarium.width / 2 ? 1 : -1,
-          goal: at,
-          prey: null,
-          sated: false,
-        } satisfies AquariumPet,
-      },
-      stash,
-    };
-  }
   const x = Math.round(at.x);
   const y = Math.min(seabed(aquarium), at.y);
   if (stash.food < 1 || aquarium.pellets.length >= PELLET_LIMIT)
